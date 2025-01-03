@@ -453,15 +453,25 @@ struct IndexIVF : Index, IndexIVFInterface {
     int n_list; //redundant
     std::shared_ptr<std::vector<float>> centroids;
 
+    // TODO(sonia): do not hardcode
+    int K = 100;
+
+    // TODO(sonia): do we even need to keep train_cx?
     std::vector<float> train_cx;
-    std::vector<float> calib_cs;
+    std::vector<float> calib_cx;
     std::vector<float> test_cx;
+
+    std::vector<std::vector<int>> calib_labels;
 
     template <typename T>
     std::tuple<std::vector<T>, std::vector<T>, std::vector<T>> split_dataset(
         const T* data, size_t n, double calibration_ratio, double test_ratio); 
 
     void prep_calib();
+
+    std::vector<std::vector<int>> get_one_hot_gt(
+        const std::vector<float>& queries, int batch_size = 1000);
+
     // ----------------------------
 };
 

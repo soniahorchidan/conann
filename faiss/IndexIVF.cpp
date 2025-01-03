@@ -200,9 +200,9 @@ void IndexIVF::add_with_ids(idx_t n, const float* x, const idx_t* xids) {
     // ConANN Block
     // TODO: maybe use only IDs that point to data
     auto [train_data, calib_data, test_data] = split_dataset(x, n, 0.1, 0.1);
-    train_cx = std::move(train_data);
-    calib_cs = std::move(calib_data);
-    test_cx = std::move(test_data);
+    train_cx.insert(train_cx.end(), train_data.begin(), train_data.end());
+    calib_cx.insert(calib_cx.end(), calib_data.begin(), calib_data.end());
+    test_cx.insert(test_cx.end(), test_data.begin(), test_data.end());
     // ----------------------------
 }
 
@@ -1237,7 +1237,39 @@ void IndexIVF::train(idx_t n, const float* x) {
 }
 
 void IndexIVF::prep_calib() {
+    calib_labels = get_one_hot_gt(calib_cx);
+    test_labels = get_one_hot_gt(test_cx);
+}
 
+
+std::vector<std::vector<int>> IndexIVF::get_one_hot_gt(const std::vector<float>& queries, int batch_size) {
+    std::vector<std::vector<int>> result;
+    for (size_t start = 0; start < queries.size(); start += batch_size) {
+        size_t end = std::min(start + batch_size, queries.size());
+        std::vector<std::vector<float>> batch_queries(queries.begin() + start, queries.begin() + end);
+        // Convert batch queries into a flat array of floats (FAISS expects this format)
+        size_t num_queries = batch_queries.size();
+        size_t dim = batch_queries[0].size();
+        std::vector<float> flat_queries(num_queries * dim);
+
+        for (size_t i = 0; i < num_queries; ++i) {
+            std::copy(batch_queries[i].begin(), batch_queries[i].end(), flat_queries.begin() + i * dim);
+        }
+        // Perform the search with FAISS
+        std::vector<faiss::idx_t> gt_indexes(num_queries * K); 
+        // TODO(sonia): can get distances from here
+        std::vector<float> distances(num_queries * K);
+        index_flat->search(num_queries, flat_queries.data(), K, distances.data(), gt_indexes.data());
+
+        // Convert the flat indices to a 2D vector (batch-wise ground truth indices)
+        for (size_t i = 0; i < num_queries; ++i) {
+            std::vector<int> batch_gt_indexes(gt_indexes.begin() + i * K, gt_indexes.begin() + (i + 1) * K);
+            result.push_back(batch_gt_indexes);
+        }
+        std::cout << "Batch " << start << "-" << end << " done." << std::endl;
+    }
+
+    return result;
 }
 
 idx_t IndexIVF::train_encoder_num_vectors() const {
