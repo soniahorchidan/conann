@@ -19,6 +19,7 @@
 #include <cstdio>
 #include <limits>
 #include <memory>
+#include <iostream>
 
 #include <faiss/utils/hamming.h>
 #include <faiss/utils/utils.h>
@@ -173,8 +174,8 @@ IndexIVF::IndexIVF(
     }
 
     // ConANN block 
-    printf("Training exact index as well...\n");
     exact_index = new faiss::IndexFlatL2(d);
+    printf("ConANN:: Training exact index done.\n");
     n_list = nlist;
     // ------------------------
 }
@@ -1150,7 +1151,10 @@ void IndexIVF::train(idx_t n, const float* x) {
     train_q1(n, x, verbose, metric_type);
 
     // ConANN block
-    quantizer->reconstruct_n(0, n_list, centroids.data());
+    // std::unique_ptr<std::vector<float>> centroids;
+    centroids = std::make_shared<std::vector<float>>(n_list * quantizer->d);
+    quantizer->reconstruct_n(0, n_list, centroids->data());
+    printf("ConANN:: Centroids initialized.\n");
     // -----------------------
 
     if (verbose) {

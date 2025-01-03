@@ -205,8 +205,9 @@ struct IndexIVF : Index, IndexIVFInterface {
     // ConANN params
     faiss::IndexFlatL2* exact_index;
     float MAX_DISTANCE = 1000;  // maybe redundant
-    std::vector<float> centroids;  // maybe redundant
+//     std::vector<float> centroids;  // maybe redundant
     int n_list; //redundant
+    std::shared_ptr<std::vector<float>> centroids;
 
     // ----------------------------
 
