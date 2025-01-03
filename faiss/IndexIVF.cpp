@@ -35,6 +35,7 @@
 #include <tuple>
 #include <algorithm>
 #include <random>
+#include <cmath>
 
 namespace faiss {
 
@@ -199,16 +200,19 @@ void IndexIVF::add_with_ids(idx_t n, const float* x, const idx_t* xids) {
 
     // ConANN Block
     // TODO: maybe use only IDs that point to data
-    auto [train_data, calib_data, test_data] = split_dataset(x, n, 0.1, 0.1);
-    train_cx.insert(train_cx.end(), train_data.begin(), train_data.end());
-    calib_cx.insert(calib_cx.end(), calib_data.begin(), calib_data.end());
-    test_cx.insert(test_cx.end(), test_data.begin(), test_data.end());
+    auto [train_data, calib_data, test_data] = split_dataset(x, n, quantizer->d, 0.1, 0.1);
+    train_cx = train_data;
+    calib_cx = calib_data;
+    test_cx = test_data;
+
+    // TODO(Sonia): only if not prepped already
+    prep_calib();
     // ----------------------------
 }
 
-template <typename T>
-std::tuple<std::vector<T>, std::vector<T>, std::vector<T>> IndexIVF::split_dataset(
-    const T* data, size_t n, double calib_ratio, double test_ratio) {
+std::tuple<std::vector<std::vector<float>>, std::vector<std::vector<float>>, std::vector<std::vector<float>>> IndexIVF::split_dataset(
+    const float* data, size_t n, size_t d, double calib_ratio, double test_ratio) {
+    
     size_t total_size = n;
     size_t test_size = static_cast<size_t>(total_size * test_ratio);
     size_t calibration_size = static_cast<size_t>(total_size * calib_ratio);
@@ -220,18 +224,23 @@ std::tuple<std::vector<T>, std::vector<T>, std::vector<T>> IndexIVF::split_datas
     std::mt19937 gen(rd());
     std::shuffle(indices.begin(), indices.end(), gen);
 
-    std::vector<T> train, calibration, test;
+    std::vector<std::vector<float>> train, calibration, test;
     train.reserve(train_size);
     calibration.reserve(calibration_size);
     test.reserve(test_size);
 
     for (size_t i = 0; i < total_size; ++i) {
+        size_t index = indices[i];
+        const float* data_point = data + index * d; 
+
+        std::vector<float> data_vector(data_point, data_point + d);
+        
         if (i < test_size) {
-            test.push_back(data[indices[i]]);
+            test.push_back(data_vector);
         } else if (i < test_size + calibration_size) {
-            calibration.push_back(data[indices[i]]);
+            calibration.push_back(data_vector);
         } else {
-            train.push_back(data[indices[i]]);
+            train.push_back(data_vector);
         }
     }
 
@@ -1228,21 +1237,28 @@ void IndexIVF::train(idx_t n, const float* x) {
     index_flat->add(n, tv.x); 
     printf("ConANN:: Exact index populated.\n");
 
-    centroids = std::make_shared<std::vector<float>>(n_list * quantizer->d);
-    quantizer->reconstruct_n(0, n_list, centroids->data());
-    printf("ConANN:: Centroids initialized.\n");
+    std::shared_ptr<std::vector<float>> centroids_flat = std::make_shared<std::vector<float>>(n_list * quantizer->d);
+    quantizer->reconstruct_n(0, n_list, centroids_flat->data());
 
-    prep_calib();
+    for (size_t i = 0; i < n_list; ++i) {
+        std::vector<float> centroid(quantizer->d);
+        std::copy(centroids_flat->begin() + i * quantizer->d, centroids_flat->begin() + (i + 1) * quantizer->d, centroid.begin());
+        centroids.push_back(std::move(centroid));
+    }
+
+    printf("ConANN:: Centroids initialized.\n");
     // ---------------------------
 }
 
 void IndexIVF::prep_calib() {
     calib_labels = get_one_hot_gt(calib_cx);
+    calib_diffs = compute_difficulty_scores(calib_cx);
+
     test_labels = get_one_hot_gt(test_cx);
+    test_diffs = compute_difficulty_scores(calib_cx);
 }
 
-
-std::vector<std::vector<int>> IndexIVF::get_one_hot_gt(const std::vector<float>& queries, int batch_size) {
+std::vector<std::vector<int>> IndexIVF::get_one_hot_gt(const std::vector<std::vector<float>>& queries, int batch_size) {
     std::vector<std::vector<int>> result;
     for (size_t start = 0; start < queries.size(); start += batch_size) {
         size_t end = std::min(start + batch_size, queries.size());
@@ -1270,6 +1286,35 @@ std::vector<std::vector<int>> IndexIVF::get_one_hot_gt(const std::vector<float>&
     }
 
     return result;
+}
+
+
+// Compute the L2 distance between two vectors
+float IndexIVF::compute_l2_distance(const std::vector<float>& a, const std::vector<float>& b) {
+    float distance = 0.0f;
+    for (size_t i = 0; i < a.size(); ++i) {
+        float diff = a[i] - b[i];
+        distance += diff * diff;
+    }
+    return std::sqrt(distance);
+}
+
+// Compute the difficulty scores for a set of queries
+std::vector<float> IndexIVF::compute_difficulty_scores(const std::vector<std::vector<float>>& queries) {
+    std::vector<float> diff_scores;
+
+    for (const auto& query : queries) {
+        std::vector<float> distances;
+        for (const auto& centroid : centroids) {
+            distances.push_back(compute_l2_distance(centroid, query));
+        }
+        std::nth_element(distances.begin(), distances.begin() + 2, distances.end());
+        float closest_distances[2] = {distances[0], distances[1]};
+        float score = std::abs(closest_distances[0] - closest_distances[1]) / std::max(closest_distances[0], closest_distances[1]);
+        diff_scores.push_back(score);
+    }
+
+    return diff_scores;
 }
 
 idx_t IndexIVF::train_encoder_num_vectors() const {

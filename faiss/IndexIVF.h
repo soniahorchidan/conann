@@ -451,26 +451,33 @@ struct IndexIVF : Index, IndexIVFInterface {
     faiss::IndexFlatL2* index_flat;
     float MAX_DISTANCE = 1000;  // maybe redundant
     int n_list; //redundant
-    std::shared_ptr<std::vector<float>> centroids;
+    std::vector<std::vector<float>> centroids;
 
     // TODO(sonia): do not hardcode
     int K = 100;
 
     // TODO(sonia): do we even need to keep train_cx?
-    std::vector<float> train_cx;
-    std::vector<float> calib_cx;
-    std::vector<float> test_cx;
+    std::vector<std::vector<float>> train_cx;
+    std::vector<std::vector<float>> calib_cx;
+    std::vector<std::vector<float>> test_cx;
 
     std::vector<std::vector<int>> calib_labels;
+    std::vector<float> calib_diffs;
+    std::vector<std::vector<int>> test_labels;
+    std::vector<float> test_diffs;
 
-    template <typename T>
-    std::tuple<std::vector<T>, std::vector<T>, std::vector<T>> split_dataset(
-        const T* data, size_t n, double calibration_ratio, double test_ratio); 
+    std::tuple<std::vector<std::vector<float>>, 
+    std::vector<std::vector<float>>, std::vector<std::vector<float>>> split_dataset(
+        const float* data, size_t n, size_t d, double calib_ratio, double test_ratio);
 
     void prep_calib();
 
     std::vector<std::vector<int>> get_one_hot_gt(
-        const std::vector<float>& queries, int batch_size = 1000);
+        const std::vector<std::vector<float>>& queries, int batch_size = 1000);
+
+    float compute_l2_distance(const std::vector<float>& a, const std::vector<float>& b);
+
+    std::vector<float> compute_difficulty_scores(const std::vector<std::vector<float>>& queries);
 
     // ----------------------------
 };
