@@ -1,0 +1,2 @@
+/usr/bin/ar qc libfaiss_perf_tests_utils.a CMakeFiles/faiss_perf_tests_utils.dir/utils.cpp.o
+/usr/bin/ranlib libfaiss_perf_tests_utils.a

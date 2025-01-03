@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG CMakeFiles/bench_ivf_selector.dir/bench_ivf_selector.cpp.o -o bench_ivf_selector  -Wl,-rpath,/home/ubuntu/conann-dev/faiss-1.9.0/faiss ../faiss/libfaiss.so 

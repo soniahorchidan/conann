@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG "CMakeFiles/2-IVFFlat.dir/2-IVFFlat.cpp.o" -o 2-IVFFlat  -Wl,-rpath,/home/ubuntu/conann-dev/faiss-1.9.0/faiss ../../faiss/libfaiss.so 
