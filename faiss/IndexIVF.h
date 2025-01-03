@@ -202,15 +202,6 @@ struct IndexIVF : Index, IndexIVFInterface {
     /// centroids?
     bool by_residual = true;
 
-    // ConANN params
-    faiss::IndexFlatL2* exact_index;
-    float MAX_DISTANCE = 1000;  // maybe redundant
-//     std::vector<float> centroids;  // maybe redundant
-    int n_list; //redundant
-    std::shared_ptr<std::vector<float>> centroids;
-
-    // ----------------------------
-
     /** The Inverted file takes a quantizer (an Index) on input,
      * which implements the function mapping a vector to a list
      * identifier.
@@ -454,6 +445,24 @@ struct IndexIVF : Index, IndexIVFInterface {
     void sa_encode(idx_t n, const float* x, uint8_t* bytes) const override;
 
     IndexIVF();
+
+
+    // ConANN block
+    faiss::IndexFlatL2* index_flat;
+    float MAX_DISTANCE = 1000;  // maybe redundant
+    int n_list; //redundant
+    std::shared_ptr<std::vector<float>> centroids;
+
+    std::vector<float> train_cx;
+    std::vector<float> calib_cs;
+    std::vector<float> test_cx;
+
+    template <typename T>
+    std::tuple<std::vector<T>, std::vector<T>, std::vector<T>> split_dataset(
+        const T* data, size_t n, double calibration_ratio, double test_ratio); 
+
+    void prep_calib();
+    // ----------------------------
 };
 
 struct RangeQueryResult;

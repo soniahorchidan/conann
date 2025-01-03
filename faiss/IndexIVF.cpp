@@ -18,7 +18,6 @@
 #include <cinttypes>
 #include <cstdio>
 #include <limits>
-#include <memory>
 #include <iostream>
 
 #include <faiss/utils/hamming.h>
@@ -29,6 +28,13 @@
 #include <faiss/impl/CodePacker.h>
 #include <faiss/impl/FaissAssert.h>
 #include <faiss/impl/IDSelector.h>
+
+#include <vector>
+#include <chrono>
+#include <ctime>
+#include <tuple>
+#include <algorithm>
+#include <random>
 
 namespace faiss {
 
@@ -174,7 +180,7 @@ IndexIVF::IndexIVF(
     }
 
     // ConANN block 
-    exact_index = new faiss::IndexFlatL2(d);
+    index_flat = new faiss::IndexFlatL2(d);
     printf("ConANN:: Training exact index done.\n");
     n_list = nlist;
     // ------------------------
@@ -190,6 +196,46 @@ void IndexIVF::add_with_ids(idx_t n, const float* x, const idx_t* xids) {
     std::unique_ptr<idx_t[]> coarse_idx(new idx_t[n]);
     quantizer->assign(n, x, coarse_idx.get());
     add_core(n, x, xids, coarse_idx.get());
+
+    // ConANN Block
+    // TODO: maybe use only IDs that point to data
+    auto [train_data, calib_data, test_data] = split_dataset(x, n, 0.1, 0.1);
+    train_cx = std::move(train_data);
+    calib_cs = std::move(calib_data);
+    test_cx = std::move(test_data);
+    // ----------------------------
+}
+
+template <typename T>
+std::tuple<std::vector<T>, std::vector<T>, std::vector<T>> IndexIVF::split_dataset(
+    const T* data, size_t n, double calib_ratio, double test_ratio) {
+    size_t total_size = n;
+    size_t test_size = static_cast<size_t>(total_size * test_ratio);
+    size_t calibration_size = static_cast<size_t>(total_size * calib_ratio);
+    size_t train_size = total_size - test_size - calibration_size;
+
+    std::vector<size_t> indices(total_size);
+    std::iota(indices.begin(), indices.end(), 0);
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::shuffle(indices.begin(), indices.end(), gen);
+
+    std::vector<T> train, calibration, test;
+    train.reserve(train_size);
+    calibration.reserve(calibration_size);
+    test.reserve(test_size);
+
+    for (size_t i = 0; i < total_size; ++i) {
+        if (i < test_size) {
+            test.push_back(data[indices[i]]);
+        } else if (i < test_size + calibration_size) {
+            calibration.push_back(data[indices[i]]);
+        } else {
+            train.push_back(data[indices[i]]);
+        }
+    }
+
+    return {train, calibration, test};
 }
 
 void IndexIVF::add_sa_codes(idx_t n, const uint8_t* codes, const idx_t* xids) {
@@ -1150,13 +1196,6 @@ void IndexIVF::train(idx_t n, const float* x) {
 
     train_q1(n, x, verbose, metric_type);
 
-    // ConANN block
-    // std::unique_ptr<std::vector<float>> centroids;
-    centroids = std::make_shared<std::vector<float>>(n_list * quantizer->d);
-    quantizer->reconstruct_n(0, n_list, centroids->data());
-    printf("ConANN:: Centroids initialized.\n");
-    // -----------------------
-
     if (verbose) {
         printf("Training IVF residual\n");
     }
@@ -1186,8 +1225,19 @@ void IndexIVF::train(idx_t n, const float* x) {
 
     // ConANN block
     // Add data to the exact index
-    exact_index->add(n, tv.x); 
+    index_flat->add(n, tv.x); 
+    printf("ConANN:: Exact index populated.\n");
+
+    centroids = std::make_shared<std::vector<float>>(n_list * quantizer->d);
+    quantizer->reconstruct_n(0, n_list, centroids->data());
+    printf("ConANN:: Centroids initialized.\n");
+
+    prep_calib();
     // ---------------------------
+}
+
+void IndexIVF::prep_calib() {
+
 }
 
 idx_t IndexIVF::train_encoder_num_vectors() const {
