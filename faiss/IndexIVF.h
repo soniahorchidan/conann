@@ -463,8 +463,11 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     std::vector<std::vector<int>> calib_labels;
     std::vector<float> calib_diffs;
+    std::vector<std::vector<float>> calib_nonconf;
+
     std::vector<std::vector<int>> test_labels;
     std::vector<float> test_diffs;
+     std::vector<std::vector<float>> test_nonconf;
 
     std::tuple<std::vector<std::vector<float>>, 
     std::vector<std::vector<float>>, std::vector<std::vector<float>>> split_dataset(
@@ -478,6 +481,12 @@ struct IndexIVF : Index, IndexIVFInterface {
     float compute_l2_distance(const std::vector<float>& a, const std::vector<float>& b);
 
     std::vector<float> compute_difficulty_scores(const std::vector<std::vector<float>>& queries);
+
+     std::vector<std::vector<float>> compute_scores(
+        const std::vector<std::vector<float>>& queries, 
+        const std::vector<float>& diff_scores, 
+        const std::vector<std::vector<int>>& ground_truths
+    );
 
     // ----------------------------
 };

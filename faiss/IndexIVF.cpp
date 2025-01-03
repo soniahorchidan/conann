@@ -1253,9 +1253,11 @@ void IndexIVF::train(idx_t n, const float* x) {
 void IndexIVF::prep_calib() {
     calib_labels = get_one_hot_gt(calib_cx);
     calib_diffs = compute_difficulty_scores(calib_cx);
+    calib_nonconf = compute_scores(calib_cx, calib_diffs, calib_labels);
 
     test_labels = get_one_hot_gt(test_cx);
-    test_diffs = compute_difficulty_scores(calib_cx);
+    test_diffs = compute_difficulty_scores(test_cx);
+    test_nonconf = compute_scores(test_cx, test_diffs, test_labels);
 }
 
 std::vector<std::vector<int>> IndexIVF::get_one_hot_gt(const std::vector<std::vector<float>>& queries, int batch_size) {
@@ -1315,6 +1317,26 @@ std::vector<float> IndexIVF::compute_difficulty_scores(const std::vector<std::ve
     }
 
     return diff_scores;
+}
+
+std::vector<std::vector<float>> IndexIVF::compute_scores(
+    const std::vector<std::vector<float>>& queries, 
+    const std::vector<float>& diff_scores, 
+    const std::vector<std::vector<int>>& ground_truths) {
+    // Dummy implementation
+    int num_queries = queries.size();
+    std::vector<std::vector<float>> nonconf_list(num_queries);
+
+    // Generate random nonconformity scores between 0 and 1
+    for (int i = 0; i < num_queries; ++i) {
+        // Simulate some number of scores for each query (e.g., random scores for 5 probes)
+        int num_probes = 5;
+        for (int j = 0; j < num_probes; ++j) {
+            float random_score = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);  // Random between 0 and 1
+            nonconf_list[i].push_back(random_score);
+        }
+    }
+    return nonconf_list;
 }
 
 idx_t IndexIVF::train_encoder_num_vectors() const {
