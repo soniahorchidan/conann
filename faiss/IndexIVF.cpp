@@ -1339,8 +1339,48 @@ std::vector<std::vector<float>> IndexIVF::compute_scores(
     return nonconf_list;
 }
 
+float IndexIVF::calibrate(float alpha) {
+    float lamhat = optimization(alpha);
+    return lamhat;
+}
+
+float IndexIVF::optimization(float alpha) {
+    // dummy
+    return alpha * 2.5f; 
+}
+
 idx_t IndexIVF::train_encoder_num_vectors() const {
     return 0;
+}
+
+
+float IndexIVF::false_negative_rate(const std::vector<std::vector<int>>& prediction_set,
+                                    const std::vector<std::vector<int>>& gt_labels) {
+    std::vector<int> overlap;
+    for (size_t i = 0; i < prediction_set.size(); ++i) {
+        const std::set<int> pred_set(prediction_set[i].begin(), prediction_set[i].end());
+        const std::set<int> gt_set(gt_labels[i].begin(), gt_labels[i].end());
+        // Calculate intersection size
+        int intersection_size = 0;
+        for (int pred : pred_set) {
+            if (gt_set.count(pred) > 0) {
+                ++intersection_size;
+            }
+        }
+        overlap.push_back(intersection_size);
+    }
+
+    int sum_overlap = std::accumulate(overlap.begin(), overlap.end(), 0);
+    int sum_gt_sums = 0;
+    for (const auto& gt : gt_labels) {
+        sum_gt_sums += gt.size();
+    }
+    // Return the false negative rate (1 - sum(overlap) / sum(gt_sums))
+    if (sum_gt_sums > 0) {
+        return 1.0f - static_cast<float>(sum_overlap) / sum_gt_sums;
+    } else {
+        return 0.0f;
+    }
 }
 
 void IndexIVF::train_encoder(

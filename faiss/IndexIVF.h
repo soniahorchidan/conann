@@ -481,12 +481,19 @@ struct IndexIVF : Index, IndexIVFInterface {
     float compute_l2_distance(const std::vector<float>& a, const std::vector<float>& b);
 
     std::vector<float> compute_difficulty_scores(const std::vector<std::vector<float>>& queries);
-
-     std::vector<std::vector<float>> compute_scores(
+    
+    std::vector<std::vector<float>> compute_scores(
         const std::vector<std::vector<float>>& queries, 
         const std::vector<float>& diff_scores, 
         const std::vector<std::vector<int>>& ground_truths
     );
+    
+    float calibrate(float alpha);
+
+    float optimization(float alpha);
+
+    float false_negative_rate(const std::vector<std::vector<int>>& prediction_set,
+                              const std::vector<std::vector<int>>& gt_labels);
 
     // ----------------------------
 };
