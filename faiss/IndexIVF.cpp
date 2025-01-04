@@ -202,7 +202,7 @@ void IndexIVF::add_with_ids(idx_t n, const float* x, const idx_t* xids) {
 
     // ConANN Block
     // TODO: maybe use only IDs that point to data
-    auto [train_data, calib_data, test_data] = split_dataset(x, n, quantizer->d, 0.1, 0.1);
+    auto [train_data, calib_data, test_data] = split_dataset(x, n, quantizer->d, 0.01, 0.01);
     train_cx = train_data;
     calib_cx = calib_data;
     test_cx = test_data;
@@ -1257,16 +1257,18 @@ void IndexIVF::prep_calib() {
     calib_diffs = compute_difficulty_scores(calib_cx);
     auto [cn, c_clus] = compute_scores(calib_cx, calib_diffs, calib_labels);
     calib_nonconf = cn;
+    calib_preds = c_clus;
 
     test_labels = get_one_hot_gt(test_cx);
     test_diffs = compute_difficulty_scores(test_cx);
     auto [tn, t_clus] = compute_scores(test_cx, test_diffs, test_labels);
     test_nonconf = tn;
+    test_preds = t_clus;
     std::cout << "DEBUG:: calibration prepared!\n";
 }
 
-std::vector<std::vector<int>> IndexIVF::get_one_hot_gt(const std::vector<std::vector<float>>& queries, int batch_size) {
-    std::vector<std::vector<int>> result;
+std::vector<std::vector<faiss::idx_t>> IndexIVF::get_one_hot_gt(const std::vector<std::vector<float>>& queries, int batch_size) {
+    std::vector<std::vector<faiss::idx_t>> result;
     for (size_t start = 0; start < queries.size(); start += batch_size) {
         size_t end = std::min(start + batch_size, queries.size());
         std::vector<std::vector<float>> batch_queries(queries.begin() + start, queries.begin() + end);
@@ -1286,7 +1288,7 @@ std::vector<std::vector<int>> IndexIVF::get_one_hot_gt(const std::vector<std::ve
 
         // Convert the flat indices to a 2D vector (batch-wise ground truth indices)
         for (size_t i = 0; i < num_queries; ++i) {
-            std::vector<int> batch_gt_indexes(gt_indexes.begin() + i * K, gt_indexes.begin() + (i + 1) * K);
+            std::vector<faiss::idx_t> batch_gt_indexes(gt_indexes.begin() + i * K, gt_indexes.begin() + (i + 1) * K);
             result.push_back(batch_gt_indexes);
         }
         std::cout << "Batch " << start << "-" << end << " done." << std::endl;
@@ -1348,7 +1350,7 @@ std::pair<std::vector<std::vector<float>>, std::vector<std::vector<std::vector<f
 IndexIVF::compute_scores(
     const std::vector<std::vector<float>>& queries, 
     const std::vector<float>& diff_scores, 
-    const std::vector<std::vector<int>>& ground_truths) {
+    const std::vector<std::vector<faiss::idx_t>>& ground_truths) {
     
     size_t num_queries = queries.size();
     std::vector<int> active_queries(num_queries, 1);
@@ -1497,23 +1499,67 @@ float IndexIVF::optimization(float alpha) {
 }
 
 float IndexIVF::lamhat_threshold(float lambda, float target_fnr) {
-    auto [preds, _] = compute_predictions(lambda, calib_cx, calib_diffs, calib_nonconf, calib_labels);
+    auto [preds, _] = compute_predictions(lambda, calib_cx, calib_diffs, calib_nonconf, calib_preds);
     float fnr = false_negative_rate(preds, calib_labels);
+
+    std::cout << "\nPREDS=\n";
+    for (const auto& inner_vec : preds) {
+        std::cout << "[ ";
+        for (const int& element : inner_vec) {
+            std::cout << element << " ";
+        }
+        std::cout << "]\n";
+    }
+
+    std::cout << "\nGT=\n";
+    for (const auto& inner_vec : calib_labels) {
+        std::cout << "[ ";
+        for (const int& element : inner_vec) {
+            std::cout << element << " ";
+        }
+        std::cout << "]\n";
+    }
+
+     std::cout << "\n\nLAMBDA=" << lambda << "FNR =" << fnr << "\n";
+
     return fnr - target_fnr;
 }
 
-std::pair<std::vector<std::vector<int>> , std::vector<float>> IndexIVF::compute_predictions(
+std::pair<std::vector<std::vector<faiss::idx_t>> , std::vector<int>> IndexIVF::compute_predictions(
     float lambda,
     const std::vector<std::vector<float>>& queries,
     const std::vector<float>& diffs,
     const std::vector<std::vector<float>>& nonconf,
-    const std::vector<std::vector<int>>& preds) {
-    // Dummy
-    return {{}, {}};
+    const std::vector<std::vector<std::vector<faiss::idx_t>>>& preds) {
+        
+    std::vector<std::vector<faiss::idx_t>> test_preds;
+    std::vector<int> cl_searched;
+
+    for (size_t query_idx = 0; query_idx < queries.size(); ++query_idx) {
+        const auto& sc = nonconf[query_idx];
+        const auto& p = preds[query_idx];
+
+        int index = -1;
+        for (size_t i = 0; i < sc.size(); ++i) {
+            if (sc[i] >= lambda) {
+                index = i;
+            }
+        }
+
+        if (index == -1) {
+            test_preds.push_back({});  // Empty set if no valid predictions
+            cl_searched.push_back(static_cast<int>(std::find(sc.begin(), sc.end(), 0.0f) - sc.begin()) - 1);
+        } else {
+            test_preds.push_back({p[index]});  // Add prediction at index
+            cl_searched.push_back(static_cast<int>(index) + 1);
+        }
+    }
+
+    return {test_preds, cl_searched};
 }
 
-float IndexIVF::false_negative_rate(const std::vector<std::vector<int>>& prediction_set,
-                                    const std::vector<std::vector<int>>& gt_labels) {
+float IndexIVF::false_negative_rate(const std::vector<std::vector<faiss::idx_t>>& prediction_set,
+                                    const std::vector<std::vector<faiss::idx_t>>& gt_labels) {
     std::vector<int> overlap;
     for (size_t i = 0; i < prediction_set.size(); ++i) {
         const std::set<int> pred_set(prediction_set[i].begin(), prediction_set[i].end());

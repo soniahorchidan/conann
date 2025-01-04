@@ -462,13 +462,15 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::vector<std::vector<float>> calib_cx;
     std::vector<std::vector<float>> test_cx;
 
-    std::vector<std::vector<int>> calib_labels;
+    std::vector<std::vector<faiss::idx_t>> calib_labels;
     std::vector<float> calib_diffs;
     std::vector<std::vector<float>> calib_nonconf;
+    std::vector<std::vector<std::vector<faiss::idx_t>>> calib_preds;
 
-    std::vector<std::vector<int>> test_labels;
+    std::vector<std::vector<faiss::idx_t>> test_labels;
     std::vector<float> test_diffs;
     std::vector<std::vector<float>> test_nonconf;
+    std::vector<std::vector<std::vector<faiss::idx_t>>> test_preds;
 
     std::tuple<std::vector<std::vector<float>>, 
     std::vector<std::vector<float>>, std::vector<std::vector<float>>> split_dataset(
@@ -476,7 +478,7 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     void prep_calib();
 
-    std::vector<std::vector<int>> get_one_hot_gt(
+    std::vector<std::vector<faiss::idx_t>> get_one_hot_gt(
         const std::vector<std::vector<float>>& queries, int batch_size = 1000);
 
     float compute_l2_distance(const std::vector<float>& a, const std::vector<float>& b);
@@ -492,21 +494,21 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::pair<std::vector<std::vector<float>>, std::vector<std::vector<std::vector<faiss::idx_t>>>> 
     compute_scores(const std::vector<std::vector<float>>& queries, 
         const std::vector<float>& diff_scores, 
-        const std::vector<std::vector<int>>& ground_truths);
+        const std::vector<std::vector<faiss::idx_t>>& ground_truths);
 
-    std::pair<std::vector<std::vector<int>>, std::vector<float>> compute_predictions(
+    std::pair<std::vector<std::vector<faiss::idx_t>>, std::vector<int>> compute_predictions(
         float lambda,
         const std::vector<std::vector<float>>& queries,
         const std::vector<float>& diffs,
         const std::vector<std::vector<float>>& nonconf,
-        const std::vector<std::vector<int>>& preds);
+        const std::vector<std::vector<std::vector<faiss::idx_t>>>& preds);
     
     float calibrate(float alpha);
 
     float optimization(float alpha);
 
-    float false_negative_rate(const std::vector<std::vector<int>>& prediction_set,
-                              const std::vector<std::vector<int>>& gt_labels);
+    float false_negative_rate(const std::vector<std::vector<faiss::idx_t>>& prediction_set,
+                              const std::vector<std::vector<faiss::idx_t>>& gt_labels);
                               
     float lamhat_threshold(float lambda, float target_fnr);
 

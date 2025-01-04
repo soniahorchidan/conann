@@ -7,8 +7,6 @@
 #include <faiss/IndexIVFFlat.h>
 #include <faiss/IndexFlat.h>
 
-#include <gsl/gsl_sf_bessel.h>
-
 using namespace std::chrono;
 
 int main(void) {
@@ -68,17 +66,6 @@ int main(void) {
 
         printf("QPS: %d\n", qps);
     }
-
-    // Example prediction sets and ground truth labels
-    std::vector<std::vector<int>> prediction_set = {{0, 1, 2}, {3, 4}, {5, 6}};
-    std::vector<std::vector<int>> gt_labels = {{0, 1, 3}, {3, 5}, {6, 7}};
-    float fnr = index.false_negative_rate(prediction_set, gt_labels);
-    std::cout << "False Negative Rate Example: " << fnr << std::endl;
-
-    // GSL test
-    double x = 15.0;
-    double y = gsl_sf_bessel_J0 (x);
-    printf ("GSL test: J0(%g) = %.18e\n", x, y);
 
     // Test calibration
     auto lamhat = index.calibrate(0.1);
