@@ -15,7 +15,7 @@ int main(void) {
     int K = 64;
 
     // size of the database we plan to index
-    size_t nb = 1000;
+    size_t nb = 10000;
 
     std::mt19937 rng(12345);
 
@@ -69,8 +69,14 @@ int main(void) {
     }
 
     // Test calibration
-    auto lamhat = index.calibrate(0.1);
-    std::cout << "Calibration done for alpha=0.1, lamhat= " << lamhat << std::endl;
+    auto alpa = 0.1;
+    auto lamhat = index.calibrate(alpa);
+    auto fnr = index.evaluate_test(lamhat);
+    std::cout << "alpha=" << alpa << ": lamhat= " << lamhat << ", test fnr=" << fnr << std::endl;
 
+    alpa = 0.2;
+    lamhat = index.calibrate(alpa);
+    fnr = index.evaluate_test(lamhat);
+    std::cout << "alpha=" << alpa << ": lamhat= " << lamhat << ", test fnr=" << fnr << std::endl;
     return 0;
 }

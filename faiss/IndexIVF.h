@@ -512,6 +512,15 @@ struct IndexIVF : Index, IndexIVFInterface {
                               
     float lamhat_threshold(float lambda, float target_fnr);
 
+    float evaluate_test(float lamhat);
+    
+    std::pair<float, std::vector<int>> evaluate(float lamhat,
+                                                const std::vector<std::vector<float>>& queries,
+                                                const std::vector<float>& diff_scores,
+                                                const std::vector<std::vector<faiss::idx_t>>& labels,
+                                                const std::vector<std::vector<float>>& nonconf,
+                                                const std::vector<std::vector<std::vector<faiss::idx_t>>>& preds);
+
     // ----------------------------
 };
 

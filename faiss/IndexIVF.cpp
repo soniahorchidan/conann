@@ -1263,7 +1263,6 @@ void IndexIVF::prep_calib() {
     auto [tn, t_clus] = compute_scores(test_cx, test_diffs, test_labels);
     test_nonconf = tn;
     test_preds = t_clus;
-    std::cout << "DEBUG:: calibration prepared!\n";
 }
 
 std::vector<std::vector<faiss::idx_t>> IndexIVF::get_one_hot_gt(const std::vector<std::vector<float>>& queries, int batch_size) {
@@ -1453,6 +1452,11 @@ IndexIVF::compute_scores(
         }
     }
 
+    // Check if there are more active queries after
+    if (std::count(active_queries.begin(), active_queries.end(), 1) > 0) {
+        std::cout << "Warning: " << active_queries.size() << "active queries remaining after probing is done.\n";
+    }
+
     // Finalize nonconformity and prediction lists
     for (auto& [qid, ncf] : nonconf_list) {
         ncf.push_back(0.0f);
@@ -1594,6 +1598,24 @@ float IndexIVF::false_negative_rate(const std::vector<std::vector<faiss::idx_t>>
         return 0.0f;
     }
 }
+
+float IndexIVF::evaluate_test(float lamhat) {
+    auto result = evaluate(lamhat, test_cx, test_diffs, test_labels, test_nonconf, test_preds);
+    // Return FNR only
+    return result.first;
+}
+
+std::pair<float, std::vector<int>> IndexIVF::evaluate(float lamhat, 
+                                                      const std::vector<std::vector<float>>& queries,
+                                                      const std::vector<float>& diff_scores,
+                                                      const std::vector<std::vector<faiss::idx_t>>& labels,
+                                                      const std::vector<std::vector<float>>& nonconf,
+                                                      const std::vector<std::vector<std::vector<faiss::idx_t>>>& preds) {
+    auto [test_preds, cl_searched] = compute_predictions(lamhat, queries, diff_scores, nonconf, preds);
+    float fnr = false_negative_rate(test_preds, labels);
+    return {fnr, cl_searched};
+}
+
 
 idx_t IndexIVF::train_encoder_num_vectors() const {
     return 0;
