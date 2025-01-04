@@ -38,6 +38,10 @@
 #include <cmath>
 #include <gsl/gsl_roots.h>
 #include <gsl/gsl_errno.h> 
+#include <thread>
+#include <fstream>
+#include <functional>
+#include <map>
 
 namespace faiss {
 
@@ -218,7 +222,7 @@ void IndexIVF::add_with_ids(idx_t n, const float* x, const idx_t* xids) {
     // ---------------------------
 
     // TODO: maybe use only IDs that point to data
-    auto [train_data, calib_data, test_data] = split_dataset(x, n, quantizer->d, 0.1, 0.1);
+    auto [train_data, calib_data, test_data] = split_dataset(x, n, quantizer->d, 0.3, 0.3);
     train_cx = train_data;
     calib_cx = calib_data;
     test_cx = test_data;
@@ -1616,6 +1620,114 @@ std::pair<float, std::vector<int>> IndexIVF::evaluate(float lamhat,
     return {fnr, cl_searched};
 }
 
+void IndexIVF::eval_on_lambda_range(float min_alpha, float max_alpha, float step) {
+    std::vector<float> alpha_values;
+    for (float alpha = min_alpha; alpha < max_alpha; alpha += step) {
+        alpha_values.push_back(alpha);
+    }
+    int N_ALPHA = alpha_values.size();
+
+    std::map<int, float> lamhats;
+    std::vector<std::vector<float>> all_fnrs;
+    std::vector<std::vector<std::vector<int>>> all_nprobe_freqs;
+
+    // TODO(sonia): parallelize
+    for (int alpha_index = 0; alpha_index < N_ALPHA; ++alpha_index) {
+        float alpha = alpha_values[alpha_index];
+        std::cout << "Run optimization for alpha: " << alpha << std::endl;
+        float lamhat = optimization(alpha);
+        std::cout << "Optimal lamhat=" << lamhat << " found for alpha=" << alpha << "." << std::endl;
+        lamhats[alpha_index] = lamhat;
+    }
+
+
+    // Now calculate fnrs and nprobe_freqs
+    for (int alpha_index = 0; alpha_index < N_ALPHA; ++alpha_index) {
+        std::vector<float> fnrs;
+        std::vector<std::vector<int>> nprobe_freqs;
+
+        float lamhat = lamhats[alpha_index];
+        float alpha = alpha_values[alpha_index];
+
+        // if (lamhat == 0.0) {
+        //     fnrs = std::vector<float>(ITERATIONS, 0.0);
+        //     nprobe_freqs = std::vector<int>(ITERATIONS, 0);
+        // } else {
+            std::random_device rd;
+            std::mt19937 gen(rd());
+
+            for (int j = 0; j < ITERATIONS; ++j) {
+                std::cout << "Run tests for alpha: " << alpha << ", iteration: " << j + 1 << std::endl;
+
+                std::vector<int> sampled_indices(Q_PER_ITER);
+                std::uniform_int_distribution<> dis(0, test_cx.size() - 1);
+                for (int i = 0; i < Q_PER_ITER; ++i) {
+                    sampled_indices[i] = dis(gen);
+                }
+                std::vector<std::vector<float>> sampled_queries(Q_PER_ITER);
+                std::vector<std::vector<faiss::idx_t>> sampled_labels(Q_PER_ITER);
+                std::vector<float> sampled_diffs(Q_PER_ITER);
+                std::vector<std::vector<float>> sampled_nonconf(Q_PER_ITER);
+                std::vector<std::vector<std::vector<faiss::idx_t>>> sampled_preds(Q_PER_ITER);
+
+                for (int i = 0; i < Q_PER_ITER; ++i) {
+                    sampled_queries.push_back(test_cx[sampled_indices[i]]);
+                    sampled_labels.push_back(test_labels[sampled_indices[i]]);
+                    sampled_diffs.push_back(test_diffs[sampled_indices[i]]);
+                    sampled_nonconf.push_back(test_nonconf[sampled_indices[i]]);
+                    sampled_preds.push_back(test_preds[sampled_indices[i]]);
+                }
+
+                // Evaluate for fnr and nprobe_freqs
+                auto [fnr, cl_searched] = evaluate(lamhat, sampled_queries, sampled_diffs, sampled_labels, sampled_nonconf, sampled_preds);
+                fnrs.push_back(fnr);
+                nprobe_freqs.push_back(cl_searched);
+            }
+        // }
+
+        all_fnrs.push_back(fnrs);
+        all_nprobe_freqs.push_back(nprobe_freqs);
+    }
+
+    print_validity(all_fnrs, alpha_values);
+    // print_adaptivity(all_nprobe_freqs, alpha_values);
+}
+
+
+void IndexIVF::print_validity(const std::vector<std::vector<float>>& all_fnrs, const std::vector<float>& alpha_values) {
+    std::ofstream file(RES_PATH + "/validity_stats.txt");
+
+    if (!file.is_open()) {
+        std::cerr << "Error opening file!" << std::endl;
+        return;
+    }
+
+    file << "Alpha,Average FNR,Std Dev\n";
+
+    for (size_t i = 0; i < all_fnrs.size(); ++i) {
+        const auto& fnr_list = all_fnrs[i];
+
+        // Calculate average FNR
+        float sum = 0;
+        for (float fnr : fnr_list) {
+            sum += fnr;
+        }
+        float avg_fnr = sum / fnr_list.size();
+
+        // Calculate standard deviation
+        float sq_sum = 0;
+        for (float fnr : fnr_list) {
+            sq_sum += (fnr - avg_fnr) * (fnr - avg_fnr);
+        }
+        float std_fnr = std::sqrt(sq_sum / fnr_list.size());
+
+        file << std::fixed << alpha_values[i] << ","
+             << std::fixed << avg_fnr << ","
+             << std::fixed << std_fnr << "\n";
+    }
+
+    file.close();
+}
 
 idx_t IndexIVF::train_encoder_num_vectors() const {
     return 0;

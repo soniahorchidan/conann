@@ -446,7 +446,6 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     IndexIVF();
 
-
     // ConANN block
     faiss::IndexFlatL2* index_flat;
     float MAX_DISTANCE = 1000;  // maybe redundant
@@ -456,6 +455,10 @@ struct IndexIVF : Index, IndexIVFInterface {
     // TODO(sonia): do not hardcode
     int K = 5;
     int N_LIST = 10;
+    // TODO(sonia): pass in benchmarking suite
+    int ITERATIONS = 5;
+    int Q_PER_ITER = 1000;
+    std::string RES_PATH = "./conann-results/";
 
     // TODO(sonia): do we even need to keep train_cx?
     std::vector<std::vector<float>> train_cx;
@@ -520,6 +523,12 @@ struct IndexIVF : Index, IndexIVFInterface {
                                                 const std::vector<std::vector<faiss::idx_t>>& labels,
                                                 const std::vector<std::vector<float>>& nonconf,
                                                 const std::vector<std::vector<std::vector<faiss::idx_t>>>& preds);
+
+    
+    void eval_on_lambda_range(float min_alpha, float max_alpha, float step); 
+
+    void print_validity(const std::vector<std::vector<float>>& all_fnrs, const std::vector<float>& alpha_values);
+    void print_adaptivity(const std::vector<std::vector<int>>& all_nprobe_freqs, const std::vector<float>& alpha_values);
 
     // ----------------------------
 };

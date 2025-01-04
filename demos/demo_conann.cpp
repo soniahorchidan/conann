@@ -78,5 +78,8 @@ int main(void) {
     lamhat = index.calibrate(alpa);
     fnr = index.evaluate_test(lamhat);
     std::cout << "alpha=" << alpa << ": lamhat= " << lamhat << ", test fnr=" << fnr << std::endl;
+    
+    index.eval_on_lambda_range(0.1, 0.31, 0.1);
+
     return 0;
 }
