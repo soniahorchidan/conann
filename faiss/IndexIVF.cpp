@@ -36,6 +36,7 @@
 #include <algorithm>
 #include <random>
 #include <cmath>
+#include <gsl/gsl_sf_bessel.h>
 
 namespace faiss {
 
@@ -184,6 +185,11 @@ IndexIVF::IndexIVF(
     index_flat = new faiss::IndexFlatL2(d);
     printf("ConANN:: Training exact index done.\n");
     n_list = nlist;
+
+    // GSL test
+    double x = 15.0;
+    double y = gsl_sf_bessel_J0 (x);
+    printf ("ConANN test GSL:: J0(%g) = %.18e\n", x, y);
     // ------------------------
 }
 

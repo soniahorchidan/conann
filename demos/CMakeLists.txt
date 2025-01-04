@@ -25,5 +25,8 @@ target_link_libraries(demo_weighted_kmeans PRIVATE faiss)
 add_executable(demo_residual_quantizer EXCLUDE_FROM_ALL demo_residual_quantizer.cpp)
 target_link_libraries(demo_residual_quantizer PRIVATE faiss)
 
+# ConANN 
+find_package(GSL REQUIRED)
+
 add_executable(demo_conann EXCLUDE_FROM_ALL demo_conann.cpp)
-target_link_libraries(demo_conann PRIVATE faiss)
+target_link_libraries(demo_conann PRIVATE faiss GSL::gsl GSL::gslcblas)
