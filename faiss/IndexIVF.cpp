@@ -1726,29 +1726,25 @@ void IndexIVF::print_validity(const std::vector<std::vector<float>>& all_fnrs, c
 }
 
 void IndexIVF::print_adaptivity(const std::vector<std::vector<std::vector<int>>>& all_nprobe_freqs, const std::vector<float>& alpha_values) {
-    std::vector<std::vector<std::vector<int>>> cl_searched = all_nprobe_freqs;
+    auto cl_searched = all_nprobe_freqs;
     for (auto& outer : cl_searched) {
         for (auto& inner : outer) {
             for (auto& x : inner) {
-                if (x != -1) {
-                    x += 1;
-                }
+                if (x != -1) x += 1;
             }
         }
     }
-
     int MAX_OBSERVED = 0;
     for (const auto& outer : all_nprobe_freqs) {
         for (const auto& inner : outer) {
-            for (const auto& k : inner) {
-                if (k > MAX_OBSERVED) {
-                    MAX_OBSERVED = k;
-                }
+            for (int k : inner) {
+                MAX_OBSERVED = std::max(MAX_OBSERVED, k);
             }
         }
     }
     std::cout << "Maximum number of clusters searched in any query=" << MAX_OBSERVED << std::endl;
 
+    // Reshaping
     std::vector<std::vector<int>> reshaped_array(alpha_values.size(), std::vector<int>(Q_PER_ITER * ITERATIONS));
     int idx = 0;
     for (size_t i = 0; i < alpha_values.size(); ++i) {
@@ -1760,55 +1756,34 @@ void IndexIVF::print_adaptivity(const std::vector<std::vector<std::vector<int>>>
 
     std::unordered_map<float, std::vector<int>> freqs;
     std::unordered_map<float, double> avgs;
-
     for (size_t i = 0; i < reshaped_array.size(); ++i) {
         float alpha = round(alpha_values[i] * 100) / 100.0;
-        const std::vector<int>& r = reshaped_array[i];
+        const auto& r = reshaped_array[i];
         std::unordered_map<int, int> frequency;
-        int nan_count = 0;
+        int nan_count = std::count(r.begin(), r.end(), -1);
+
         for (int value : r) {
-            if (value == -1) {
-                nan_count++;
-            } else {
-                frequency[value]++;
-            }
+            if (value != -1) frequency[value]++;
         }
 
         freqs[alpha] = std::vector<int>(MAX_OBSERVED, 0);
-        if (nan_count > 0) {
-            freqs[alpha][0] = nan_count;
-        }
+        freqs[alpha][0] = nan_count;
         for (const auto& entry : frequency) {
-            int count_idx = entry.first < MAX_OBSERVED ? entry.first : MAX_OBSERVED - 1;
+            int count_idx = std::min(entry.first, MAX_OBSERVED - 1);
             freqs[alpha][count_idx] = entry.second;
         }
-        double avg = 0.0;
-        int valid_count = 0;
-        for (int value : r) {
-            if (value != -1) {
-                avg += value;
-                valid_count++;
-            }
-        }
-        if (valid_count > 0) {
-            avg /= valid_count;
-        } else {
-            avg = 0.0; // Handle the case of no valid values
-        }
 
-        avgs[alpha] = avg;
+        double avg = std::accumulate(r.begin(), r.end(), 0.0, [](double sum, int val) { return val != -1 ? sum + val : sum; });
+        avgs[alpha] = (r.size() - nan_count) > 0 ? avg / (r.size() - nan_count) : 0.0;
     }
+
     std::ofstream file(RES_PATH + "/adaptivity_avg.txt");
     file << "alpha,avg_num_probed\n";
-    if (file.is_open()) {
-        for (size_t i = 0; i < alpha_values.size(); ++i) {
-            auto alpha = alpha_values[i];
-            auto avg = avgs[alpha];
-            file << alpha << "," << avg << "\n";
-        }
-        file.close();
+    for (auto& alpha : alpha_values) {
+        file << alpha << "," << avgs[alpha] << "\n";
     }
-   }
+}
+
 
 idx_t IndexIVF::train_encoder_num_vectors() const {
     return 0;
