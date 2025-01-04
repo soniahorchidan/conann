@@ -36,7 +36,8 @@
 #include <algorithm>
 #include <random>
 #include <cmath>
-#include <gsl/gsl_sf_bessel.h>
+#include <gsl/gsl_roots.h>
+#include <gsl/gsl_errno.h> 
 
 namespace faiss {
 
@@ -185,11 +186,6 @@ IndexIVF::IndexIVF(
     index_flat = new faiss::IndexFlatL2(d);
     printf("ConANN:: Training exact index done.\n");
     n_list = nlist;
-
-    // GSL test
-    double x = 15.0;
-    double y = gsl_sf_bessel_J0 (x);
-    printf ("ConANN test GSL:: J0(%g) = %.18e\n", x, y);
     // ------------------------
 }
 
@@ -1259,11 +1255,14 @@ void IndexIVF::train(idx_t n, const float* x) {
 void IndexIVF::prep_calib() {
     calib_labels = get_one_hot_gt(calib_cx);
     calib_diffs = compute_difficulty_scores(calib_cx);
-    calib_nonconf = compute_scores(calib_cx, calib_diffs, calib_labels);
+    auto [cn, c_clus] = compute_scores(calib_cx, calib_diffs, calib_labels);
+    calib_nonconf = cn;
 
     test_labels = get_one_hot_gt(test_cx);
     test_diffs = compute_difficulty_scores(test_cx);
-    test_nonconf = compute_scores(test_cx, test_diffs, test_labels);
+    auto [tn, t_clus] = compute_scores(test_cx, test_diffs, test_labels);
+    test_nonconf = tn;
+    std::cout << "DEBUG:: calibration prepared!\n";
 }
 
 std::vector<std::vector<int>> IndexIVF::get_one_hot_gt(const std::vector<std::vector<float>>& queries, int batch_size) {
@@ -1325,25 +1324,130 @@ std::vector<float> IndexIVF::compute_difficulty_scores(const std::vector<std::ve
     return diff_scores;
 }
 
-std::vector<std::vector<float>> IndexIVF::compute_scores(
+void IndexIVF::search_index(
+    const std::vector<std::vector<float>>& queries, 
+    const std::vector<int>& active_indexes, 
+    std::vector<std::vector<float>>& s_distances, 
+    std::vector<std::vector<faiss::idx_t>>& s_indexes) {
+    
+    size_t num_active = active_indexes.size();
+    s_distances.resize(num_active);
+    s_indexes.resize(num_active);
+
+    for (size_t i = 0; i < num_active; ++i) {
+        int idx = active_indexes[i];
+        std::vector<float> distances(K);
+        std::vector<faiss::idx_t> indexes(K); 
+        search(1, queries[idx].data(), K, distances.data(), indexes.data());
+        s_distances[i] = std::move(distances);
+        s_indexes[i] = std::move(indexes);
+    }
+}
+
+std::pair<std::vector<std::vector<float>>, std::vector<std::vector<std::vector<faiss::idx_t>>>> 
+IndexIVF::compute_scores(
     const std::vector<std::vector<float>>& queries, 
     const std::vector<float>& diff_scores, 
     const std::vector<std::vector<int>>& ground_truths) {
-    // Dummy implementation
-    int num_queries = queries.size();
-    std::vector<std::vector<float>> nonconf_list(num_queries);
+    
+    size_t num_queries = queries.size();
+    std::vector<int> active_queries(num_queries, 1);
+    std::unordered_map<int, std::vector<float>> nonconf_list;
+    std::unordered_map<int, std::vector<std::vector<faiss::idx_t>>> all_preds_list;
 
-    // Generate random nonconformity scores between 0 and 1
-    for (int i = 0; i < num_queries; ++i) {
-        // Simulate some number of scores for each query (e.g., random scores for 5 probes)
-        int num_probes = 5;
-        for (int j = 0; j < num_probes; ++j) {
-            float random_score = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);  // Random between 0 and 1
-            nonconf_list[i].push_back(random_score);
+    for (int n_probe = 1; n_probe <= N_LIST; ++n_probe) {
+        // Check if no active queries are left
+        if (std::count(active_queries.begin(), active_queries.end(), 1) == 0) {
+            break;
+        }
+
+        std::cout << "Probing " << n_probe << " cells with " 
+                  << std::count(active_queries.begin(), active_queries.end(), 1) 
+                  << " active queries..." << std::endl;
+
+        nprobe = n_probe;
+        std::vector<int> active_indexes;
+        for (size_t i = 0; i < active_queries.size(); ++i) {
+            if (active_queries[i] == 1) {
+                active_indexes.push_back(i);
+            }
+        }
+
+        // Perform search on active queries
+        std::vector<std::vector<float>> s_distances;
+        std::vector<std::vector<faiss::idx_t>> s_indexes;
+        search_index(queries, active_indexes, s_distances, s_indexes);
+
+        for (size_t idx = 0; idx < active_indexes.size(); ++idx) {
+            int j = active_indexes[idx];
+            const auto& distances = s_distances[idx];
+            const auto& indexes = s_indexes[idx];
+
+            // Check if ground truth is found
+            if (std::set<int>(ground_truths[j].begin(), ground_truths[j].end()) == 
+                std::set<int>(indexes.begin(), indexes.end())) {
+                active_queries[j] = 0;
+            }
+
+            if (distances.back() > MAX_DISTANCE) {
+                nonconf_list[j].push_back(1.0f);
+                all_preds_list[j].push_back({});
+                continue;
+            }
+
+            float score_k = distances.back() / MAX_DISTANCE;
+            nonconf_list[j].push_back(score_k);
+            all_preds_list[j].push_back(indexes);
         }
     }
-    return nonconf_list;
+
+    // Finalize nonconformity and prediction lists
+    for (auto& [qid, ncf] : nonconf_list) {
+        ncf.push_back(0.0f);
+        all_preds_list[qid].push_back(all_preds_list[qid].back());
+    }
+
+    // Weight nonconformity scores by difficulty
+    for (size_t i = 0; i < queries.size(); ++i) {
+        for (float& score : nonconf_list[i]) {
+            score *= (1.0f - diff_scores[i]);
+        }
+    }
+
+    // std::cout << "NONCONF:\n";
+    // for (const auto& pair : nonconf_list) {
+    //     std::cout << "Key: " << pair.first << " | Values: ";
+    //     for (const auto& val : pair.second) {
+    //         std::cout << val << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
+
+    // std::cout << "\n------------\nALLPREDS:\n";
+    // for (const auto& entry : all_preds_list) {
+    //     std::cout << "Key " << entry.first << ":\n";
+    //     for (const auto& vec : entry.second) {
+    //         std::cout << "  [ ";
+    //         for (int val : vec) {
+    //             std::cout << val << " ";
+    //         }
+    //         std::cout << "]\n";
+    //     }
+    // }
+
+    // Convert to simpler format
+    std::vector<std::vector<float>> n_vec(nonconf_list.size());
+    for (const auto& [key, value] : nonconf_list) {
+        n_vec[key] = value;
+    }
+    std::vector<std::vector<std::vector<faiss::idx_t>>> preds_vec(all_preds_list.size());
+    for (const auto& [key, value] : all_preds_list) {
+        preds_vec[key] = value;
+    }
+
+    return {n_vec, preds_vec};
 }
+
 
 float IndexIVF::calibrate(float alpha) {
     float lamhat = optimization(alpha);
@@ -1351,14 +1455,62 @@ float IndexIVF::calibrate(float alpha) {
 }
 
 float IndexIVF::optimization(float alpha) {
-    // dummy
-    return alpha * 2.5f; 
+    int n = calib_cx.size();
+    float target_fnr = (static_cast<float>(n) + 1.0f) / n * alpha - 1.0f / (n + 1.0f);
+
+    // Use GSL's root-finding for the brentq method
+    gsl_root_fsolver* solver = gsl_root_fsolver_alloc(gsl_root_fsolver_brent);
+    gsl_function F;
+    F.function = [](double lambda, void* params) -> double {
+        auto* args = static_cast<std::pair<IndexIVF*, float>*>(params);
+        return args->first->lamhat_threshold(static_cast<float>(lambda), args->second);
+    };
+
+    std::pair<IndexIVF*, float> params = {this, target_fnr};
+    F.params = &params;
+
+    float lower_bound = 0.0f;
+    float upper_bound = 1.0f;
+    gsl_root_fsolver_set(solver, &F, lower_bound, upper_bound);
+
+    int status;
+    int max_iter = 100;
+    int iter = 0;
+    float lamhat = 0.0f;
+
+    do {
+        iter++;
+        gsl_root_fsolver_iterate(solver);
+        lamhat = gsl_root_fsolver_root(solver);
+        lower_bound = gsl_root_fsolver_x_lower(solver);
+        upper_bound = gsl_root_fsolver_x_upper(solver);
+        status = gsl_root_test_interval(lower_bound, upper_bound, 1e-6, 1e-6);
+    } while (status == GSL_CONTINUE && iter < max_iter);
+
+     gsl_root_fsolver_free(solver);
+
+    if (status != GSL_SUCCESS) {
+        std::cerr << "Root-finding failed to converge.\n";
+    }
+
+    return lamhat;
 }
 
-idx_t IndexIVF::train_encoder_num_vectors() const {
-    return 0;
+float IndexIVF::lamhat_threshold(float lambda, float target_fnr) {
+    auto [preds, _] = compute_predictions(lambda, calib_cx, calib_diffs, calib_nonconf, calib_labels);
+    float fnr = false_negative_rate(preds, calib_labels);
+    return fnr - target_fnr;
 }
 
+std::pair<std::vector<std::vector<int>> , std::vector<float>> IndexIVF::compute_predictions(
+    float lambda,
+    const std::vector<std::vector<float>>& queries,
+    const std::vector<float>& diffs,
+    const std::vector<std::vector<float>>& nonconf,
+    const std::vector<std::vector<int>>& preds) {
+    // Dummy
+    return {{}, {}};
+}
 
 float IndexIVF::false_negative_rate(const std::vector<std::vector<int>>& prediction_set,
                                     const std::vector<std::vector<int>>& gt_labels) {
@@ -1388,6 +1540,11 @@ float IndexIVF::false_negative_rate(const std::vector<std::vector<int>>& predict
         return 0.0f;
     }
 }
+
+idx_t IndexIVF::train_encoder_num_vectors() const {
+    return 0;
+}
+
 
 void IndexIVF::train_encoder(
         idx_t /*n*/,

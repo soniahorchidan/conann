@@ -28,15 +28,16 @@ int main(void) {
 
     // train the index on some data
     std::vector<float> training_data(10000 * d);  // Random training data
+    std::uniform_real_distribution<float> dist(0.0f, 1.0f);  // Distribution between 0 and 1
     for (size_t i = 0; i < 10000 * d; i++) {
-        training_data[i] = rng() % 1024;
+        training_data[i] = dist(rng);  // Generate float between 0 and 1
     }
     index.train(10000, training_data.data());
 
     // generate random database
     std::vector<float> database(nb * d);
     for (size_t i = 0; i < nb * d; i++) {
-        database[i] = rng() % 1024;
+        database[i] = dist(rng);
     }
 
     { // populate the database
@@ -50,7 +51,7 @@ int main(void) {
 
         std::vector<float> queries(nq * d);
         for (size_t i = 0; i < nq * d; i++) {
-            queries[i] = rng() % 1024;
+            queries[i] = dist(rng);
         }
 
         int k = 5;
@@ -77,7 +78,11 @@ int main(void) {
     // GSL test
     double x = 15.0;
     double y = gsl_sf_bessel_J0 (x);
-    printf ("J0(%g) = %.18e\n", x, y);
+    printf ("GSL test: J0(%g) = %.18e\n", x, y);
+
+    // Test calibration
+    auto lamhat = index.calibrate(0.1);
+    std::cout << "Calibration done for alpha=0.1, lamhat= " << lamhat << std::endl;
 
     return 0;
 }

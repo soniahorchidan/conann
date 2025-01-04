@@ -454,7 +454,8 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::vector<std::vector<float>> centroids;
 
     // TODO(sonia): do not hardcode
-    int K = 100;
+    int K = 5;
+    int N_LIST = 3;
 
     // TODO(sonia): do we even need to keep train_cx?
     std::vector<std::vector<float>> train_cx;
@@ -467,7 +468,7 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     std::vector<std::vector<int>> test_labels;
     std::vector<float> test_diffs;
-     std::vector<std::vector<float>> test_nonconf;
+    std::vector<std::vector<float>> test_nonconf;
 
     std::tuple<std::vector<std::vector<float>>, 
     std::vector<std::vector<float>>, std::vector<std::vector<float>>> split_dataset(
@@ -482,11 +483,23 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     std::vector<float> compute_difficulty_scores(const std::vector<std::vector<float>>& queries);
     
-    std::vector<std::vector<float>> compute_scores(
+    void search_index(
         const std::vector<std::vector<float>>& queries, 
+        const std::vector<int>& active_indexes, 
+        std::vector<std::vector<float>>& s_distances, 
+        std::vector<std::vector<faiss::idx_t>>& s_indexes);
+
+    std::pair<std::vector<std::vector<float>>, std::vector<std::vector<std::vector<faiss::idx_t>>>> 
+    compute_scores(const std::vector<std::vector<float>>& queries, 
         const std::vector<float>& diff_scores, 
-        const std::vector<std::vector<int>>& ground_truths
-    );
+        const std::vector<std::vector<int>>& ground_truths);
+
+    std::pair<std::vector<std::vector<int>>, std::vector<float>> compute_predictions(
+        float lambda,
+        const std::vector<std::vector<float>>& queries,
+        const std::vector<float>& diffs,
+        const std::vector<std::vector<float>>& nonconf,
+        const std::vector<std::vector<int>>& preds);
     
     float calibrate(float alpha);
 
@@ -494,6 +507,8 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     float false_negative_rate(const std::vector<std::vector<int>>& prediction_set,
                               const std::vector<std::vector<int>>& gt_labels);
+                              
+    float lamhat_threshold(float lambda, float target_fnr);
 
     // ----------------------------
 };
