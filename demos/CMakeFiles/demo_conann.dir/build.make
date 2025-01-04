@@ -93,6 +93,8 @@ demo_conann_EXTERNAL_OBJECTS =
 demos/demo_conann: demos/CMakeFiles/demo_conann.dir/demo_conann.cpp.o
 demos/demo_conann: demos/CMakeFiles/demo_conann.dir/build.make
 demos/demo_conann: faiss/libfaiss.so
+demos/demo_conann: /usr/lib/x86_64-linux-gnu/libgsl.so
+demos/demo_conann: /usr/lib/x86_64-linux-gnu/libgslcblas.so
 demos/demo_conann: demos/CMakeFiles/demo_conann.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX executable demo_conann"
 	cd /home/ubuntu/conann-dev/faiss-1.9.0/demos && $(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/demo_conann.dir/link.txt --verbose=$(VERBOSE)

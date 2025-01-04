@@ -5475,6 +5475,9 @@ faiss/CMakeFiles/faiss.dir/IndexIVF.cpp.o: faiss/IndexIVF.cpp \
   /usr/include/c++/7/cassert \
   /usr/include/assert.h \
   faiss/utils/ordered_key_value.h \
+  faiss/IndexFlat.h \
+  faiss/IndexFlatCodes.h \
+  faiss/impl/DistanceComputer.h \
   /usr/lib/gcc/x86_64-linux-gnu/7/include/omp.h \
   /usr/include/c++/7/mutex \
   /usr/include/c++/7/chrono \
@@ -5489,6 +5492,7 @@ faiss/CMakeFiles/faiss.dir/IndexIVF.cpp.o: faiss/IndexIVF.cpp \
   /usr/include/c++/7/bits/uniform_int_dist.h \
   /usr/include/c++/7/cinttypes \
   /usr/include/inttypes.h \
+  /usr/include/c++/7/iostream \
   faiss/utils/hamming.h \
   faiss/utils/hamming_distance/hamdis-inl.h \
   faiss/utils/hamming_distance/common.h \
@@ -5501,13 +5505,41 @@ faiss/CMakeFiles/faiss.dir/IndexIVF.cpp.o: faiss/IndexIVF.cpp \
   /usr/include/c++/7/bits/stl_tree.h \
   /usr/include/c++/7/bits/stl_set.h \
   /usr/include/c++/7/bits/stl_multiset.h \
-  faiss/IndexFlat.h \
-  faiss/IndexFlatCodes.h \
-  faiss/impl/DistanceComputer.h \
   faiss/impl/AuxIndexStructures.h \
   faiss/impl/CodePacker.h \
   faiss/impl/FaissAssert.h \
-  faiss/impl/FaissException.h
+  faiss/impl/FaissException.h \
+  /usr/include/c++/7/random \
+  /usr/include/c++/7/bits/random.h \
+  /usr/include/x86_64-linux-gnu/c++/7/bits/opt_random.h \
+  /usr/include/c++/7/bits/random.tcc \
+  /usr/include/c++/7/numeric \
+  /usr/include/c++/7/bits/stl_numeric.h \
+  /usr/include/gsl/gsl_roots.h \
+  /usr/include/c++/7/stdlib.h \
+  /usr/include/gsl/gsl_types.h \
+  /usr/include/gsl/gsl_math.h \
+  /usr/include/c++/7/math.h \
+  /usr/include/gsl/gsl_sys.h \
+  /usr/include/gsl/gsl_inline.h \
+  /usr/include/gsl/gsl_machine.h \
+  /usr/lib/gcc/x86_64-linux-gnu/7/include/float.h \
+  /usr/include/gsl/gsl_precision.h \
+  /usr/include/gsl/gsl_nan.h \
+  /usr/include/gsl/gsl_pow_int.h \
+  /usr/include/gsl/gsl_minmax.h \
+  /usr/include/gsl/gsl_errno.h \
+  /usr/include/c++/7/thread \
+  /usr/include/c++/7/fstream \
+  /usr/include/c++/7/bits/codecvt.h \
+  /usr/include/x86_64-linux-gnu/c++/7/bits/basic_file.h \
+  /usr/include/x86_64-linux-gnu/c++/7/bits/c++io.h \
+  /usr/include/c++/7/bits/fstream.tcc \
+  /usr/include/c++/7/functional \
+  /usr/include/c++/7/bits/std_function.h \
+  /usr/include/c++/7/map \
+  /usr/include/c++/7/bits/stl_map.h \
+  /usr/include/c++/7/bits/stl_multimap.h
 
 faiss/CMakeFiles/faiss.dir/IndexIVFAdditiveQuantizer.cpp.o: faiss/IndexIVFAdditiveQuantizer.cpp \
   /usr/include/stdc-predef.h \
@@ -24447,8 +24479,6 @@ faiss/CMakeFiles/faiss.dir/utils/utils.cpp.o: faiss/utils/utils.cpp \
 
 faiss/utils/sorting.cpp:
 
-faiss/utils/hamming.cpp:
-
 faiss/utils/distances_simd.cpp:
 
 faiss/utils/distances_fused/simdlib_based.h:
@@ -24478,8 +24508,6 @@ faiss/invlists/BlockInvertedLists.cpp:
 /usr/include/c++/7/bits/regex_compiler.tcc:
 
 /usr/include/c++/7/bits/regex_scanner.tcc:
-
-/usr/include/c++/7/bits/regex_scanner.h:
 
 /usr/include/c++/7/bits/regex_error.h:
 
@@ -24556,10 +24584,6 @@ faiss/utils/utils.cpp:
 /usr/lib/gcc/x86_64-linux-gnu/7/include/wmmintrin.h:
 
 /usr/lib/gcc/x86_64-linux-gnu/7/include/pmmintrin.h:
-
-/usr/lib/gcc/x86_64-linux-gnu/7/include/avx5124fmapsintrin.h:
-
-/usr/include/c++/7/stdlib.h:
 
 /usr/lib/gcc/x86_64-linux-gnu/7/include/mm_malloc.h:
 
@@ -24649,6 +24673,28 @@ faiss/IndexIVFFastScan.cpp:
 
 faiss/IndexIVFAdditiveQuantizer.cpp:
 
+/usr/include/x86_64-linux-gnu/c++/7/bits/c++io.h:
+
+/usr/include/c++/7/bits/regex_scanner.h:
+
+/usr/include/gsl/gsl_errno.h:
+
+faiss/utils/hamming.cpp:
+
+/usr/include/gsl/gsl_minmax.h:
+
+/usr/include/gsl/gsl_nan.h:
+
+/usr/lib/gcc/x86_64-linux-gnu/7/include/float.h:
+
+/usr/include/gsl/gsl_machine.h:
+
+/usr/lib/gcc/x86_64-linux-gnu/7/include/avx5124fmapsintrin.h:
+
+/usr/include/c++/7/stdlib.h:
+
+/usr/include/gsl/gsl_roots.h:
+
 faiss/IndexFlatCodes.cpp:
 
 faiss/IndexFlat.cpp:
@@ -24692,6 +24738,8 @@ faiss/IndexAdditiveQuantizerFastScan.cpp:
 /usr/include/c++/7/bits/regex.tcc:
 
 faiss/utils/extra_distances.h:
+
+/usr/include/gsl/gsl_math.h:
 
 faiss/utils/partitioning.h:
 
@@ -24787,6 +24835,8 @@ faiss/IndexBinaryHNSW.h:
 
 /usr/include/c++/7/bits/stl_deque.h:
 
+/usr/include/gsl/gsl_sys.h:
+
 faiss/IndexBinaryIVF.cpp:
 
 faiss/utils/quantize_lut.h:
@@ -24804,6 +24854,8 @@ faiss/clone_index.cpp:
 /usr/include/c++/7/system_error:
 
 /usr/include/c++/7/unordered_map:
+
+/usr/include/gsl/gsl_types.h:
 
 /usr/include/c++/7/bits/ostream_insert.h:
 
@@ -24935,11 +24987,13 @@ faiss/invlists/OnDiskInvertedLists.cpp:
 
 /usr/include/c++/7/bits/regex_automaton.tcc:
 
+/usr/include/gsl/gsl_precision.h:
+
 /usr/include/c++/7/typeinfo:
 
-/usr/include/c++/7/map:
-
 faiss/IndexPQFastScan.h:
+
+/usr/include/c++/7/map:
 
 /usr/include/c++/7/sstream:
 
@@ -24958,6 +25012,8 @@ faiss/utils/quantize_lut.cpp:
 /usr/include/x86_64-linux-gnu/bits/iscanonical.h:
 
 /usr/include/c++/7/bits/concept_check.h:
+
+/usr/include/c++/7/bits/fstream.tcc:
 
 /usr/include/c++/7/bits/stl_iterator_base_types.h:
 
@@ -25155,6 +25211,8 @@ faiss/utils/distances.h:
 
 /usr/include/c++/7/streambuf:
 
+/usr/include/c++/7/fstream:
+
 /usr/include/x86_64-linux-gnu/bits/stdlib-float.h:
 
 /usr/include/c++/7/bits/shared_ptr_atomic.h:
@@ -25238,6 +25296,8 @@ faiss/MatrixStats.cpp:
 /usr/include/c++/7/bits/alloc_traits.h:
 
 faiss/utils/fp16.h:
+
+/usr/include/x86_64-linux-gnu/c++/7/bits/basic_file.h:
 
 /usr/include/c++/7/bits/exception_defines.h:
 
@@ -25343,6 +25403,8 @@ faiss/impl/IDSelector.h:
 
 /usr/include/x86_64-linux-gnu/c++/7/bits/ctype_inline.h:
 
+/usr/include/c++/7/math.h:
+
 /usr/include/c++/7/ostream:
 
 /usr/include/x86_64-linux-gnu/c++/7/bits/messages_members.h:
@@ -25423,6 +25485,8 @@ faiss/clone_index.h:
 
 /usr/include/c++/7/bits/random.h:
 
+/usr/include/gsl/gsl_inline.h:
+
 /usr/include/c++/7/istream:
 
 /usr/include/c++/7/chrono:
@@ -25490,6 +25554,8 @@ faiss/Clustering.h:
 faiss/IndexFlatCodes.h:
 
 faiss/impl/PolysemousTraining.h:
+
+/usr/include/gsl/gsl_pow_int.h:
 
 faiss/impl/Quantizer.h:
 

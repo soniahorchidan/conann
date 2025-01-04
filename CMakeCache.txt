@@ -485,6 +485,24 @@ FETCHCONTENT_UPDATES_DISCONNECTED_GOOGLETEST:BOOL=OFF
 //Git command line client
 GIT_EXECUTABLE:FILEPATH=/usr/bin/git
 
+//Path to a library.
+GSL_CBLAS_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libgslcblas.so
+
+//Path to a library.
+GSL_CBLAS_LIBRARY_DEBUG:FILEPATH=/usr/lib/x86_64-linux-gnu/libgslcblas.so
+
+//Path to a program.
+GSL_CONFIG_EXECUTABLE:FILEPATH=/usr/bin/gsl-config
+
+//Path to a file.
+GSL_INCLUDE_DIR:PATH=/usr/include
+
+//Path to a library.
+GSL_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libgsl.so
+
+//Path to a library.
+GSL_LIBRARY_DEBUG:FILEPATH=/usr/lib/x86_64-linux-gnu/libgsl.so
+
 //The directory containing a CMake configuration file for GTest.
 GTest_DIR:PATH=/home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/pkgRedirects
 
@@ -551,6 +569,12 @@ OpenMP_gomp_LIBRARY:FILEPATH=/usr/lib/gcc/x86_64-linux-gnu/7/libgomp.so
 
 //Path to the pthread library for OpenMP
 OpenMP_pthread_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libpthread.so
+
+//Arguments to supply to pkg-config
+PKG_CONFIG_ARGN:STRING=
+
+//pkg-config executable
+PKG_CONFIG_EXECUTABLE:FILEPATH=PKG_CONFIG_EXECUTABLE-NOTFOUND
 
 //Name of the computer/site where compile is being run
 SITE:STRING=conann
@@ -895,6 +919,8 @@ CTEST_SUBMIT_RETRY_DELAY-ADVANCED:INTERNAL=1
 DART_TESTING_TIMEOUT-ADVANCED:INTERNAL=1
 //Details about finding BLAS
 FIND_PACKAGE_MESSAGE_DETAILS_BLAS:INTERNAL=[/usr/lib/x86_64-linux-gnu/libblas.so][v()]
+//Details about finding GSL
+FIND_PACKAGE_MESSAGE_DETAILS_GSL:INTERNAL=[/usr/include][/usr/lib/x86_64-linux-gnu/libgsl.so][/usr/lib/x86_64-linux-gnu/libgslcblas.so][v2.4()]
 //Details about finding Git
 FIND_PACKAGE_MESSAGE_DETAILS_Git:INTERNAL=[/usr/bin/git][v2.17.1()]
 //Details about finding LAPACK
@@ -911,6 +937,39 @@ FIND_PACKAGE_MESSAGE_DETAILS_Python:INTERNAL=[/usr/bin/python3.6][cfound compone
 FIND_PACKAGE_MESSAGE_DETAILS_Threads:INTERNAL=[TRUE][v()]
 //ADVANCED property for variable: GIT_EXECUTABLE
 GIT_EXECUTABLE-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: GSL_CBLAS_LIBRARY
+GSL_CBLAS_LIBRARY-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: GSL_CBLAS_LIBRARY_DEBUG
+GSL_CBLAS_LIBRARY_DEBUG-ADVANCED:INTERNAL=1
+GSL_CFLAGS:INTERNAL=
+GSL_CFLAGS_I:INTERNAL=
+GSL_CFLAGS_OTHER:INTERNAL=
+GSL_FOUND:INTERNAL=
+GSL_INCLUDEDIR:INTERNAL=
+//ADVANCED property for variable: GSL_INCLUDE_DIR
+GSL_INCLUDE_DIR-ADVANCED:INTERNAL=1
+GSL_LIBDIR:INTERNAL=
+//ADVANCED property for variable: GSL_LIBRARY
+GSL_LIBRARY-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: GSL_LIBRARY_DEBUG
+GSL_LIBRARY_DEBUG-ADVANCED:INTERNAL=1
+GSL_LIBS:INTERNAL=
+GSL_LIBS_L:INTERNAL=
+GSL_LIBS_OTHER:INTERNAL=
+GSL_LIBS_PATHS:INTERNAL=
+GSL_MODULE_NAME:INTERNAL=
+GSL_PREFIX:INTERNAL=
+GSL_STATIC_CFLAGS:INTERNAL=
+GSL_STATIC_CFLAGS_I:INTERNAL=
+GSL_STATIC_CFLAGS_OTHER:INTERNAL=
+GSL_STATIC_LIBDIR:INTERNAL=
+GSL_STATIC_LIBS:INTERNAL=
+GSL_STATIC_LIBS_L:INTERNAL=
+GSL_STATIC_LIBS_OTHER:INTERNAL=
+GSL_STATIC_LIBS_PATHS:INTERNAL=
+//ADVANCED property for variable: GSL_VERSION
+GSL_VERSION-ADVANCED:INTERNAL=1
+GSL_VERSION:INTERNAL=
 //Test HAVE_CXX_FLAG_COVERAGE
 HAVE_CXX_FLAG_COVERAGE:INTERNAL=1
 //Test HAVE_CXX_FLAG_FSTRICT_ALIASING
@@ -1003,6 +1062,10 @@ OpenMP_SPECTEST_C_:INTERNAL=TRUE
 OpenMP_gomp_LIBRARY-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: OpenMP_pthread_LIBRARY
 OpenMP_pthread_LIBRARY-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: PKG_CONFIG_ARGN
+PKG_CONFIG_ARGN-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: PKG_CONFIG_EXECUTABLE
+PKG_CONFIG_EXECUTABLE-ADVANCED:INTERNAL=1
 //Result of try_run()
 RUN_HAVE_POSIX_REGEX:INTERNAL=0
 //Result of try_run()
@@ -1022,6 +1085,7 @@ _Python_EXECUTABLE:INTERNAL=/usr/bin/python3.6
 //Python Properties
 _Python_INTERPRETER_PROPERTIES:INTERNAL=Python;3;6;9;64;m;cpython-36m-x86_64-linux-gnu;/usr/lib/python3.6;/usr/lib/python3.6;/usr/lib/python3.6/site-packages;/usr/lib/python3.6/site-packages
 _Python_INTERPRETER_SIGNATURE:INTERNAL=b6830b8a27b116ec04b91b52a075b840
+__pkg_config_checked_GSL:INTERNAL=1
 cmake_package_name:INTERNAL=GTest
 //ADVANCED property for variable: gtest_build_samples
 gtest_build_samples-ADVANCED:INTERNAL=1

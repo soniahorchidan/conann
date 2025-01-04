@@ -1519,6 +1519,8 @@ faiss/libfaiss.so: faiss/CMakeFiles/faiss.dir/build.make
 faiss/libfaiss.so: /usr/lib/x86_64-linux-gnu/libblas.so
 faiss/libfaiss.so: /usr/lib/x86_64-linux-gnu/liblapack.so
 faiss/libfaiss.so: /usr/lib/x86_64-linux-gnu/libblas.so
+faiss/libfaiss.so: /usr/lib/x86_64-linux-gnu/libgsl.so
+faiss/libfaiss.so: /usr/lib/x86_64-linux-gnu/libgslcblas.so
 faiss/libfaiss.so: /usr/lib/gcc/x86_64-linux-gnu/7/libgomp.so
 faiss/libfaiss.so: /usr/lib/x86_64-linux-gnu/libpthread.so
 faiss/libfaiss.so: /usr/lib/x86_64-linux-gnu/liblapack.so
