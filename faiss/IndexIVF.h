@@ -455,7 +455,7 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     // TODO(sonia): do not hardcode
     int K = 5;
-    int N_LIST = 3;
+    int N_LIST = 10;
 
     // TODO(sonia): do we even need to keep train_cx?
     std::vector<std::vector<float>> train_cx;

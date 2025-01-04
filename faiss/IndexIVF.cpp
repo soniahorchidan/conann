@@ -201,8 +201,24 @@ void IndexIVF::add_with_ids(idx_t n, const float* x, const idx_t* xids) {
     add_core(n, x, xids, coarse_idx.get());
 
     // ConANN Block
+    // Add data to the exact index
+    index_flat->add(n, x); 
+    printf("ConANN:: Exact index populated.\n");
+
+    std::shared_ptr<std::vector<float>> centroids_flat = std::make_shared<std::vector<float>>(n_list * quantizer->d);
+    quantizer->reconstruct_n(0, n_list, centroids_flat->data());
+
+    for (size_t i = 0; i < n_list; ++i) {
+        std::vector<float> centroid(quantizer->d);
+        std::copy(centroids_flat->begin() + i * quantizer->d, centroids_flat->begin() + (i + 1) * quantizer->d, centroid.begin());
+        centroids.push_back(std::move(centroid));
+    }
+
+    printf("ConANN:: Centroids initialized.\n");
+    // ---------------------------
+
     // TODO: maybe use only IDs that point to data
-    auto [train_data, calib_data, test_data] = split_dataset(x, n, quantizer->d, 0.01, 0.01);
+    auto [train_data, calib_data, test_data] = split_dataset(x, n, quantizer->d, 0.1, 0.1);
     train_cx = train_data;
     calib_cx = calib_data;
     test_cx = test_data;
@@ -1233,23 +1249,6 @@ void IndexIVF::train(idx_t n, const float* x) {
     }
 
     is_trained = true;
-
-    // ConANN block
-    // Add data to the exact index
-    index_flat->add(n, tv.x); 
-    printf("ConANN:: Exact index populated.\n");
-
-    std::shared_ptr<std::vector<float>> centroids_flat = std::make_shared<std::vector<float>>(n_list * quantizer->d);
-    quantizer->reconstruct_n(0, n_list, centroids_flat->data());
-
-    for (size_t i = 0; i < n_list; ++i) {
-        std::vector<float> centroid(quantizer->d);
-        std::copy(centroids_flat->begin() + i * quantizer->d, centroids_flat->begin() + (i + 1) * quantizer->d, centroid.begin());
-        centroids.push_back(std::move(centroid));
-    }
-
-    printf("ConANN:: Centroids initialized.\n");
-    // ---------------------------
 }
 
 void IndexIVF::prep_calib() {
@@ -1280,17 +1279,17 @@ std::vector<std::vector<faiss::idx_t>> IndexIVF::get_one_hot_gt(const std::vecto
         for (size_t i = 0; i < num_queries; ++i) {
             std::copy(batch_queries[i].begin(), batch_queries[i].end(), flat_queries.begin() + i * dim);
         }
-        // Perform the search with FAISS
-        std::vector<faiss::idx_t> gt_indexes(num_queries * K); 
-        // TODO(sonia): can get distances from here
+
+        std::vector<faiss::idx_t> flat_gt_indexes(num_queries * K); 
         std::vector<float> distances(num_queries * K);
-        index_flat->search(num_queries, flat_queries.data(), K, distances.data(), gt_indexes.data());
+        index_flat->search(num_queries, flat_queries.data(), K, distances.data(), flat_gt_indexes.data());
 
         // Convert the flat indices to a 2D vector (batch-wise ground truth indices)
         for (size_t i = 0; i < num_queries; ++i) {
-            std::vector<faiss::idx_t> batch_gt_indexes(gt_indexes.begin() + i * K, gt_indexes.begin() + (i + 1) * K);
+            std::vector<faiss::idx_t> batch_gt_indexes(flat_gt_indexes.begin() + i * K, flat_gt_indexes.begin() + (i + 1) * K);
             result.push_back(batch_gt_indexes);
         }
+
         std::cout << "Batch " << start << "-" << end << " done." << std::endl;
     }
 
@@ -1326,25 +1325,76 @@ std::vector<float> IndexIVF::compute_difficulty_scores(const std::vector<std::ve
     return diff_scores;
 }
 
+
+// void IndexIVF::search_index(
+//     const std::vector<std::vector<float>>& queries, 
+//     const std::vector<int>& active_indexes, 
+//     std::vector<std::vector<float>>& s_distances, 
+//     std::vector<std::vector<faiss::idx_t>>& s_indexes) {
+
+//     // Step 1: Create query_subset
+//     std::vector<std::vector<float>> query_subset;
+//     for (int idx : active_indexes) {
+//         query_subset.push_back(queries[idx]);
+//     }
+
+//     // Step 2: Flatten the query_subset into a 1D array for FAISS
+//     size_t num_queries = query_subset.size();
+//     size_t query_dim = query_subset[0].size();
+//     std::vector<float> flat_queries(num_queries * query_dim);
+//     for (size_t i = 0; i < num_queries; ++i) {
+//         std::copy(query_subset[i].begin(), query_subset[i].end(), flat_queries.begin() + i * query_dim);
+//     }
+
+//     // Step 3: Resize the output containers
+//     s_distances.resize(num_queries, std::vector<float>(K));
+//     s_indexes.resize(num_queries, std::vector<faiss::idx_t>(K));
+
+//     // Step 4: Perform the search using FAISS, passing the flat arrays
+//     search(num_queries, 
+//            flat_queries.data(), 
+//            K, 
+//            s_distances.data()->data(), 
+//            s_indexes.data()->data());
+
+//     // The s_distances and s_indexes are already populated by FAISS, no further reconstruction needed.
+// }
+
+
 void IndexIVF::search_index(
     const std::vector<std::vector<float>>& queries, 
     const std::vector<int>& active_indexes, 
     std::vector<std::vector<float>>& s_distances, 
     std::vector<std::vector<faiss::idx_t>>& s_indexes) {
     
-    size_t num_active = active_indexes.size();
-    s_distances.resize(num_active);
-    s_indexes.resize(num_active);
+   int num_queries = active_indexes.size();
+    // Prepare data for FAISS search
+    std::vector<float> query_vectors;
+    for (int idx : active_indexes) {
+        for (size_t j = 0; j < queries[idx].size(); ++j) {
+            query_vectors.push_back(queries[idx][j]);
+        }
+    }
 
-    for (size_t i = 0; i < num_active; ++i) {
-        int idx = active_indexes[i];
-        std::vector<float> distances(K);
-        std::vector<faiss::idx_t> indexes(K); 
-        search(1, queries[idx].data(), K, distances.data(), indexes.data());
-        s_distances[i] = std::move(distances);
-        s_indexes[i] = std::move(indexes);
+    // Perform the search
+    std::vector<float> flat_distances(num_queries * K);
+    std::vector<faiss::idx_t> flat_indexes(num_queries * K);
+
+    // Use raw pointers for the query vectors, passing it to FAISS search
+    search(num_queries, query_vectors.data(), K, flat_distances.data(), flat_indexes.data());
+
+    // Reconstruct flat vectors into the s_distances and s_indexes
+    s_distances.resize(num_queries, std::vector<float>(K));
+    s_indexes.resize(num_queries, std::vector<faiss::idx_t>(K));
+
+    for (int i = 0; i < num_queries; ++i) {
+        for (int j = 0; j < K; ++j) {
+            s_distances[i][j] = flat_distances[i * K + j];
+            s_indexes[i][j] = flat_indexes[i * K + j];
+        }
     }
 }
+
 
 std::pair<std::vector<std::vector<float>>, std::vector<std::vector<std::vector<faiss::idx_t>>>> 
 IndexIVF::compute_scores(
@@ -1416,27 +1466,6 @@ IndexIVF::compute_scores(
         }
     }
 
-    // std::cout << "NONCONF:\n";
-    // for (const auto& pair : nonconf_list) {
-    //     std::cout << "Key: " << pair.first << " | Values: ";
-    //     for (const auto& val : pair.second) {
-    //         std::cout << val << " ";
-    //     }
-    //     std::cout << std::endl;
-    // }
-
-    // std::cout << "\n------------\nALLPREDS:\n";
-    // for (const auto& entry : all_preds_list) {
-    //     std::cout << "Key " << entry.first << ":\n";
-    //     for (const auto& vec : entry.second) {
-    //         std::cout << "  [ ";
-    //         for (int val : vec) {
-    //             std::cout << val << " ";
-    //         }
-    //         std::cout << "]\n";
-    //     }
-    // }
-
     // Convert to simpler format
     std::vector<std::vector<float>> n_vec(nonconf_list.size());
     for (const auto& [key, value] : nonconf_list) {
@@ -1501,27 +1530,6 @@ float IndexIVF::optimization(float alpha) {
 float IndexIVF::lamhat_threshold(float lambda, float target_fnr) {
     auto [preds, _] = compute_predictions(lambda, calib_cx, calib_diffs, calib_nonconf, calib_preds);
     float fnr = false_negative_rate(preds, calib_labels);
-
-    std::cout << "\nPREDS=\n";
-    for (const auto& inner_vec : preds) {
-        std::cout << "[ ";
-        for (const int& element : inner_vec) {
-            std::cout << element << " ";
-        }
-        std::cout << "]\n";
-    }
-
-    std::cout << "\nGT=\n";
-    for (const auto& inner_vec : calib_labels) {
-        std::cout << "[ ";
-        for (const int& element : inner_vec) {
-            std::cout << element << " ";
-        }
-        std::cout << "]\n";
-    }
-
-     std::cout << "\n\nLAMBDA=" << lambda << "FNR =" << fnr << "\n";
-
     return fnr - target_fnr;
 }
 
