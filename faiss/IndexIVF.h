@@ -528,7 +528,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     void eval_on_lambda_range(float min_alpha, float max_alpha, float step); 
 
     void print_validity(const std::vector<std::vector<float>>& all_fnrs, const std::vector<float>& alpha_values);
-    void print_adaptivity(const std::vector<std::vector<int>>& all_nprobe_freqs, const std::vector<float>& alpha_values);
+    void print_adaptivity(const std::vector<std::vector<std::vector<int>>>& all_nprobe_freqs, const std::vector<float>& alpha_values);
 
     // ----------------------------
 };
