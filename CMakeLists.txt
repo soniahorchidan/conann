@@ -119,3 +119,7 @@ if(BUILD_TESTING)
     endif()
   endif()
 endif()
+
+
+find_package(GSL REQUIRED)
+target_link_libraries(faiss PRIVATE GSL::gsl GSL::gslcblas)
