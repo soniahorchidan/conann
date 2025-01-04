@@ -403,6 +403,10 @@ void IndexIVF::search(
         std::unique_ptr<float[]> coarse_dis(new float[n * nprobe]);
 
         double t0 = getmillisecs();
+
+        // NOTE(sonia): The quantizer computes distances between the query vector and the 
+        // centroids, returning the indices (idx) and distances (coarse_dis) of the top 
+        // nprobe nearest centroids.
         quantizer->search(
                 n,
                 x,
@@ -414,6 +418,8 @@ void IndexIVF::search(
         double t1 = getmillisecs();
         invlists->prefetch_lists(idx.get(), n * nprobe);
 
+        // NOTE(sonia): It performs a pairwise distance calculation between the query 
+        // vector and the vectors in the corresponding clusters (closest nlist).
         search_preassigned(
                 n,
                 x,
@@ -550,6 +556,7 @@ void IndexIVF::search_preassigned(
 
         // initialize + reorder a result heap
 
+        // NOTE(sonia): initializes the result heap for each query
         auto init_result = [&](float* simi, idx_t* idxi) {
             if (!do_heap_init)
                 return;
@@ -560,6 +567,7 @@ void IndexIVF::search_preassigned(
             }
         };
 
+        // NOTE(sonia): updates the heap with new distances and indices from each cluster
         auto add_local_results = [&](const float* local_dis,
                                      const idx_t* local_idx,
                                      float* simi,
@@ -571,6 +579,8 @@ void IndexIVF::search_preassigned(
             }
         };
 
+        // NOTE(sonia): Once all clusters have been scanned, the heap is reordered to return 
+        // the results in sorted order
         auto reorder_result = [&](float* simi, idx_t* idxi) {
             if (!do_heap_init)
                 return;
@@ -682,6 +692,9 @@ void IndexIVF::search_preassigned(
                 init_result(simi, idxi);
 
                 idx_t nscan = 0;
+
+                // NOTE(sonia): adding results by searching each nprobe. 
+                // Here is where the intermediate results get updated!!
 
                 // loop over probes
                 for (size_t ik = 0; ik < nprobe; ik++) {
