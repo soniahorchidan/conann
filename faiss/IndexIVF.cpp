@@ -1269,27 +1269,36 @@ void IndexIVF::prep_calib() {
     test_preds = t_clus;
 }
 
-std::vector<std::vector<faiss::idx_t>> IndexIVF::get_one_hot_gt(const std::vector<std::vector<float>>& queries, int batch_size) {
+std::vector<std::vector<faiss::idx_t>>
+IndexIVF::get_one_hot_gt(const std::vector<std::vector<float>> &queries,
+                         int batch_size) {
     std::vector<std::vector<faiss::idx_t>> result;
     for (size_t start = 0; start < queries.size(); start += batch_size) {
         size_t end = std::min(start + batch_size, queries.size());
-        std::vector<std::vector<float>> batch_queries(queries.begin() + start, queries.begin() + end);
-        // Convert batch queries into a flat array of floats (FAISS expects this format)
+        std::vector<std::vector<float>> batch_queries(queries.begin() + start,
+                                                      queries.begin() + end);
+        // Convert batch queries into a flat array of floats (FAISS expects this
+        // format)
         size_t num_queries = batch_queries.size();
         size_t dim = batch_queries[0].size();
         std::vector<float> flat_queries(num_queries * dim);
 
         for (size_t i = 0; i < num_queries; ++i) {
-            std::copy(batch_queries[i].begin(), batch_queries[i].end(), flat_queries.begin() + i * dim);
+            std::copy(batch_queries[i].begin(), batch_queries[i].end(),
+                      flat_queries.begin() + i * dim);
         }
 
-        std::vector<faiss::idx_t> flat_gt_indexes(num_queries * K); 
+        std::vector<faiss::idx_t> flat_gt_indexes(num_queries * K);
         std::vector<float> distances(num_queries * K);
-        index_flat->search(num_queries, flat_queries.data(), K, distances.data(), flat_gt_indexes.data());
+        index_flat->search(num_queries, flat_queries.data(), K,
+                           distances.data(), flat_gt_indexes.data());
 
-        // Convert the flat indices to a 2D vector (batch-wise ground truth indices)
+        // Convert the flat indices to a 2D vector (batch-wise ground truth
+        // indices)
         for (size_t i = 0; i < num_queries; ++i) {
-            std::vector<faiss::idx_t> batch_gt_indexes(flat_gt_indexes.begin() + i * K, flat_gt_indexes.begin() + (i + 1) * K);
+            std::vector<faiss::idx_t> batch_gt_indexes(
+                flat_gt_indexes.begin() + i * K,
+                flat_gt_indexes.begin() + (i + 1) * K);
             result.push_back(batch_gt_indexes);
         }
 
@@ -1299,9 +1308,9 @@ std::vector<std::vector<faiss::idx_t>> IndexIVF::get_one_hot_gt(const std::vecto
     return result;
 }
 
-
 // Compute the L2 distance between two vectors
-float IndexIVF::compute_l2_distance(const std::vector<float>& a, const std::vector<float>& b) {
+float IndexIVF::compute_l2_distance(const std::vector<float> &a,
+                                    const std::vector<float> &b) {
     float distance = 0.0f;
     for (size_t i = 0; i < a.size(); ++i) {
         float diff = a[i] - b[i];
@@ -1311,67 +1320,32 @@ float IndexIVF::compute_l2_distance(const std::vector<float>& a, const std::vect
 }
 
 // Compute the difficulty scores for a set of queries
-std::vector<float> IndexIVF::compute_difficulty_scores(const std::vector<std::vector<float>>& queries) {
+std::vector<float> IndexIVF::compute_difficulty_scores(
+    const std::vector<std::vector<float>> &queries) {
     std::vector<float> diff_scores;
 
-    for (const auto& query : queries) {
+    for (const auto &query : queries) {
         std::vector<float> distances;
-        for (const auto& centroid : centroids) {
+        for (const auto &centroid : centroids) {
             distances.push_back(compute_l2_distance(centroid, query));
         }
-        std::nth_element(distances.begin(), distances.begin() + 2, distances.end());
+        std::nth_element(distances.begin(), distances.begin() + 2,
+                         distances.end());
         float closest_distances[2] = {distances[0], distances[1]};
-        float score = std::abs(closest_distances[0] - closest_distances[1]) / std::max(closest_distances[0], closest_distances[1]);
+        float score = std::abs(closest_distances[0] - closest_distances[1]) /
+                      std::max(closest_distances[0], closest_distances[1]);
         diff_scores.push_back(score);
     }
 
     return diff_scores;
 }
 
+void IndexIVF::search_index(const std::vector<std::vector<float>> &queries,
+                            const std::vector<int> &active_indexes,
+                            std::vector<std::vector<float>> &s_distances,
+                            std::vector<std::vector<faiss::idx_t>> &s_indexes) {
 
-// void IndexIVF::search_index(
-//     const std::vector<std::vector<float>>& queries, 
-//     const std::vector<int>& active_indexes, 
-//     std::vector<std::vector<float>>& s_distances, 
-//     std::vector<std::vector<faiss::idx_t>>& s_indexes) {
-
-//     // Step 1: Create query_subset
-//     std::vector<std::vector<float>> query_subset;
-//     for (int idx : active_indexes) {
-//         query_subset.push_back(queries[idx]);
-//     }
-
-//     // Step 2: Flatten the query_subset into a 1D array for FAISS
-//     size_t num_queries = query_subset.size();
-//     size_t query_dim = query_subset[0].size();
-//     std::vector<float> flat_queries(num_queries * query_dim);
-//     for (size_t i = 0; i < num_queries; ++i) {
-//         std::copy(query_subset[i].begin(), query_subset[i].end(), flat_queries.begin() + i * query_dim);
-//     }
-
-//     // Step 3: Resize the output containers
-//     s_distances.resize(num_queries, std::vector<float>(K));
-//     s_indexes.resize(num_queries, std::vector<faiss::idx_t>(K));
-
-//     // Step 4: Perform the search using FAISS, passing the flat arrays
-//     search(num_queries, 
-//            flat_queries.data(), 
-//            K, 
-//            s_distances.data()->data(), 
-//            s_indexes.data()->data());
-
-//     // The s_distances and s_indexes are already populated by FAISS, no further reconstruction needed.
-// }
-
-
-void IndexIVF::search_index(
-    const std::vector<std::vector<float>>& queries, 
-    const std::vector<int>& active_indexes, 
-    std::vector<std::vector<float>>& s_distances, 
-    std::vector<std::vector<faiss::idx_t>>& s_indexes) {
-    
-   int num_queries = active_indexes.size();
-    // Prepare data for FAISS search
+    int num_queries = active_indexes.size();
     std::vector<float> query_vectors;
     for (int idx : active_indexes) {
         for (size_t j = 0; j < queries[idx].size(); ++j) {
@@ -1379,17 +1353,13 @@ void IndexIVF::search_index(
         }
     }
 
-    // Perform the search
     std::vector<float> flat_distances(num_queries * K);
     std::vector<faiss::idx_t> flat_indexes(num_queries * K);
+    search(num_queries, query_vectors.data(), K, flat_distances.data(),
+           flat_indexes.data());
 
-    // Use raw pointers for the query vectors, passing it to FAISS search
-    search(num_queries, query_vectors.data(), K, flat_distances.data(), flat_indexes.data());
-
-    // Reconstruct flat vectors into the s_distances and s_indexes
     s_distances.resize(num_queries, std::vector<float>(K));
     s_indexes.resize(num_queries, std::vector<faiss::idx_t>(K));
-
     for (int i = 0; i < num_queries; ++i) {
         for (int j = 0; j < K; ++j) {
             s_distances[i][j] = flat_distances[i * K + j];
@@ -1398,17 +1368,18 @@ void IndexIVF::search_index(
     }
 }
 
-
-std::pair<std::vector<std::vector<float>>, std::vector<std::vector<std::vector<faiss::idx_t>>>> 
+std::pair<std::vector<std::vector<float>>,
+          std::vector<std::vector<std::vector<faiss::idx_t>>>>
 IndexIVF::compute_scores(
-    const std::vector<std::vector<float>>& queries, 
-    const std::vector<float>& diff_scores, 
-    const std::vector<std::vector<faiss::idx_t>>& ground_truths) {
-    
+    const std::vector<std::vector<float>> &queries,
+    const std::vector<float> &diff_scores,
+    const std::vector<std::vector<faiss::idx_t>> &ground_truths) {
+
     size_t num_queries = queries.size();
     std::vector<int> active_queries(num_queries, 1);
     std::unordered_map<int, std::vector<float>> nonconf_list;
-    std::unordered_map<int, std::vector<std::vector<faiss::idx_t>>> all_preds_list;
+    std::unordered_map<int, std::vector<std::vector<faiss::idx_t>>>
+        all_preds_list;
 
     for (int n_probe = 1; n_probe <= N_LIST; ++n_probe) {
         // Check if no active queries are left
@@ -1416,8 +1387,8 @@ IndexIVF::compute_scores(
             break;
         }
 
-        std::cout << "Probing " << n_probe << " cells with " 
-                  << std::count(active_queries.begin(), active_queries.end(), 1) 
+        std::cout << "Probing " << n_probe << " cells with "
+                  << std::count(active_queries.begin(), active_queries.end(), 1)
                   << " active queries..." << std::endl;
 
         nprobe = n_probe;
@@ -1435,11 +1406,12 @@ IndexIVF::compute_scores(
 
         for (size_t idx = 0; idx < active_indexes.size(); ++idx) {
             int j = active_indexes[idx];
-            const auto& distances = s_distances[idx];
-            const auto& indexes = s_indexes[idx];
+            const auto &distances = s_distances[idx];
+            const auto &indexes = s_indexes[idx];
 
             // Check if ground truth is found
-            if (std::set<int>(ground_truths[j].begin(), ground_truths[j].end()) == 
+            if (std::set<int>(ground_truths[j].begin(),
+                              ground_truths[j].end()) ==
                 std::set<int>(indexes.begin(), indexes.end())) {
                 active_queries[j] = 0;
             }
@@ -1458,35 +1430,36 @@ IndexIVF::compute_scores(
 
     // Check if there are more active queries after
     if (std::count(active_queries.begin(), active_queries.end(), 1) > 0) {
-        std::cout << "Warning: " << active_queries.size() << "active queries remaining after probing is done.\n";
+        std::cout << "Warning: " << active_queries.size()
+                  << "active queries remaining after probing is done.\n";
     }
 
     // Finalize nonconformity and prediction lists
-    for (auto& [qid, ncf] : nonconf_list) {
+    for (auto &[qid, ncf] : nonconf_list) {
         ncf.push_back(0.0f);
         all_preds_list[qid].push_back(all_preds_list[qid].back());
     }
 
     // Weight nonconformity scores by difficulty
     for (size_t i = 0; i < queries.size(); ++i) {
-        for (float& score : nonconf_list[i]) {
+        for (float &score : nonconf_list[i]) {
             score *= (1.0f - diff_scores[i]);
         }
     }
 
     // Convert to simpler format
     std::vector<std::vector<float>> n_vec(nonconf_list.size());
-    for (const auto& [key, value] : nonconf_list) {
+    for (const auto &[key, value] : nonconf_list) {
         n_vec[key] = value;
     }
-    std::vector<std::vector<std::vector<faiss::idx_t>>> preds_vec(all_preds_list.size());
-    for (const auto& [key, value] : all_preds_list) {
+    std::vector<std::vector<std::vector<faiss::idx_t>>> preds_vec(
+        all_preds_list.size());
+    for (const auto &[key, value] : all_preds_list) {
         preds_vec[key] = value;
     }
 
     return {n_vec, preds_vec};
 }
-
 
 float IndexIVF::calibrate(float alpha) {
     float lamhat = optimization(alpha);
@@ -1495,17 +1468,19 @@ float IndexIVF::calibrate(float alpha) {
 
 float IndexIVF::optimization(float alpha) {
     int n = calib_cx.size();
-    float target_fnr = (static_cast<float>(n) + 1.0f) / n * alpha - 1.0f / (n + 1.0f);
+    float target_fnr =
+        (static_cast<float>(n) + 1.0f) / n * alpha - 1.0f / (n + 1.0f);
 
     // Use GSL's root-finding for the brentq method
-    gsl_root_fsolver* solver = gsl_root_fsolver_alloc(gsl_root_fsolver_brent);
+    gsl_root_fsolver *solver = gsl_root_fsolver_alloc(gsl_root_fsolver_brent);
     gsl_function F;
-    F.function = [](double lambda, void* params) -> double {
-        auto* args = static_cast<std::pair<IndexIVF*, float>*>(params);
-        return args->first->lamhat_threshold(static_cast<float>(lambda), args->second);
+    F.function = [](double lambda, void *params) -> double {
+        auto *args = static_cast<std::pair<IndexIVF *, float> *>(params);
+        return args->first->lamhat_threshold(static_cast<float>(lambda),
+                                             args->second);
     };
 
-    std::pair<IndexIVF*, float> params = {this, target_fnr};
+    std::pair<IndexIVF *, float> params = {this, target_fnr};
     F.params = &params;
 
     float lower_bound = 0.0f;
@@ -1526,7 +1501,7 @@ float IndexIVF::optimization(float alpha) {
         status = gsl_root_test_interval(lower_bound, upper_bound, 1e-6, 1e-6);
     } while (status == GSL_CONTINUE && iter < max_iter);
 
-     gsl_root_fsolver_free(solver);
+    gsl_root_fsolver_free(solver);
 
     if (status != GSL_SUCCESS) {
         std::cerr << "Root-finding failed to converge.\n";
@@ -1536,24 +1511,25 @@ float IndexIVF::optimization(float alpha) {
 }
 
 float IndexIVF::lamhat_threshold(float lambda, float target_fnr) {
-    auto [preds, _] = compute_predictions(lambda, calib_cx, calib_diffs, calib_nonconf, calib_preds);
+    auto [preds, _] = compute_predictions(lambda, calib_cx, calib_diffs,
+                                          calib_nonconf, calib_preds);
     float fnr = false_negative_rate(preds, calib_labels);
     return fnr - target_fnr;
 }
 
-std::pair<std::vector<std::vector<faiss::idx_t>> , std::vector<int>> IndexIVF::compute_predictions(
-    float lambda,
-    const std::vector<std::vector<float>>& queries,
-    const std::vector<float>& diffs,
-    const std::vector<std::vector<float>>& nonconf,
-    const std::vector<std::vector<std::vector<faiss::idx_t>>>& preds) {
-        
+std::pair<std::vector<std::vector<faiss::idx_t>>, std::vector<int>>
+IndexIVF::compute_predictions(
+    float lambda, const std::vector<std::vector<float>> &queries,
+    const std::vector<float> &diffs,
+    const std::vector<std::vector<float>> &nonconf,
+    const std::vector<std::vector<std::vector<faiss::idx_t>>> &preds) {
+
     std::vector<std::vector<faiss::idx_t>> test_preds;
     std::vector<int> cl_searched;
 
     for (size_t query_idx = 0; query_idx < queries.size(); ++query_idx) {
-        const auto& sc = nonconf[query_idx];
-        const auto& p = preds[query_idx];
+        const auto &sc = nonconf[query_idx];
+        const auto &p = preds[query_idx];
 
         int index = -1;
         for (size_t i = 0; i < sc.size(); ++i) {
@@ -1563,10 +1539,13 @@ std::pair<std::vector<std::vector<faiss::idx_t>> , std::vector<int>> IndexIVF::c
         }
 
         if (index == -1) {
-            test_preds.push_back({});  // Empty set if no valid predictions
-            cl_searched.push_back(static_cast<int>(std::find(sc.begin(), sc.end(), 0.0f) - sc.begin()) - 1);
+            test_preds.push_back({}); // Empty set if no valid predictions
+            cl_searched.push_back(
+                static_cast<int>(std::find(sc.begin(), sc.end(), 0.0f) -
+                                 sc.begin()) -
+                1);
         } else {
-            test_preds.push_back({p[index]});  // Add prediction at index
+            test_preds.push_back({p[index]}); // Add prediction at index
             cl_searched.push_back(static_cast<int>(index) + 1);
         }
     }
@@ -1574,11 +1553,13 @@ std::pair<std::vector<std::vector<faiss::idx_t>> , std::vector<int>> IndexIVF::c
     return {test_preds, cl_searched};
 }
 
-float IndexIVF::false_negative_rate(const std::vector<std::vector<faiss::idx_t>>& prediction_set,
-                                    const std::vector<std::vector<faiss::idx_t>>& gt_labels) {
+float IndexIVF::false_negative_rate(
+    const std::vector<std::vector<faiss::idx_t>> &prediction_set,
+    const std::vector<std::vector<faiss::idx_t>> &gt_labels) {
     std::vector<int> overlap;
     for (size_t i = 0; i < prediction_set.size(); ++i) {
-        const std::set<int> pred_set(prediction_set[i].begin(), prediction_set[i].end());
+        const std::set<int> pred_set(prediction_set[i].begin(),
+                                     prediction_set[i].end());
         const std::set<int> gt_set(gt_labels[i].begin(), gt_labels[i].end());
         // Calculate intersection size
         int intersection_size = 0;
@@ -1592,7 +1573,7 @@ float IndexIVF::false_negative_rate(const std::vector<std::vector<faiss::idx_t>>
 
     int sum_overlap = std::accumulate(overlap.begin(), overlap.end(), 0);
     int sum_gt_sums = 0;
-    for (const auto& gt : gt_labels) {
+    for (const auto &gt : gt_labels) {
         sum_gt_sums += gt.size();
     }
     // Return the false negative rate (1 - sum(overlap) / sum(gt_sums))
@@ -1604,23 +1585,26 @@ float IndexIVF::false_negative_rate(const std::vector<std::vector<faiss::idx_t>>
 }
 
 float IndexIVF::evaluate_test(float lamhat) {
-    auto result = evaluate(lamhat, test_cx, test_diffs, test_labels, test_nonconf, test_preds);
+    auto result = evaluate(lamhat, test_cx, test_diffs, test_labels,
+                           test_nonconf, test_preds);
     // Return FNR only
     return result.first;
 }
 
-std::pair<float, std::vector<int>> IndexIVF::evaluate(float lamhat, 
-                                                      const std::vector<std::vector<float>>& queries,
-                                                      const std::vector<float>& diff_scores,
-                                                      const std::vector<std::vector<faiss::idx_t>>& labels,
-                                                      const std::vector<std::vector<float>>& nonconf,
-                                                      const std::vector<std::vector<std::vector<faiss::idx_t>>>& preds) {
-    auto [test_preds, cl_searched] = compute_predictions(lamhat, queries, diff_scores, nonconf, preds);
+std::pair<float, std::vector<int>> IndexIVF::evaluate(
+    float lamhat, const std::vector<std::vector<float>> &queries,
+    const std::vector<float> &diff_scores,
+    const std::vector<std::vector<faiss::idx_t>> &labels,
+    const std::vector<std::vector<float>> &nonconf,
+    const std::vector<std::vector<std::vector<faiss::idx_t>>> &preds) {
+    auto [test_preds, cl_searched] =
+        compute_predictions(lamhat, queries, diff_scores, nonconf, preds);
     float fnr = false_negative_rate(test_preds, labels);
     return {fnr, cl_searched};
 }
 
-void IndexIVF::eval_on_lambda_range(float min_alpha, float max_alpha, float step) {
+void IndexIVF::eval_on_lambda_range(float min_alpha, float max_alpha,
+                                    float step) {
     std::vector<float> alpha_values;
     for (float alpha = min_alpha; alpha < max_alpha; alpha += step) {
         alpha_values.push_back(alpha);
@@ -1636,10 +1620,10 @@ void IndexIVF::eval_on_lambda_range(float min_alpha, float max_alpha, float step
         float alpha = alpha_values[alpha_index];
         std::cout << "Run optimization for alpha: " << alpha << std::endl;
         float lamhat = optimization(alpha);
-        std::cout << "Optimal lamhat=" << lamhat << " found for alpha=" << alpha << "." << std::endl;
+        std::cout << "Optimal lamhat=" << lamhat << " found for alpha=" << alpha
+                  << "." << std::endl;
         lamhats[alpha_index] = lamhat;
     }
-
 
     // Now calculate fnrs and nprobe_freqs
     for (int alpha_index = 0; alpha_index < N_ALPHA; ++alpha_index) {
@@ -1653,36 +1637,40 @@ void IndexIVF::eval_on_lambda_range(float min_alpha, float max_alpha, float step
         //     fnrs = std::vector<float>(ITERATIONS, 0.0);
         //     nprobe_freqs = std::vector<int>(ITERATIONS, 0);
         // } else {
-            std::random_device rd;
-            std::mt19937 gen(rd());
+        std::random_device rd;
+        std::mt19937 gen(rd());
 
-            for (int j = 0; j < ITERATIONS; ++j) {
-                std::cout << "Run tests for alpha: " << alpha << ", iteration: " << j + 1 << std::endl;
+        for (int j = 0; j < ITERATIONS; ++j) {
+            std::cout << "Run tests for alpha: " << alpha
+                      << ", iteration: " << j + 1 << std::endl;
 
-                std::vector<int> sampled_indices(Q_PER_ITER);
-                std::uniform_int_distribution<> dis(0, test_cx.size() - 1);
-                for (int i = 0; i < Q_PER_ITER; ++i) {
-                    sampled_indices[i] = dis(gen);
-                }
-                std::vector<std::vector<float>> sampled_queries(Q_PER_ITER);
-                std::vector<std::vector<faiss::idx_t>> sampled_labels(Q_PER_ITER);
-                std::vector<float> sampled_diffs(Q_PER_ITER);
-                std::vector<std::vector<float>> sampled_nonconf(Q_PER_ITER);
-                std::vector<std::vector<std::vector<faiss::idx_t>>> sampled_preds(Q_PER_ITER);
-
-                for (int i = 0; i < Q_PER_ITER; ++i) {
-                    sampled_queries.push_back(test_cx[sampled_indices[i]]);
-                    sampled_labels.push_back(test_labels[sampled_indices[i]]);
-                    sampled_diffs.push_back(test_diffs[sampled_indices[i]]);
-                    sampled_nonconf.push_back(test_nonconf[sampled_indices[i]]);
-                    sampled_preds.push_back(test_preds[sampled_indices[i]]);
-                }
-
-                // Evaluate for fnr and nprobe_freqs
-                auto [fnr, cl_searched] = evaluate(lamhat, sampled_queries, sampled_diffs, sampled_labels, sampled_nonconf, sampled_preds);
-                fnrs.push_back(fnr);
-                nprobe_freqs.push_back(cl_searched);
+            std::vector<int> sampled_indices(Q_PER_ITER);
+            std::uniform_int_distribution<> dis(0, test_cx.size() - 1);
+            for (int i = 0; i < Q_PER_ITER; ++i) {
+                sampled_indices[i] = dis(gen);
             }
+            std::vector<std::vector<float>> sampled_queries(Q_PER_ITER);
+            std::vector<std::vector<faiss::idx_t>> sampled_labels(Q_PER_ITER);
+            std::vector<float> sampled_diffs(Q_PER_ITER);
+            std::vector<std::vector<float>> sampled_nonconf(Q_PER_ITER);
+            std::vector<std::vector<std::vector<faiss::idx_t>>> sampled_preds(
+                Q_PER_ITER);
+
+            for (int i = 0; i < Q_PER_ITER; ++i) {
+                sampled_queries.push_back(test_cx[sampled_indices[i]]);
+                sampled_labels.push_back(test_labels[sampled_indices[i]]);
+                sampled_diffs.push_back(test_diffs[sampled_indices[i]]);
+                sampled_nonconf.push_back(test_nonconf[sampled_indices[i]]);
+                sampled_preds.push_back(test_preds[sampled_indices[i]]);
+            }
+
+            // Evaluate for fnr and nprobe_freqs
+            auto [fnr, cl_searched] =
+                evaluate(lamhat, sampled_queries, sampled_diffs, sampled_labels,
+                         sampled_nonconf, sampled_preds);
+            fnrs.push_back(fnr);
+            nprobe_freqs.push_back(cl_searched);
+        }
         // }
 
         all_fnrs.push_back(fnrs);
@@ -1693,8 +1681,8 @@ void IndexIVF::eval_on_lambda_range(float min_alpha, float max_alpha, float step
     print_adaptivity(all_nprobe_freqs, alpha_values);
 }
 
-
-void IndexIVF::print_validity(const std::vector<std::vector<float>>& all_fnrs, const std::vector<float>& alpha_values) {
+void IndexIVF::print_validity(const std::vector<std::vector<float>> &all_fnrs,
+                              const std::vector<float> &alpha_values) {
     std::ofstream file(RES_PATH + "/validity_stats.txt");
 
     if (!file.is_open()) {
@@ -1704,7 +1692,7 @@ void IndexIVF::print_validity(const std::vector<std::vector<float>>& all_fnrs, c
 
     file << "alpha,avg_fnr,stdev_fnr\n";
     for (size_t i = 0; i < all_fnrs.size(); ++i) {
-        const auto& fnr_list = all_fnrs[i];
+        const auto &fnr_list = all_fnrs[i];
         float sum = 0;
         for (float fnr : fnr_list) {
             sum += fnr;
@@ -1717,39 +1705,45 @@ void IndexIVF::print_validity(const std::vector<std::vector<float>>& all_fnrs, c
         }
         float std_fnr = std::sqrt(sq_sum / fnr_list.size());
 
-        file << std::fixed << alpha_values[i] << ","
-             << std::fixed << avg_fnr << ","
-             << std::fixed << std_fnr << "\n";
+        file << std::fixed << alpha_values[i] << "," << std::fixed << avg_fnr
+             << "," << std::fixed << std_fnr << "\n";
     }
 
     file.close();
 }
 
-void IndexIVF::print_adaptivity(const std::vector<std::vector<std::vector<int>>>& all_nprobe_freqs, const std::vector<float>& alpha_values) {
+void IndexIVF::print_adaptivity(
+    const std::vector<std::vector<std::vector<int>>> &all_nprobe_freqs,
+    const std::vector<float> &alpha_values) {
     auto cl_searched = all_nprobe_freqs;
-    for (auto& outer : cl_searched) {
-        for (auto& inner : outer) {
-            for (auto& x : inner) {
-                if (x != -1) x += 1;
+    for (auto &outer : cl_searched) {
+        for (auto &inner : outer) {
+            for (auto &x : inner) {
+                if (x != -1)
+                    x += 1;
             }
         }
     }
     int MAX_OBSERVED = 0;
-    for (const auto& outer : all_nprobe_freqs) {
-        for (const auto& inner : outer) {
+    for (const auto &outer : all_nprobe_freqs) {
+        for (const auto &inner : outer) {
             for (int k : inner) {
                 MAX_OBSERVED = std::max(MAX_OBSERVED, k);
             }
         }
     }
-    std::cout << "Maximum number of clusters searched in any query=" << MAX_OBSERVED << std::endl;
+    std::cout << "Maximum number of clusters searched in any query="
+              << MAX_OBSERVED << std::endl;
 
     // Reshaping
-    std::vector<std::vector<int>> reshaped_array(alpha_values.size(), std::vector<int>(Q_PER_ITER * ITERATIONS));
+    std::vector<std::vector<int>> reshaped_array(
+        alpha_values.size(), std::vector<int>(Q_PER_ITER * ITERATIONS));
     int idx = 0;
     for (size_t i = 0; i < alpha_values.size(); ++i) {
         for (size_t j = 0; j < Q_PER_ITER * ITERATIONS; ++j) {
-            reshaped_array[i][j] = cl_searched[idx % cl_searched.size()][j % cl_searched[0].size()][j % cl_searched[0][0].size()];
+            reshaped_array[i][j] =
+                cl_searched[idx % cl_searched.size()][j % cl_searched[0].size()]
+                           [j % cl_searched[0][0].size()];
         }
         ++idx;
     }
@@ -1758,28 +1752,33 @@ void IndexIVF::print_adaptivity(const std::vector<std::vector<std::vector<int>>>
     std::unordered_map<float, double> avgs;
     for (size_t i = 0; i < reshaped_array.size(); ++i) {
         float alpha = round(alpha_values[i] * 100) / 100.0;
-        const auto& r = reshaped_array[i];
+        const auto &r = reshaped_array[i];
         std::unordered_map<int, int> frequency;
         int nan_count = std::count(r.begin(), r.end(), -1);
 
         for (int value : r) {
-            if (value != -1) frequency[value]++;
+            if (value != -1)
+                frequency[value]++;
         }
 
         freqs[alpha] = std::vector<int>(MAX_OBSERVED, 0);
         freqs[alpha][0] = nan_count;
-        for (const auto& entry : frequency) {
+        for (const auto &entry : frequency) {
             int count_idx = std::min(entry.first, MAX_OBSERVED - 1);
             freqs[alpha][count_idx] = entry.second;
         }
 
-        double avg = std::accumulate(r.begin(), r.end(), 0.0, [](double sum, int val) { return val != -1 ? sum + val : sum; });
-        avgs[alpha] = (r.size() - nan_count) > 0 ? avg / (r.size() - nan_count) : 0.0;
+        double avg =
+            std::accumulate(r.begin(), r.end(), 0.0, [](double sum, int val) {
+                return val != -1 ? sum + val : sum;
+            });
+        avgs[alpha] =
+            (r.size() - nan_count) > 0 ? avg / (r.size() - nan_count) : 0.0;
     }
 
     std::ofstream file(RES_PATH + "/adaptivity_avg.txt");
     file << "alpha,avg_num_probed\n";
-    for (auto& alpha : alpha_values) {
+    for (auto &alpha : alpha_values) {
         file << alpha << "," << avgs[alpha] << "\n";
     }
 }
