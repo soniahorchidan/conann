@@ -70,20 +70,20 @@ int main(void) {
         printf("QPS: %d\n", qps);
     }
 
-    // // Test calibration
-    // auto alpa = 0.1;
-    // auto lamhat = index.calibrate(alpa);
-    // auto fnr = index.evaluate_test(lamhat);
-    // std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
-    //           << ", test fnr=" << fnr << std::endl;
+    // Test calibration
+    auto alpa = 0.1;
+    auto lamhat = index.calibrate(alpa);
+    auto fnr = index.evaluate_test(lamhat);
+    std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
+              << ", test fnr=" << fnr << std::endl;
 
-    // alpa = 0.2;
-    // lamhat = index.calibrate(alpa);
-    // fnr = index.evaluate_test(lamhat);
-    // std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
-    //           << ", test fnr=" << fnr << std::endl;
+    alpa = 0.2;
+    lamhat = index.calibrate(alpa);
+    fnr = index.evaluate_test(lamhat);
+    std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
+              << ", test fnr=" << fnr << std::endl;
 
-    // index.eval_on_lambda_range(0.1, 0.31, 0.1);
+    index.eval_on_lambda_range(0.1, 0.31, 0.1);
 
     nq = 10;
 
@@ -110,27 +110,6 @@ int main(void) {
                                                nonconf_list, all_preds_list);
 
         auto end = high_resolution_clock::now();
-
-        std::cout << "DEBUG:: nonconf scores:\n";
-        for (const auto &pair : nonconf_list) {
-            std::cout << "Key: " << pair.first << " -> Values: ";
-            for (const auto &value : pair.second) {
-                std::cout << value << " ";
-            }
-            std::cout << std::endl;
-        }
-
-        std::cout << "DEBUG:: all_preds_list=\n";
-        for (const auto &entry : all_preds_list) {
-            std::cout << "Key: " << entry.first << " --> ";
-            for (const auto &arr : entry.second) {
-                std::cout << "Array: ";
-                for (int i = 0; i < k; ++i) {
-                    std::cout << arr[i] << " ";
-                }
-                std::cout << std::endl;
-            }
-        }
 
         // Output results
         auto t = duration_cast<microseconds>(end - start).count();

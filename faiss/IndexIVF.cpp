@@ -1274,15 +1274,15 @@ void IndexIVF::train(idx_t n, const float* x) {
 void IndexIVF::prep_calib() {
     calib_labels = get_one_hot_gt(calib_cx);
     calib_diffs = compute_difficulty_scores(calib_cx);
-    // auto [cn, c_clus] = compute_scores(calib_cx, calib_diffs, calib_labels);
-    // calib_nonconf = cn;
-    // calib_preds = c_clus;
+    auto [cn, c_clus] = compute_scores(calib_cx, calib_diffs, calib_labels);
+    calib_nonconf = cn;
+    calib_preds = c_clus;
 
-    // test_labels = get_one_hot_gt(test_cx);
-    // test_diffs = compute_difficulty_scores(test_cx);
-    // auto [tn, t_clus] = compute_scores(test_cx, test_diffs, test_labels);
-    // test_nonconf = tn;
-    // test_preds = t_clus;
+    test_labels = get_one_hot_gt(test_cx);
+    test_diffs = compute_difficulty_scores(test_cx);
+    auto [tn, t_clus] = compute_scores(test_cx, test_diffs, test_labels);
+    test_nonconf = tn;
+    test_preds = t_clus;
 }
 
 std::vector<std::vector<faiss::idx_t>>
@@ -1408,53 +1408,30 @@ IndexIVF::compute_scores(
                                      dis.data(), nns.data(), -1,
                                      nonconf_list, all_preds_list);
 
-    //  std::cout << "DEBUG:: nonconf scores:\n";
-    //     for (const auto &pair : nonconf_list) {
-    //         std::cout << "Key: " << pair.first << " -> Values: ";
-    //         for (const auto &value : pair.second) {
-    //             std::cout << value << " ";
-    //         }
-    //         std::cout << std::endl;
-    //     }
+    for (auto &[qid, ncf] : nonconf_list) {
+        ncf.push_back(0.0f);
+        all_preds_list[qid].push_back(all_preds_list[qid].back());
+    }
 
-    //     std::cout << "DEBUG:: all_preds_list=\n";
-    //     for (const auto &entry : all_preds_list) {
-    //         std::cout << "Key: " << entry.first << " --> ";
-    //         for (const auto &arr : entry.second) {
-    //             std::cout << "Array: ";
-    //             for (int i = 0; i < K; ++i) {
-    //                 std::cout << arr[i] << " ";
-    //             }
-    //             std::cout << std::endl;
-    //         }
-    //     }
+    // Weight nonconformity scores by difficulty
+    for (size_t i = 0; i < queries.size(); ++i) {
+        for (float &score : nonconf_list[i]) {
+            score *= (1.0f - diff_scores[i]);
+        }
+    }
 
-    // // Finalize nonconformity and prediction lists
-    // for (auto &[qid, ncf] : nonconf_list) {
-    //     ncf.push_back(0.0f);
-    //     all_preds_list[qid].push_back(all_preds_list[qid].back());
-    // }
-
-    // // Weight nonconformity scores by difficulty
-    // for (size_t i = 0; i < queries.size(); ++i) {
-    //     for (float &score : nonconf_list[i]) {
-    //         score *= (1.0f - diff_scores[i]);
-    //     }
-    // }
-
-    // // Convert to simpler format
-    // std::vector<std::vector<float>> n_vec(nonconf_list.size());
-    // for (const auto &[key, value] : nonconf_list) {
-    //     n_vec[key] = value;
-    // }
-    // std::vector<std::vector<std::vector<faiss::idx_t>>> preds_vec(all_preds_list.size());
+    // Convert to simpler format
+    std::vector<std::vector<float>> n_vec(nonconf_list.size());
+    for (const auto &[key, value] : nonconf_list) {
+        n_vec[key] = value;
+    }
+    std::vector<std::vector<std::vector<faiss::idx_t>>> preds_vec(all_preds_list.size());
     
-    // for (const auto &[key, value] : all_preds_list) {
-    //     preds_vec[key] = value;
-    // }
+    for (const auto &[key, value] : all_preds_list) {
+        preds_vec[key] = value;
+    }
 
-    return std::pair<std::vector<std::vector<float>>,
-                 std::vector<std::vector<std::vector<faiss::idx_t>>>>();
+    return {n_vec, preds_vec};
 }
 
 float IndexIVF::calibrate(float alpha) {
