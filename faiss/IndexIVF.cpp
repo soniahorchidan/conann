@@ -574,7 +574,6 @@ void IndexIVF::search_preassigned(
                                      const idx_t* local_idx,
                                      float* simi,
                                      idx_t* idxi) {
-            std::cout << "DEBUG:: calling add_local_results!\n";
             if (metric_type == METRIC_INNER_PRODUCT) {
                 heap_addn<HeapForIP>(k, simi, idxi, local_dis, local_idx, k);
             } else {
@@ -1275,15 +1274,15 @@ void IndexIVF::train(idx_t n, const float* x) {
 void IndexIVF::prep_calib() {
     calib_labels = get_one_hot_gt(calib_cx);
     calib_diffs = compute_difficulty_scores(calib_cx);
-    auto [cn, c_clus] = compute_scores(calib_cx, calib_diffs, calib_labels);
-    calib_nonconf = cn;
-    calib_preds = c_clus;
+    // auto [cn, c_clus] = compute_scores(calib_cx, calib_diffs, calib_labels);
+    // calib_nonconf = cn;
+    // calib_preds = c_clus;
 
-    test_labels = get_one_hot_gt(test_cx);
-    test_diffs = compute_difficulty_scores(test_cx);
-    auto [tn, t_clus] = compute_scores(test_cx, test_diffs, test_labels);
-    test_nonconf = tn;
-    test_preds = t_clus;
+    // test_labels = get_one_hot_gt(test_cx);
+    // test_diffs = compute_difficulty_scores(test_cx);
+    // auto [tn, t_clus] = compute_scores(test_cx, test_diffs, test_labels);
+    // test_nonconf = tn;
+    // test_preds = t_clus;
 }
 
 std::vector<std::vector<faiss::idx_t>>
@@ -1392,89 +1391,70 @@ IndexIVF::compute_scores(
     const std::vector<float> &diff_scores,
     const std::vector<std::vector<faiss::idx_t>> &ground_truths) {
 
-    size_t num_queries = queries.size();
-    std::vector<int> active_queries(num_queries, 1);
-    std::unordered_map<int, std::vector<float>> nonconf_list;
-    std::unordered_map<int, std::vector<std::vector<faiss::idx_t>>> all_preds_list;
+    int num_queries = queries.size();
+    std::unordered_map<faiss::idx_t, std::vector<float>> nonconf_list;
+    std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>> all_preds_list;
 
-    for (int n_probe = 1; n_probe <= N_LIST; ++n_probe) {
-        // Check if no active queries are left
-        if (std::count(active_queries.begin(), active_queries.end(), 1) == 0) {
-            break;
-        }
+    std::vector<faiss::idx_t> nns(K * num_queries);
+    std::vector<float> dis(K * num_queries);
 
-        std::cout << "Probing " << n_probe << " cells with "
-                  << std::count(active_queries.begin(), active_queries.end(), 1)
-                  << " active queries..." << std::endl;
-
-        nprobe = n_probe;
-        std::vector<int> active_indexes;
-        for (size_t i = 0; i < active_queries.size(); ++i) {
-            if (active_queries[i] == 1) {
-                active_indexes.push_back(i);
-            }
-        }
-
-        // Perform search on active queries
-        std::vector<std::vector<float>> s_distances;
-        std::vector<std::vector<faiss::idx_t>> s_indexes;
-        search_index(queries, active_indexes, s_distances, s_indexes);
-
-        for (size_t idx = 0; idx < active_indexes.size(); ++idx) {
-            int j = active_indexes[idx];
-            const auto &distances = s_distances[idx];
-            const auto &indexes = s_indexes[idx];
-
-            // Check if ground truth is found
-            if (std::set<int>(ground_truths[j].begin(),
-                              ground_truths[j].end()) ==
-                std::set<int>(indexes.begin(), indexes.end())) {
-                active_queries[j] = 0;
-            }
-
-            if (distances.back() > MAX_DISTANCE) {
-                nonconf_list[j].push_back(1.0f);
-                all_preds_list[j].push_back({});
-                continue;
-            }
-
-            float score_k = distances.back() / MAX_DISTANCE;
-            nonconf_list[j].push_back(score_k);
-            all_preds_list[j].push_back(indexes);
-        }
+    // TODO(sonia): keep as flat queries from the beginning.
+    std::vector<float> flattened;
+    for (const auto& query : queries) {
+        flattened.insert(flattened.end(), query.begin(), query.end());
     }
 
-    // Check if there are more active queries after
-    if (std::count(active_queries.begin(), active_queries.end(), 1) > 0) {
-        std::cout << "Warning: " << active_queries.size()
-                  << "active queries remaining after probing is done.\n";
-    }
+    search_with_error_quantification(num_queries, flattened.data(), K,
+                                     dis.data(), nns.data(), -1,
+                                     nonconf_list, all_preds_list);
 
-    // Finalize nonconformity and prediction lists
-    for (auto &[qid, ncf] : nonconf_list) {
-        ncf.push_back(0.0f);
-        all_preds_list[qid].push_back(all_preds_list[qid].back());
-    }
+    //  std::cout << "DEBUG:: nonconf scores:\n";
+    //     for (const auto &pair : nonconf_list) {
+    //         std::cout << "Key: " << pair.first << " -> Values: ";
+    //         for (const auto &value : pair.second) {
+    //             std::cout << value << " ";
+    //         }
+    //         std::cout << std::endl;
+    //     }
 
-    // Weight nonconformity scores by difficulty
-    for (size_t i = 0; i < queries.size(); ++i) {
-        for (float &score : nonconf_list[i]) {
-            score *= (1.0f - diff_scores[i]);
-        }
-    }
+    //     std::cout << "DEBUG:: all_preds_list=\n";
+    //     for (const auto &entry : all_preds_list) {
+    //         std::cout << "Key: " << entry.first << " --> ";
+    //         for (const auto &arr : entry.second) {
+    //             std::cout << "Array: ";
+    //             for (int i = 0; i < K; ++i) {
+    //                 std::cout << arr[i] << " ";
+    //             }
+    //             std::cout << std::endl;
+    //         }
+    //     }
 
-    // Convert to simpler format
-    std::vector<std::vector<float>> n_vec(nonconf_list.size());
-    for (const auto &[key, value] : nonconf_list) {
-        n_vec[key] = value;
-    }
-    std::vector<std::vector<std::vector<faiss::idx_t>>> preds_vec(
-        all_preds_list.size());
-    for (const auto &[key, value] : all_preds_list) {
-        preds_vec[key] = value;
-    }
+    // // Finalize nonconformity and prediction lists
+    // for (auto &[qid, ncf] : nonconf_list) {
+    //     ncf.push_back(0.0f);
+    //     all_preds_list[qid].push_back(all_preds_list[qid].back());
+    // }
 
-    return {n_vec, preds_vec};
+    // // Weight nonconformity scores by difficulty
+    // for (size_t i = 0; i < queries.size(); ++i) {
+    //     for (float &score : nonconf_list[i]) {
+    //         score *= (1.0f - diff_scores[i]);
+    //     }
+    // }
+
+    // // Convert to simpler format
+    // std::vector<std::vector<float>> n_vec(nonconf_list.size());
+    // for (const auto &[key, value] : nonconf_list) {
+    //     n_vec[key] = value;
+    // }
+    // std::vector<std::vector<std::vector<faiss::idx_t>>> preds_vec(all_preds_list.size());
+    
+    // for (const auto &[key, value] : all_preds_list) {
+    //     preds_vec[key] = value;
+    // }
+
+    return std::pair<std::vector<std::vector<float>>,
+                 std::vector<std::vector<std::vector<faiss::idx_t>>>>();
 }
 
 float IndexIVF::calibrate(float alpha) {
@@ -1808,8 +1788,9 @@ void IndexIVF::search_with_error_quantification(
         idx_t* labels,
         float lamhat,
         std::unordered_map<faiss::idx_t, std::vector<float>>& nonconf_list,
-        std::unordered_map<faiss::idx_t, std::vector<std::vector<int>>>& all_preds_list,
+        std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>& all_preds_list,
         const SearchParameters* params_in) const {
+
     FAISS_THROW_IF_NOT(k > 0);
 
     bool calib_mode = lamhat == -1 ? true : false; 
@@ -1824,12 +1805,15 @@ void IndexIVF::search_with_error_quantification(
     FAISS_THROW_IF_NOT(nprobe > 0);
 
     // search function for a subset of queries
-    auto sub_search_func = [this, k, nprobe, params, lamhat, calib_mode, &nonconf_list, &all_preds_list](
+    auto sub_search_func = [this, k, nprobe, params, lamhat, calib_mode](
                                    idx_t n,
                                    const float* x,
                                    float* distances,
                                    idx_t* labels,
-                                   IndexIVFStats* ivf_stats) {
+                                   IndexIVFStats* ivf_stats,
+                                   std::unordered_map<faiss::idx_t, std::vector<float>>& nonconf_list,
+                                   std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>& all_preds_list) {
+
         std::unique_ptr<idx_t[]> idx(new idx_t[n * nprobe]);
         std::unique_ptr<float[]> coarse_dis(new float[n * nprobe]);
 
@@ -1846,7 +1830,7 @@ void IndexIVF::search_with_error_quantification(
         double t1 = getmillisecs();
         invlists->prefetch_lists(idx.get(), n * nprobe);
 
-        if (calib_mode)
+        if (calib_mode) {
             search_preassigned_with_error_quantification(
                     n,
                     x,
@@ -1862,7 +1846,7 @@ void IndexIVF::search_with_error_quantification(
                     all_preds_list,
                     params,
                     ivf_stats); 
-        else 
+        } else {
             search_preassigned_with_error_quantification(
                     n,
                     x,
@@ -1878,6 +1862,7 @@ void IndexIVF::search_with_error_quantification(
                     all_preds_list, 
                     params,
                     ivf_stats); 
+        }
         double t2 = getmillisecs();
         ivf_stats->quantization_time += t1 - t0;
         ivf_stats->search_time += t2 - t0;
@@ -1895,13 +1880,34 @@ void IndexIVF::search_with_error_quantification(
             idx_t i0 = n * slice / nt;
             idx_t i1 = n * (slice + 1) / nt;
             if (i1 > i0) {
+                std::unordered_map<faiss::idx_t, std::vector<float>> local_nonconf_list;
+                std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>> local_all_preds_list;
+
                 try {
                     sub_search_func(
                             i1 - i0,
                             x + i0 * d,
                             distances + i0 * k,
                             labels + i0 * k,
-                            &stats[slice]);
+                            &stats[slice],
+                            local_nonconf_list,
+                            local_all_preds_list);
+                    
+               // Use pragma critical to ensure thread-safe merging
+                #pragma omp critical
+                {
+                    for (auto& pair : local_nonconf_list) {
+                        idx_t real_key = pair.first + i0; 
+                        nonconf_list[real_key].insert(nonconf_list[real_key].end(),
+                                                           pair.second.begin(), pair.second.end());
+                    }
+                    for (auto& pair : local_all_preds_list) {
+                        idx_t real_key = pair.first + i0;  // Adjust the key
+                        all_preds_list[real_key].insert(all_preds_list[real_key].end(),
+                                                           pair.second.begin(), pair.second.end());
+                    }
+                }
+
                 } catch (const std::exception& e) {
                     std::lock_guard<std::mutex> lock(exception_mutex);
                     exception_string = e.what();
@@ -1917,7 +1923,8 @@ void IndexIVF::search_with_error_quantification(
             indexIVF_stats.add(stats[slice]);
         }
     } else {
-        sub_search_func(n, x, distances, labels, &indexIVF_stats);
+        std::cout << "WARNING:: hopefully this case is never reached...\n";
+        // sub_search_func(n, x, distances, labels, &indexIVF_stats);
     }
 }
 
@@ -1934,7 +1941,7 @@ void IndexIVF::search_preassigned_with_error_quantification(
         const std::vector<std::vector<faiss::idx_t>>& ground_truths, 
         float lamhat, 
         std::unordered_map<faiss::idx_t, std::vector<float>>& nonconf_list,
-        std::unordered_map<faiss::idx_t, std::vector<std::vector<int>>>& all_preds_list,
+        std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>& all_preds_list,
         const IVFSearchParameters* params,
         IndexIVFStats* ivf_stats) const { 
     FAISS_THROW_IF_NOT(k > 0);
@@ -2157,13 +2164,13 @@ void IndexIVF::search_preassigned_with_error_quantification(
                     }
 
                     float score_k = 0.0;
-                    // // Print the content of simi after scanning each cluster
-                    // std::cout << "DEBUG:: After probing cluster " << ik << " for query " << i << ":\n";
-                    // for (int j = 0; j < k; j++) {
-                    //     std::cout << simi[j] << ", " << idxi[j] << "\n";
-                    //     if (simi[j]  > score_k) score_k = simi[j];
-                    // }
-                    // std::cout << "\n";
+                    for (int j = 0; j < k; j++) {
+                        if (simi[j]  > score_k) {
+                            score_k = simi[j];
+                        }
+                    }
+
+                    // std::cout << "DEBUG:: score_k=" << score_k << " i=" << i << "\n";
 
                     if (score_k > MAX_DISTANCE) {
                         nonconf_list[i].push_back(1.0);
@@ -2171,12 +2178,11 @@ void IndexIVF::search_preassigned_with_error_quantification(
                     }
 
                     score_k = score_k / MAX_DISTANCE;
-                    // std::cout << "normalized score_k=" << score_k << "\n";
 
-
+                    
                     // push back nonconfirmity score and predictions after searching each new cell
                     nonconf_list[i].push_back(score_k);
-                    std::vector<int> idxi_copy(idxi, idxi + k);
+                    std::vector<faiss::idx_t> idxi_copy(idxi, idxi + k);
                     all_preds_list[i].push_back(idxi_copy);
                 }
 

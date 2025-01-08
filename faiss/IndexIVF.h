@@ -506,7 +506,7 @@ struct IndexIVF : Index, IndexIVFInterface {
         const std::vector<std::vector<float>>& nonconf,
         const std::vector<std::vector<std::vector<faiss::idx_t>>>& preds);
 
-    // if in calibration mode, lamhat needs to be 1.0.
+    // if in calibration mode, lamhat needs to be -1.
     void search_with_error_quantification(
             idx_t n,
             const float* x,
@@ -515,7 +515,7 @@ struct IndexIVF : Index, IndexIVFInterface {
             idx_t* labels,
             float lamhat,
             std::unordered_map<faiss::idx_t, std::vector<float>>& nonconf_list,
-            std::unordered_map<faiss::idx_t, std::vector<std::vector<int>>>& all_preds_list,
+            std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>& all_preds_list,
             const SearchParameters* params = nullptr) const;
 
 
@@ -533,7 +533,7 @@ struct IndexIVF : Index, IndexIVFInterface {
         const std::vector<std::vector<faiss::idx_t>>& ground_truths,
         float lamhat,
         std::unordered_map<faiss::idx_t, std::vector<float>>& nonconf_list,
-        std::unordered_map<faiss::idx_t, std::vector<std::vector<int>>>& all_preds_list,
+        std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>& all_preds_list,
         const IVFSearchParameters* params = nullptr,
         IndexIVFStats* stats = nullptr) const;
     

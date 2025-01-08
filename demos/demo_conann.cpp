@@ -7,6 +7,7 @@
 #include <faiss/IndexFlat.h>
 #include <faiss/IndexIVFFlat.h>
 
+
 using namespace std::chrono;
 
 int main(void) {
@@ -69,22 +70,22 @@ int main(void) {
         printf("QPS: %d\n", qps);
     }
 
-    // Test calibration
-    auto alpa = 0.1;
-    auto lamhat = index.calibrate(alpa);
-    auto fnr = index.evaluate_test(lamhat);
-    std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
-              << ", test fnr=" << fnr << std::endl;
+    // // Test calibration
+    // auto alpa = 0.1;
+    // auto lamhat = index.calibrate(alpa);
+    // auto fnr = index.evaluate_test(lamhat);
+    // std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
+    //           << ", test fnr=" << fnr << std::endl;
 
-    alpa = 0.2;
-    lamhat = index.calibrate(alpa);
-    fnr = index.evaluate_test(lamhat);
-    std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
-              << ", test fnr=" << fnr << std::endl;
+    // alpa = 0.2;
+    // lamhat = index.calibrate(alpa);
+    // fnr = index.evaluate_test(lamhat);
+    // std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
+    //           << ", test fnr=" << fnr << std::endl;
 
     // index.eval_on_lambda_range(0.1, 0.31, 0.1);
 
-    nq = 1;
+    nq = 10;
 
     { // searching the database
         printf("Searching with error quantification ...\n");
@@ -101,11 +102,11 @@ int main(void) {
         auto start = high_resolution_clock::now();
 
         std::unordered_map<faiss::idx_t, std::vector<float>> nonconf_list;
-        std::unordered_map<faiss::idx_t, std::vector<std::vector<int>>>
+        std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>
             all_preds_list;
 
         index.search_with_error_quantification(nq, queries.data(), k,
-                                               dis.data(), nns.data(), lamhat,
+                                               dis.data(), nns.data(), 0.022,
                                                nonconf_list, all_preds_list);
 
         auto end = high_resolution_clock::now();
