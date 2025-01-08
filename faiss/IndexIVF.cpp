@@ -1807,10 +1807,12 @@ void IndexIVF::search_with_error_quantification(
         float* distances,
         idx_t* labels,
         float lamhat,
+        std::unordered_map<faiss::idx_t, std::vector<float>>& nonconf_list,
+        std::unordered_map<faiss::idx_t, std::vector<std::vector<int>>>& all_preds_list,
         const SearchParameters* params_in) const {
     FAISS_THROW_IF_NOT(k > 0);
 
-    bool calib_mode = lamhat == 1.0 ? true : false; 
+    bool calib_mode = lamhat == -1 ? true : false; 
 
     const IVFSearchParameters* params = nullptr;
     if (params_in) {
@@ -1822,7 +1824,7 @@ void IndexIVF::search_with_error_quantification(
     FAISS_THROW_IF_NOT(nprobe > 0);
 
     // search function for a subset of queries
-    auto sub_search_func = [this, k, nprobe, params, lamhat, calib_mode](
+    auto sub_search_func = [this, k, nprobe, params, lamhat, calib_mode, &nonconf_list, &all_preds_list](
                                    idx_t n,
                                    const float* x,
                                    float* distances,
@@ -1843,9 +1845,6 @@ void IndexIVF::search_with_error_quantification(
 
         double t1 = getmillisecs();
         invlists->prefetch_lists(idx.get(), n * nprobe);
-
-        std::unordered_map<faiss::idx_t, std::vector<float>> nonconf_list;
-        std::unordered_map<faiss::idx_t, std::vector<std::vector<int>>> all_preds_list;
 
         if (calib_mode)
             search_preassigned_with_error_quantification(
@@ -2183,27 +2182,6 @@ void IndexIVF::search_preassigned_with_error_quantification(
 
                 ndis += nscan;
                 reorder_result(simi, idxi);
-
-                // std::cout << "DEBUG:: nonconf scores:\n";
-                // for (const auto& pair : nonconf_list) {
-                //     std::cout << "Key: " << pair.first << " -> Values: ";
-                //     for (const auto& value : pair.second) {
-                //         std::cout << value << " ";
-                //     }
-                //     std::cout << std::endl;
-                // }
-
-                // std::cout << "DEBUG:: all_preds_list=\n";
-                // for (const auto& entry : all_preds_list) {
-                //     std::cout << "Key: " << entry.first << std::endl;
-                //     for (const auto& arr : entry.second) {
-                //         std::cout << "Array: ";
-                //         for (int i = 0; i < k; ++i) { 
-                //             std::cout << arr[i] << " ";
-                //         }
-                //         std::cout << std::endl;
-                //     }
-                // }
 
                 if (InterruptCallback::is_interrupted()) {
                     interrupt = true;

@@ -513,12 +513,14 @@ struct IndexIVF : Index, IndexIVFInterface {
             idx_t k,
             float* distances,
             idx_t* labels,
-            float lamhat = 1.0,
+            float lamhat,
+            std::unordered_map<faiss::idx_t, std::vector<float>>& nonconf_list,
+            std::unordered_map<faiss::idx_t, std::vector<std::vector<int>>>& all_preds_list,
             const SearchParameters* params = nullptr) const;
 
 
     // in calibration mode if ground_truths are passed; in evaluation mode otherwise.
-    // if in calibration mode, lamhat needs to be 1.0.
+    // if in calibration mode, lamhat needs to be -1.
     void search_preassigned_with_error_quantification(
         idx_t n,
         const float* x,

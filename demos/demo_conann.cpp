@@ -1,11 +1,11 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
-#include <random>
 #include <iostream>
+#include <random>
 
-#include <faiss/IndexIVFFlat.h>
 #include <faiss/IndexFlat.h>
+#include <faiss/IndexIVFFlat.h>
 
 using namespace std::chrono;
 
@@ -20,15 +20,16 @@ int main(void) {
     std::mt19937 rng(12345);
 
     // make the IVF index object and train it
-    faiss::IndexFlatL2 quantizer(d);  // The quantizer (flat index)
-    faiss::IndexIVFFlat index(&quantizer, d, 10, faiss::METRIC_L2);  // IVF index
-    index.nprobe = 10;  // number of probes
+    faiss::IndexFlatL2 quantizer(d); // The quantizer (flat index)
+    faiss::IndexIVFFlat index(&quantizer, d, 10, faiss::METRIC_L2); // IVF index
+    index.nprobe = 10; // number of probes
 
     // train the index on some data
-    std::vector<float> training_data(1000 * d);  // Random training data
-    std::uniform_real_distribution<float> dist(0.0f, 1.0f);  // Distribution between 0 and 1
+    std::vector<float> training_data(1000 * d); // Random training data
+    std::uniform_real_distribution<float> dist(
+        0.0f, 1.0f); // Distribution between 0 and 1
     for (size_t i = 0; i < 1000 * d; i++) {
-        training_data[i] = dist(rng);  // Generate float between 0 and 1
+        training_data[i] = dist(rng); // Generate float between 0 and 1
     }
     index.train(1000, training_data.data());
 
@@ -72,13 +73,15 @@ int main(void) {
     auto alpa = 0.1;
     auto lamhat = index.calibrate(alpa);
     auto fnr = index.evaluate_test(lamhat);
-    std::cout << "alpha=" << alpa << ": lamhat= " << lamhat << ", test fnr=" << fnr << std::endl;
+    std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
+              << ", test fnr=" << fnr << std::endl;
 
     alpa = 0.2;
     lamhat = index.calibrate(alpa);
     fnr = index.evaluate_test(lamhat);
-    std::cout << "alpha=" << alpa << ": lamhat= " << lamhat << ", test fnr=" << fnr << std::endl;
-    
+    std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
+              << ", test fnr=" << fnr << std::endl;
+
     // index.eval_on_lambda_range(0.1, 0.31, 0.1);
 
     nq = 1;
@@ -96,9 +99,37 @@ int main(void) {
         std::vector<float> dis(k * nq);
 
         auto start = high_resolution_clock::now();
-        index.search_with_error_quantification(nq, queries.data(), k, dis.data(), nns.data(), lamhat);
+
+        std::unordered_map<faiss::idx_t, std::vector<float>> nonconf_list;
+        std::unordered_map<faiss::idx_t, std::vector<std::vector<int>>>
+            all_preds_list;
+
+        index.search_with_error_quantification(nq, queries.data(), k,
+                                               dis.data(), nns.data(), lamhat,
+                                               nonconf_list, all_preds_list);
 
         auto end = high_resolution_clock::now();
+
+        std::cout << "DEBUG:: nonconf scores:\n";
+        for (const auto &pair : nonconf_list) {
+            std::cout << "Key: " << pair.first << " -> Values: ";
+            for (const auto &value : pair.second) {
+                std::cout << value << " ";
+            }
+            std::cout << std::endl;
+        }
+
+        std::cout << "DEBUG:: all_preds_list=\n";
+        for (const auto &entry : all_preds_list) {
+            std::cout << "Key: " << entry.first << " --> ";
+            for (const auto &arr : entry.second) {
+                std::cout << "Array: ";
+                for (int i = 0; i < k; ++i) {
+                    std::cout << arr[i] << " ";
+                }
+                std::cout << std::endl;
+            }
+        }
 
         // Output results
         auto t = duration_cast<microseconds>(end - start).count();
