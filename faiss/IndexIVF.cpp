@@ -384,8 +384,6 @@ void IndexIVF::search(
         idx_t* labels,
         const SearchParameters* params_in) const {
 
-    std::cout << "DEBUG:: IndexIVF search...\n";
-
     FAISS_THROW_IF_NOT(k > 0);
     const IVFSearchParameters* params = nullptr;
     if (params_in) {
@@ -1846,6 +1844,9 @@ void IndexIVF::search_with_error_quantification(
         double t1 = getmillisecs();
         invlists->prefetch_lists(idx.get(), n * nprobe);
 
+        std::unordered_map<faiss::idx_t, std::vector<float>> nonconf_list;
+        std::unordered_map<faiss::idx_t, std::vector<std::vector<int>>> all_preds_list;
+
         if (calib_mode)
             search_preassigned_with_error_quantification(
                     n,
@@ -1857,7 +1858,9 @@ void IndexIVF::search_with_error_quantification(
                     labels,
                     false,
                     calib_labels,
-                    lamhat, 
+                    lamhat,
+                    nonconf_list,
+                    all_preds_list,
                     params,
                     ivf_stats); 
         else 
@@ -1871,7 +1874,9 @@ void IndexIVF::search_with_error_quantification(
                     labels,
                     false,
                     test_labels,
-                    lamhat, 
+                    lamhat,
+                    nonconf_list,
+                    all_preds_list, 
                     params,
                     ivf_stats); 
         double t2 = getmillisecs();
@@ -1929,14 +1934,11 @@ void IndexIVF::search_preassigned_with_error_quantification(
         bool store_pairs,
         const std::vector<std::vector<faiss::idx_t>>& ground_truths, 
         float lamhat, 
+        std::unordered_map<faiss::idx_t, std::vector<float>>& nonconf_list,
+        std::unordered_map<faiss::idx_t, std::vector<std::vector<int>>>& all_preds_list,
         const IVFSearchParameters* params,
         IndexIVFStats* ivf_stats) const { 
     FAISS_THROW_IF_NOT(k > 0);
-
-    // ConANN block
-    std::unordered_map<faiss::idx_t, std::vector<float>> nonconf_list;
-    std::unordered_map<faiss::idx_t, std::vector<std::vector<int>>> all_preds_list;
-    // ---------
 
     idx_t nprobe = params ? params->nprobe : this->nprobe;
     nprobe = std::min((idx_t)nlist, nprobe);
@@ -2020,7 +2022,6 @@ void IndexIVF::search_preassigned_with_error_quantification(
                                      const idx_t* local_idx,
                                      float* simi,
                                      idx_t* idxi) {
-            std::cout << "DEBUG:: calling add_local_results!\n";
             if (metric_type == METRIC_INNER_PRODUCT) {
                 heap_addn<HeapForIP>(k, simi, idxi, local_dis, local_idx, k);
             } else {
@@ -2157,13 +2158,13 @@ void IndexIVF::search_preassigned_with_error_quantification(
                     }
 
                     float score_k = 0.0;
-                    // Print the content of simi after scanning each cluster
-                    std::cout << "DEBUG:: After probing cluster " << ik << " for query " << i << ":\n";
-                    for (int j = 0; j < k; j++) {
-                        std::cout << simi[j] << ", " << idxi[j] << "\n";
-                        if (simi[j]  > score_k) score_k = simi[j];
-                    }
-                    std::cout << "\n";
+                    // // Print the content of simi after scanning each cluster
+                    // std::cout << "DEBUG:: After probing cluster " << ik << " for query " << i << ":\n";
+                    // for (int j = 0; j < k; j++) {
+                    //     std::cout << simi[j] << ", " << idxi[j] << "\n";
+                    //     if (simi[j]  > score_k) score_k = simi[j];
+                    // }
+                    // std::cout << "\n";
 
                     if (score_k > MAX_DISTANCE) {
                         nonconf_list[i].push_back(1.0);
@@ -2171,8 +2172,10 @@ void IndexIVF::search_preassigned_with_error_quantification(
                     }
 
                     score_k = score_k / MAX_DISTANCE;
-                    std::cout << "normalized score_k=" << score_k << "\n";
+                    // std::cout << "normalized score_k=" << score_k << "\n";
 
+
+                    // push back nonconfirmity score and predictions after searching each new cell
                     nonconf_list[i].push_back(score_k);
                     std::vector<int> idxi_copy(idxi, idxi + k);
                     all_preds_list[i].push_back(idxi_copy);
@@ -2181,26 +2184,26 @@ void IndexIVF::search_preassigned_with_error_quantification(
                 ndis += nscan;
                 reorder_result(simi, idxi);
 
-                std::cout << "DEBUG:: nonconf scores:\n";
-                for (const auto& pair : nonconf_list) {
-                    std::cout << "Key: " << pair.first << " -> Values: ";
-                    for (const auto& value : pair.second) {
-                        std::cout << value << " ";
-                    }
-                    std::cout << std::endl;
-                }
+                // std::cout << "DEBUG:: nonconf scores:\n";
+                // for (const auto& pair : nonconf_list) {
+                //     std::cout << "Key: " << pair.first << " -> Values: ";
+                //     for (const auto& value : pair.second) {
+                //         std::cout << value << " ";
+                //     }
+                //     std::cout << std::endl;
+                // }
 
-                std::cout << "DEBUG:: all_preds_list=\n";
-                for (const auto& entry : all_preds_list) {
-                    std::cout << "Key: " << entry.first << std::endl;
-                    for (const auto& arr : entry.second) {
-                        std::cout << "Array: ";
-                        for (int i = 0; i < k; ++i) { 
-                            std::cout << arr[i] << " ";
-                        }
-                        std::cout << std::endl;
-                    }
-                }
+                // std::cout << "DEBUG:: all_preds_list=\n";
+                // for (const auto& entry : all_preds_list) {
+                //     std::cout << "Key: " << entry.first << std::endl;
+                //     for (const auto& arr : entry.second) {
+                //         std::cout << "Array: ";
+                //         for (int i = 0; i < k; ++i) { 
+                //             std::cout << arr[i] << " ";
+                //         }
+                //         std::cout << std::endl;
+                //     }
+                // }
 
                 if (InterruptCallback::is_interrupted()) {
                     interrupt = true;

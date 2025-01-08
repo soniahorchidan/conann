@@ -530,6 +530,8 @@ struct IndexIVF : Index, IndexIVFInterface {
         bool store_pairs,
         const std::vector<std::vector<faiss::idx_t>>& ground_truths,
         float lamhat,
+        std::unordered_map<faiss::idx_t, std::vector<float>>& nonconf_list,
+        std::unordered_map<faiss::idx_t, std::vector<std::vector<int>>>& all_preds_list,
         const IVFSearchParameters* params = nullptr,
         IndexIVFStats* stats = nullptr) const;
     
