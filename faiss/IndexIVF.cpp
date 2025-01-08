@@ -1397,8 +1397,7 @@ IndexIVF::compute_scores(
     size_t num_queries = queries.size();
     std::vector<int> active_queries(num_queries, 1);
     std::unordered_map<int, std::vector<float>> nonconf_list;
-    std::unordered_map<int, std::vector<std::vector<faiss::idx_t>>>
-        all_preds_list;
+    std::unordered_map<int, std::vector<std::vector<faiss::idx_t>>> all_preds_list;
 
     for (int n_probe = 1; n_probe <= N_LIST; ++n_probe) {
         // Check if no active queries are left
@@ -1936,7 +1935,7 @@ void IndexIVF::search_preassigned_with_error_quantification(
 
     // ConANN block
     std::unordered_map<faiss::idx_t, std::vector<float>> nonconf_list;
-    std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>> all_preds_list;
+    std::unordered_map<faiss::idx_t, std::vector<std::vector<int>>> all_preds_list;
     // ---------
 
     idx_t nprobe = params ? params->nprobe : this->nprobe;
@@ -2161,39 +2160,46 @@ void IndexIVF::search_preassigned_with_error_quantification(
                     // Print the content of simi after scanning each cluster
                     std::cout << "DEBUG:: After probing cluster " << ik << " for query " << i << ":\n";
                     for (int j = 0; j < k; j++) {
-                        std::cout << simi[j] << ", ";
+                        std::cout << simi[j] << ", " << idxi[j] << "\n";
                         if (simi[j]  > score_k) score_k = simi[j];
                     }
                     std::cout << "\n";
 
                     if (score_k > MAX_DISTANCE) {
                         nonconf_list[i].push_back(1.0);
-                        // all_preds_list[i].push_back({});
+                        all_preds_list[i].push_back({});
                     }
 
                     score_k = score_k / MAX_DISTANCE;
                     std::cout << "normalized score_k=" << score_k << "\n";
 
                     nonconf_list[i].push_back(score_k);
-                    // all_preds_list[i].push_back(*idxi);
+                    std::vector<int> idxi_copy(idxi, idxi + k);
+                    all_preds_list[i].push_back(idxi_copy);
                 }
 
                 ndis += nscan;
                 reorder_result(simi, idxi);
 
-                    // std::cout << "DEBUG:: Final results after reordering:\n";
-                    // for (int j = 0; j < k; j++) {
-                    //     std::cout << simi[j] << ", ";
-                    // }
-                    //  std::cout << "\n";
-
-                std::cout << "DEBUG:: conconf scores:\n";
+                std::cout << "DEBUG:: nonconf scores:\n";
                 for (const auto& pair : nonconf_list) {
                     std::cout << "Key: " << pair.first << " -> Values: ";
                     for (const auto& value : pair.second) {
                         std::cout << value << " ";
                     }
                     std::cout << std::endl;
+                }
+
+                std::cout << "DEBUG:: all_preds_list=\n";
+                for (const auto& entry : all_preds_list) {
+                    std::cout << "Key: " << entry.first << std::endl;
+                    for (const auto& arr : entry.second) {
+                        std::cout << "Array: ";
+                        for (int i = 0; i < k; ++i) { 
+                            std::cout << arr[i] << " ";
+                        }
+                        std::cout << std::endl;
+                    }
                 }
 
                 if (InterruptCallback::is_interrupted()) {
