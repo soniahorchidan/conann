@@ -25,12 +25,12 @@ int main(void) {
     index.nprobe = 10;  // number of probes
 
     // train the index on some data
-    std::vector<float> training_data(100 * d);  // Random training data
+    std::vector<float> training_data(1000 * d);  // Random training data
     std::uniform_real_distribution<float> dist(0.0f, 1.0f);  // Distribution between 0 and 1
-    for (size_t i = 0; i < 100 * d; i++) {
+    for (size_t i = 0; i < 1000 * d; i++) {
         training_data[i] = dist(rng);  // Generate float between 0 and 1
     }
-    index.train(100, training_data.data());
+    index.train(1000, training_data.data());
 
     // generate random database
     std::vector<float> database(nb * d);
@@ -42,7 +42,7 @@ int main(void) {
         index.add(nb, database.data());
     }
 
-    size_t nq = 100;
+    size_t nq = 1;
 
     { // searching the database
         printf("Searching ...\n");
@@ -79,7 +79,33 @@ int main(void) {
     fnr = index.evaluate_test(lamhat);
     std::cout << "alpha=" << alpa << ": lamhat= " << lamhat << ", test fnr=" << fnr << std::endl;
     
-    index.eval_on_lambda_range(0.1, 0.31, 0.1);
+    // index.eval_on_lambda_range(0.1, 0.31, 0.1);
+
+    nq = 1;
+
+    { // searching the database
+        printf("Searching with error quantification ...\n");
+
+        std::vector<float> queries(nq * d);
+        for (size_t i = 0; i < nq * d; i++) {
+            queries[i] = dist(rng);
+        }
+
+        int k = 5;
+        std::vector<faiss::idx_t> nns(k * nq);
+        std::vector<float> dis(k * nq);
+
+        auto start = high_resolution_clock::now();
+        index.search_with_error_quantification(nq, queries.data(), k, dis.data(), nns.data(), lamhat);
+
+        auto end = high_resolution_clock::now();
+
+        // Output results
+        auto t = duration_cast<microseconds>(end - start).count();
+        int qps = nq * 1000 * 1000 / t;
+
+        printf("QPS: %d\n", qps);
+    }
 
     return 0;
 }

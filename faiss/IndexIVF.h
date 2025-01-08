@@ -505,6 +505,33 @@ struct IndexIVF : Index, IndexIVFInterface {
         const std::vector<float>& diffs,
         const std::vector<std::vector<float>>& nonconf,
         const std::vector<std::vector<std::vector<faiss::idx_t>>>& preds);
+
+    // if in calibration mode, lamhat needs to be 1.0.
+    void search_with_error_quantification(
+            idx_t n,
+            const float* x,
+            idx_t k,
+            float* distances,
+            idx_t* labels,
+            float lamhat = 1.0,
+            const SearchParameters* params = nullptr) const;
+
+
+    // in calibration mode if ground_truths are passed; in evaluation mode otherwise.
+    // if in calibration mode, lamhat needs to be 1.0.
+    void search_preassigned_with_error_quantification(
+        idx_t n,
+        const float* x,
+        idx_t k,
+        const idx_t* assign,
+        const float* centroid_dis,
+        float* distances,
+        idx_t* labels,
+        bool store_pairs,
+        const std::vector<std::vector<faiss::idx_t>>& ground_truths,
+        float lamhat,
+        const IVFSearchParameters* params = nullptr,
+        IndexIVFStats* stats = nullptr) const;
     
     float calibrate(float alpha);
 
