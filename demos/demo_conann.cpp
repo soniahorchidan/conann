@@ -12,27 +12,30 @@ using namespace std::chrono;
 
 int main(void) {
     // dimension of the vectors to index
-    int d = 32;
-    int K = 64;
+    int d = 3;
+    int K = 100;
+    int nlist = 10;
 
     // size of the database we plan to index
     size_t nb = 10000;
+    // size of the training dataset
+    size_t nt = 4000;
 
     std::mt19937 rng(12345);
 
     // make the IVF index object and train it
     faiss::IndexFlatL2 quantizer(d); // The quantizer (flat index)
-    faiss::IndexIVFFlat index(&quantizer, d, 10, faiss::METRIC_L2); // IVF index
-    index.nprobe = 10; // number of probes
+    faiss::IndexIVFFlat index(&quantizer, d, nlist, faiss::METRIC_L2); // IVF index
+    index.nprobe = 100; // number of probes
 
     // train the index on some data
-    std::vector<float> training_data(1000 * d); // Random training data
+    std::vector<float> training_data(nt * d); // Random training data
     std::uniform_real_distribution<float> dist(
         0.0f, 1.0f); // Distribution between 0 and 1
-    for (size_t i = 0; i < 1000 * d; i++) {
+    for (size_t i = 0; i < nt * d; i++) {
         training_data[i] = dist(rng); // Generate float between 0 and 1
     }
-    index.train(1000, training_data.data());
+    index.train(nt, training_data.data());
 
     // generate random database
     std::vector<float> database(nb * d);
@@ -85,38 +88,38 @@ int main(void) {
 
     index.eval_on_lambda_range(0.1, 0.31, 0.1);
 
-    nq = 10;
+    // nq = 10;
 
-    { // searching the database
-        printf("Searching with error quantification ...\n");
+    // { // searching the database
+    //     printf("Searching with error quantification ...\n");
 
-        std::vector<float> queries(nq * d);
-        for (size_t i = 0; i < nq * d; i++) {
-            queries[i] = dist(rng);
-        }
+    //     std::vector<float> queries(nq * d);
+    //     for (size_t i = 0; i < nq * d; i++) {
+    //         queries[i] = dist(rng);
+    //     }
 
-        int k = 5;
-        std::vector<faiss::idx_t> nns(k * nq);
-        std::vector<float> dis(k * nq);
+    //     int k = 5;
+    //     std::vector<faiss::idx_t> nns(k * nq);
+    //     std::vector<float> dis(k * nq);
 
-        auto start = high_resolution_clock::now();
+    //     auto start = high_resolution_clock::now();
 
-        std::unordered_map<faiss::idx_t, std::vector<float>> nonconf_list;
-        std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>
-            all_preds_list;
+    //     std::unordered_map<faiss::idx_t, std::vector<float>> nonconf_list;
+    //     std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>
+    //         all_preds_list;
 
-        index.search_with_error_quantification(nq, queries.data(), k,
-                                               dis.data(), nns.data(), 0.022,
-                                               nonconf_list, all_preds_list);
+    //     index.search_with_error_quantification(nq, queries.data(), k,
+    //                                            dis.data(), nns.data(), 0.022,
+    //                                            nonconf_list, all_preds_list);
 
-        auto end = high_resolution_clock::now();
+    //     auto end = high_resolution_clock::now();
 
-        // Output results
-        auto t = duration_cast<microseconds>(end - start).count();
-        int qps = nq * 1000 * 1000 / t;
+    //     // Output results
+    //     auto t = duration_cast<microseconds>(end - start).count();
+    //     int qps = nq * 1000 * 1000 / t;
 
-        printf("QPS: %d\n", qps);
-    }
+    //     printf("QPS: %d\n", qps);
+    // }
 
     return 0;
 }

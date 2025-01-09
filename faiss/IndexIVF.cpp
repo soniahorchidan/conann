@@ -42,6 +42,7 @@
 #include <fstream>
 #include <functional>
 #include <map>
+#include <unordered_set>
 
 namespace faiss {
 
@@ -222,7 +223,7 @@ void IndexIVF::add_with_ids(idx_t n, const float* x, const idx_t* xids) {
     // ---------------------------
 
     // TODO: maybe use only IDs that point to data
-    auto [train_data, calib_data, test_data] = split_dataset(x, n, quantizer->d, 0.3, 0.3);
+    auto [train_data, calib_data, test_data] = split_dataset(x, n, quantizer->d, 0.1, 0.1);
     train_cx = train_data;
     calib_cx = calib_data;
     test_cx = test_data;
@@ -1408,11 +1409,6 @@ IndexIVF::compute_scores(
                                      dis.data(), nns.data(), -1,
                                      nonconf_list, all_preds_list);
 
-    for (auto &[qid, ncf] : nonconf_list) {
-        ncf.push_back(0.0f);
-        all_preds_list[qid].push_back(all_preds_list[qid].back());
-    }
-
     // Weight nonconformity scores by difficulty
     for (size_t i = 0; i < queries.size(); ++i) {
         for (float &score : nonconf_list[i]) {
@@ -1883,6 +1879,24 @@ void IndexIVF::search_with_error_quantification(
                         all_preds_list[real_key].insert(all_preds_list[real_key].end(),
                                                            pair.second.begin(), pair.second.end());
                     }
+
+                }
+
+                // post-processing to add 0s.
+                // TODO: optimize.
+                for (auto& entry : nonconf_list) {
+                    auto& vec = entry.second;
+                    if (vec.empty()) continue;
+
+                    float last_value = vec.back();
+                    for (int i = vec.size() - 1; i >= 1; --i) {
+                        if (vec[i] == last_value) {
+                            vec[i] = 0;  // Replace subsequent occurrences with 0
+                        } else {
+                            vec[i + 1] = last_value;
+                            break;
+                        }
+                    }
                 }
 
                 } catch (const std::exception& e) {
@@ -1905,7 +1919,6 @@ void IndexIVF::search_with_error_quantification(
     }
 }
 
-// NOTE(Sonia): this should act as compute_scores, I guess
 void IndexIVF::search_preassigned_with_error_quantification(
         idx_t n,
         const float* x,
@@ -2147,8 +2160,6 @@ void IndexIVF::search_preassigned_with_error_quantification(
                         }
                     }
 
-                    // std::cout << "DEBUG:: score_k=" << score_k << " i=" << i << "\n";
-
                     if (score_k > MAX_DISTANCE) {
                         nonconf_list[i].push_back(1.0);
                         all_preds_list[i].push_back({});
@@ -2156,11 +2167,11 @@ void IndexIVF::search_preassigned_with_error_quantification(
 
                     score_k = score_k / MAX_DISTANCE;
 
-                    
                     // push back nonconfirmity score and predictions after searching each new cell
                     nonconf_list[i].push_back(score_k);
                     std::vector<faiss::idx_t> idxi_copy(idxi, idxi + k);
                     all_preds_list[i].push_back(idxi_copy);
+
                 }
 
                 ndis += nscan;

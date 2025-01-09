@@ -448,13 +448,12 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     // ConANN block
     faiss::IndexFlatL2* index_flat;
-    float MAX_DISTANCE = 1000;  // maybe redundant
+    float MAX_DISTANCE = 1;  // maybe redundant
     int n_list; //redundant
     std::vector<std::vector<float>> centroids;
 
     // TODO(sonia): do not hardcode
-    int K = 5;
-    int N_LIST = 10;
+    int K = 100;
     // TODO(sonia): pass in benchmarking suite
     int ITERATIONS = 5;
     int Q_PER_ITER = 1000;
