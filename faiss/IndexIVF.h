@@ -454,10 +454,6 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     // TODO(sonia): do not hardcode
     int K = 100;
-    // TODO(sonia): pass in benchmarking suite
-    int ITERATIONS = 5;
-    int Q_PER_ITER = 1000;
-    std::string RES_PATH = "./conann-results/";
 
     // TODO(sonia): do we even need to keep train_cx?
     std::vector<std::vector<float>> train_cx;
@@ -496,8 +492,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::pair<std::vector<std::vector<float>>, std::vector<std::vector<std::vector<faiss::idx_t>>>> 
     compute_scores(float lamhat,
         const std::vector<std::vector<float>>& queries, 
-        const std::vector<float>& diff_scores, 
-        const std::vector<std::vector<faiss::idx_t>>& ground_truths);
+        const std::vector<float>& diff_scores);
 
     std::pair<std::vector<std::vector<faiss::idx_t>>, std::vector<int>> compute_predictions(
         float lambda,
@@ -519,8 +514,15 @@ struct IndexIVF : Index, IndexIVFInterface {
             std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>& all_preds_list,
             const SearchParameters* params = nullptr) const;
 
+   void search_conann(
+            idx_t n,
+            const float* x,
+            idx_t k,
+            float lamhat,
+            float* distances,
+            idx_t* labels,
+            const SearchParameters* params = nullptr);
 
-    // in calibration mode if ground_truths are passed; in evaluation mode otherwise.
     // if in calibration mode, lamhat needs to be -1.
     void search_preassigned_with_error_quantification(
         idx_t n,
@@ -531,7 +533,6 @@ struct IndexIVF : Index, IndexIVFInterface {
         float* distances,
         idx_t* labels,
         bool store_pairs,
-        const std::vector<std::vector<faiss::idx_t>>& ground_truths,
         float lamhat,
         const std::vector<float>& diff_scores,
         std::unordered_map<faiss::idx_t, std::vector<float>>& nonconf_list,

@@ -1275,7 +1275,7 @@ void IndexIVF::train(idx_t n, const float* x) {
 void IndexIVF::prep_calib() {
     calib_labels = get_one_hot_gt(calib_cx);
     calib_diffs = compute_difficulty_scores(calib_cx);
-    auto [cn, c_clus] = compute_scores(0.0, calib_cx, calib_diffs, calib_labels);
+    auto [cn, c_clus] = compute_scores(0.0, calib_cx, calib_diffs);
     calib_nonconf = cn;
     calib_preds = c_clus;
 
@@ -1385,8 +1385,7 @@ std::pair<std::vector<std::vector<float>>,
 IndexIVF::compute_scores(
     float lamhat,
     const std::vector<std::vector<float>> &queries,
-    const std::vector<float> &diff_scores,
-    const std::vector<std::vector<faiss::idx_t>> &ground_truths) {
+    const std::vector<float> &diff_scores) {
 
     int num_queries = queries.size();
     std::unordered_map<faiss::idx_t, std::vector<float>> nonconf_list;
@@ -1405,28 +1404,7 @@ IndexIVF::compute_scores(
                                      dis.data(), nns.data(), lamhat, diff_scores,
                                      nonconf_list, all_preds_list);
 
-    // std::cout << "DEBUG:: nonconf list=\n";
-    // for (const auto& entry : nonconf_list) {
-    //     std::cout << "Key: " << entry.first << " -> Values: ";
-    //     for (const auto& val : entry.second) {
-    //         std::cout << val << " ";
-    //     }
-    //     std::cout << std::endl;
-    // }
-    // std::cout << std::endl;
 
-    // std::cout << "DEBUG:: all_preds_list list=\n";
-    // for (const auto& entry : all_preds_list) {
-    //     std::cout << "Key: " << entry.first << " -> Preds: ";
-    //     for (const auto& vec : entry.second) {
-    //         std::cout << "[ ";
-    //         for (const auto& val : vec) {
-    //             std::cout << val << " ";
-    //         }
-    //         std::cout << "] ";
-    //     }
-    //     std::cout << std::endl;
-    // }
     // Convert to simpler format
     std::vector<std::vector<float>> n_vec(nonconf_list.size());
     for (const auto &[key, value] : nonconf_list) {
@@ -1513,7 +1491,8 @@ IndexIVF::compute_predictions(
 
         int index = -1;
         // TODO(sonia): unoptimal because we already stop early in the search 
-        // method, so we could optimize this part.
+        // method, so we could optimize this part. However, it is correct for 
+        // calibration.
         for (size_t i = 0; i < sc.size(); ++i) {
             if (sc[i] >= lambda) {
                 index = i;
@@ -1576,7 +1555,7 @@ std::pair<float, std::vector<int>> IndexIVF::evaluate(
     float lamhat, const std::vector<std::vector<float>> &queries,
     const std::vector<std::vector<faiss::idx_t>> &labels) {
     std::vector<float> diff_scores = compute_difficulty_scores(queries);
-    auto [tn, t_clus] = compute_scores(lamhat, queries, diff_scores, labels);
+    auto [tn, t_clus] = compute_scores(lamhat, queries, diff_scores);
     std::vector<std::vector<float>> nonconf = tn; 
     std::vector<std::vector<std::vector<faiss::idx_t>>> all_preds_per_nprobe = t_clus;
 
@@ -1584,6 +1563,44 @@ std::pair<float, std::vector<int>> IndexIVF::evaluate(
         compute_predictions(lamhat, queries, diff_scores, nonconf, all_preds_per_nprobe);
     float fnr = false_negative_rate(test_preds, labels);
     return {fnr, cl_searched};
+}
+
+void IndexIVF::search_conann(
+        idx_t n,
+        const float* x,
+        idx_t k,
+        float lamhat,
+        float* distances,
+        idx_t* labels,
+        const SearchParameters* params_in) {
+
+    std::vector<std::vector<float>> queries(n, std::vector<float>(d));
+    for (size_t i = 0; i < n; ++i) {
+        for (size_t j = 0; j < d; ++j) {
+            queries[i][j] = x[i * d + j];
+        }
+    }
+    std::vector<float> diff_scores = compute_difficulty_scores(queries);
+    auto [tn, t_clus] = compute_scores(lamhat, queries, diff_scores);
+    std::vector<std::vector<float>> nonconf = tn; 
+    std::vector<std::vector<std::vector<faiss::idx_t>>> all_preds_per_nprobe = t_clus;
+
+    auto [test_preds, cl_searched] =
+        compute_predictions(lamhat, queries, diff_scores, nonconf, all_preds_per_nprobe);
+
+    // Move results
+    // TODO: optimize
+    int nq = queries.size();
+    for (int i = 0; i < nq; ++i) {
+        if (test_preds[i].empty()) {
+            std::fill(labels + i * K, labels + (i + 1) * K, 0);
+        } else {
+            for (int j = 0; j < K; ++j) {
+                labels[i * K + j] = test_preds[i][j];
+            }
+        }
+    }
+    // TODO: maintain distances too
 }
 
 
@@ -1649,7 +1666,6 @@ void IndexIVF::search_with_error_quantification(
                     distances,
                     labels,
                     false,
-                    calib_labels,
                     lamhat,
                     diff_scores,
                     nonconf_list,
@@ -1666,7 +1682,6 @@ void IndexIVF::search_with_error_quantification(
                     distances,
                     labels,
                     false,
-                    test_labels,
                     lamhat,
                     diff_scores,
                     nonconf_list,
@@ -1769,7 +1784,6 @@ void IndexIVF::search_preassigned_with_error_quantification(
         float* distances,
         idx_t* labels,
         bool store_pairs,
-        const std::vector<std::vector<faiss::idx_t>>& ground_truths, 
         float lamhat, 
         const std::vector<float>& diff_scores,
         std::unordered_map<faiss::idx_t, std::vector<float>>& nonconf_list,
@@ -2002,28 +2016,22 @@ void IndexIVF::search_preassigned_with_error_quantification(
                         }
                     }
 
+                    std::vector<faiss::idx_t> idxi_copy(idxi, idxi + k);
+
                     if (score_k > MAX_DISTANCE) {
                         nonconf_list[i].push_back(1.0);
-                        all_preds_list[i].push_back({});
-                    }
-
-                    score_k /= MAX_DISTANCE;
-                    //  Weight nonconformity scores by difficulty
-                    score_k *=(1.0f - diff_scores[i]); 
-
-                    if (score_k < lamhat) {
-                        // add more prediction
-                        nonconf_list[i].push_back(0.0);
-                        std::vector<faiss::idx_t> idxi_copy(idxi, idxi + k);
                         all_preds_list[i].push_back(idxi_copy);
-                        break;
+                    } else {
+                        score_k = score_k / MAX_DISTANCE * (1.0f - diff_scores[i]);
+                        if (score_k < lamhat) {
+                            nonconf_list[i].push_back(0.0);
+                            all_preds_list[i].push_back(idxi_copy);
+                            break;
+                        }
+
+                        nonconf_list[i].push_back(score_k);
+                        all_preds_list[i].push_back(idxi_copy);
                     }
-
-                    // push back nonconfirmity score and predictions after searching each new cell
-                    nonconf_list[i].push_back(score_k);
-                    std::vector<faiss::idx_t> idxi_copy(idxi, idxi + k);
-                    all_preds_list[i].push_back(idxi_copy);
-
                 }
 
                 ndis += nscan;

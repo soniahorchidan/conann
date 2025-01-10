@@ -53,32 +53,6 @@ int main(void) {
         index.add(nb, database.data());
     }
 
-    size_t nq = 1;
-
-    { // searching the database
-        printf("Searching ...\n");
-
-        std::vector<float> queries(nq * d);
-        for (size_t i = 0; i < nq * d; i++) {
-            queries[i] = dist(rng);
-        }
-
-        int k = 5;
-        std::vector<faiss::idx_t> nns(k * nq);
-        std::vector<float> dis(k * nq);
-
-        auto start = high_resolution_clock::now();
-        index.search(nq, queries.data(), k, dis.data(), nns.data());
-
-        auto end = high_resolution_clock::now();
-
-        // Output results
-        auto t = duration_cast<microseconds>(end - start).count();
-        int qps = nq * 1000 * 1000 / t;
-
-        printf("QPS: %d\n", qps);
-    }
-
     // Test calibration
     auto alpa = 0.1;
     auto lamhat = index.calibrate(alpa);
@@ -102,38 +76,67 @@ int main(void) {
     std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
               << ", test fnr=" << fnr << ", avg cls searched=" << computeAverage(cls) << std::endl;
 
-    // nq = 10;
 
-    // { // searching the database
-    //     printf("Searching with error quantification ...\n");
+    size_t nq = 3;
 
-    //     std::vector<float> queries(nq * d);
-    //     for (size_t i = 0; i < nq * d; i++) {
-    //         queries[i] = dist(rng);
-    //     }
 
-    //     int k = 5;
-    //     std::vector<faiss::idx_t> nns(k * nq);
-    //     std::vector<float> dis(k * nq);
+        std::vector<float> queries(nq * d);
+        for (size_t i = 0; i < nq * d; i++) {
+            queries[i] = dist(rng);
+        }
 
-    //     auto start = high_resolution_clock::now();
+    { // searching the database
+        printf("Searching database ...\n");
 
-    //     std::unordered_map<faiss::idx_t, std::vector<float>> nonconf_list;
-    //     std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>
-    //         all_preds_list;
 
-    //     index.search_with_error_quantification(nq, queries.data(), k,
-    //                                            dis.data(), nns.data(), 0.022,
-    //                                            nonconf_list, all_preds_list);
+        std::vector<faiss::idx_t> nns(K * nq);
+        std::vector<float> dis(K * nq);
 
-    //     auto end = high_resolution_clock::now();
+        auto start = high_resolution_clock::now();
+        index.search(nq, queries.data(), K, dis.data(), nns.data());
 
-    //     // Output results
-    //     auto t = duration_cast<microseconds>(end - start).count();
-    //     int qps = nq * 1000 * 1000 / t;
+        for (int i = 0; i < nq; i ++) {
+            std::cout << "[";
+            for (int j = 0; j < K; j ++) {
+                std::cout << nns[i * K + j] << ", ";
+            }
+            std::cout << "]\n\n";
+        }
 
-    //     printf("QPS: %d\n", qps);
-    // }
+        auto end = high_resolution_clock::now();
+
+        // Output results
+        auto t = duration_cast<microseconds>(end - start).count();
+        int qps = nq * 1000 * 1000 / t;
+
+        printf("QPS: %d\n", qps);
+    }
+
+     { // searching the database
+        printf("Searching conann ...\n");
+
+        std::vector<faiss::idx_t> nns(K * nq);
+        std::vector<float> dis(K * nq);
+
+        auto start = high_resolution_clock::now();
+        index.search_conann(nq, queries.data(), K, lamhat, dis.data(), nns.data());
+
+        for (int i = 0; i < nq; i ++) {
+            std::cout << "[";
+            for (int j = 0; j < K; j ++) {
+                std::cout << nns[i * K + j] << ", ";
+            }
+            std::cout << "]\n\n";
+        }
+
+        auto end = high_resolution_clock::now();
+
+        // Output results
+        auto t = duration_cast<microseconds>(end - start).count();
+        int qps = nq * 1000 * 1000 / t;
+
+        printf("QPS: %d\n", qps);
+    }
 
     return 0;
 }
