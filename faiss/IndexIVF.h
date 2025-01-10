@@ -494,7 +494,8 @@ struct IndexIVF : Index, IndexIVFInterface {
         std::vector<std::vector<faiss::idx_t>>& s_indexes);
 
     std::pair<std::vector<std::vector<float>>, std::vector<std::vector<std::vector<faiss::idx_t>>>> 
-    compute_scores(const std::vector<std::vector<float>>& queries, 
+    compute_scores(float lamhat,
+        const std::vector<std::vector<float>>& queries, 
         const std::vector<float>& diff_scores, 
         const std::vector<std::vector<faiss::idx_t>>& ground_truths);
 
@@ -505,7 +506,7 @@ struct IndexIVF : Index, IndexIVFInterface {
         const std::vector<std::vector<float>>& nonconf,
         const std::vector<std::vector<std::vector<faiss::idx_t>>>& preds);
 
-    // if in calibration mode, lamhat needs to be -1.
+    // if in calibration mode, lamhat needs to be 0.0.
     void search_with_error_quantification(
             idx_t n,
             const float* x,
@@ -513,6 +514,7 @@ struct IndexIVF : Index, IndexIVFInterface {
             float* distances,
             idx_t* labels,
             float lamhat,
+            const std::vector<float>& diff_scores,
             std::unordered_map<faiss::idx_t, std::vector<float>>& nonconf_list,
             std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>& all_preds_list,
             const SearchParameters* params = nullptr) const;
@@ -531,6 +533,7 @@ struct IndexIVF : Index, IndexIVFInterface {
         bool store_pairs,
         const std::vector<std::vector<faiss::idx_t>>& ground_truths,
         float lamhat,
+        const std::vector<float>& diff_scores,
         std::unordered_map<faiss::idx_t, std::vector<float>>& nonconf_list,
         std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>& all_preds_list,
         const IVFSearchParameters* params = nullptr,
@@ -550,13 +553,6 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::pair<float, std::vector<int>> evaluate(float lamhat,
                                                 const std::vector<std::vector<float>>& queries,
                                                 const std::vector<std::vector<faiss::idx_t>>& labels);
-
-    
-//     void eval_on_lambda_range(float min_alpha, float max_alpha, float step); 
-
-    void print_validity(const std::vector<std::vector<float>>& all_fnrs, const std::vector<float>& alpha_values);
-    void print_adaptivity(const std::vector<std::vector<std::vector<int>>>& all_nprobe_freqs, const std::vector<float>& alpha_values);
-
     // ----------------------------
 };
 

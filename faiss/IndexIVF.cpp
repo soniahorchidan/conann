@@ -1275,15 +1275,11 @@ void IndexIVF::train(idx_t n, const float* x) {
 void IndexIVF::prep_calib() {
     calib_labels = get_one_hot_gt(calib_cx);
     calib_diffs = compute_difficulty_scores(calib_cx);
-    auto [cn, c_clus] = compute_scores(calib_cx, calib_diffs, calib_labels);
+    auto [cn, c_clus] = compute_scores(0.0, calib_cx, calib_diffs, calib_labels);
     calib_nonconf = cn;
     calib_preds = c_clus;
 
     test_labels = get_one_hot_gt(test_cx);
-    // test_diffs = compute_difficulty_scores(test_cx);
-    // auto [tn, t_clus] = compute_scores(test_cx, test_diffs, test_labels);
-    // test_nonconf = tn;
-    // test_preds = t_clus;
 }
 
 std::vector<std::vector<faiss::idx_t>>
@@ -1387,6 +1383,7 @@ void IndexIVF::search_index(const std::vector<std::vector<float>> &queries,
 std::pair<std::vector<std::vector<float>>,
           std::vector<std::vector<std::vector<faiss::idx_t>>>>
 IndexIVF::compute_scores(
+    float lamhat,
     const std::vector<std::vector<float>> &queries,
     const std::vector<float> &diff_scores,
     const std::vector<std::vector<faiss::idx_t>> &ground_truths) {
@@ -1405,16 +1402,31 @@ IndexIVF::compute_scores(
     }
 
     search_with_error_quantification(num_queries, flattened.data(), K,
-                                     dis.data(), nns.data(), -1,
+                                     dis.data(), nns.data(), lamhat, diff_scores,
                                      nonconf_list, all_preds_list);
 
-    // Weight nonconformity scores by difficulty
-    for (size_t i = 0; i < queries.size(); ++i) {
-        for (float &score : nonconf_list[i]) {
-            score *= (1.0f - diff_scores[i]);
-        }
-    }
+    // std::cout << "DEBUG:: nonconf list=\n";
+    // for (const auto& entry : nonconf_list) {
+    //     std::cout << "Key: " << entry.first << " -> Values: ";
+    //     for (const auto& val : entry.second) {
+    //         std::cout << val << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
+    // std::cout << std::endl;
 
+    // std::cout << "DEBUG:: all_preds_list list=\n";
+    // for (const auto& entry : all_preds_list) {
+    //     std::cout << "Key: " << entry.first << " -> Preds: ";
+    //     for (const auto& vec : entry.second) {
+    //         std::cout << "[ ";
+    //         for (const auto& val : vec) {
+    //             std::cout << val << " ";
+    //         }
+    //         std::cout << "] ";
+    //     }
+    //     std::cout << std::endl;
+    // }
     // Convert to simpler format
     std::vector<std::vector<float>> n_vec(nonconf_list.size());
     for (const auto &[key, value] : nonconf_list) {
@@ -1500,6 +1512,8 @@ IndexIVF::compute_predictions(
         const auto &p = preds[query_idx];
 
         int index = -1;
+        // TODO(sonia): unoptimal because we already stop early in the search 
+        // method, so we could optimize this part.
         for (size_t i = 0; i < sc.size(); ++i) {
             if (sc[i] >= lambda) {
                 index = i;
@@ -1562,7 +1576,7 @@ std::pair<float, std::vector<int>> IndexIVF::evaluate(
     float lamhat, const std::vector<std::vector<float>> &queries,
     const std::vector<std::vector<faiss::idx_t>> &labels) {
     std::vector<float> diff_scores = compute_difficulty_scores(queries);
-    auto [tn, t_clus] = compute_scores(queries, diff_scores, labels);
+    auto [tn, t_clus] = compute_scores(lamhat, queries, diff_scores, labels);
     std::vector<std::vector<float>> nonconf = tn; 
     std::vector<std::vector<std::vector<faiss::idx_t>>> all_preds_per_nprobe = t_clus;
 
@@ -1580,13 +1594,14 @@ void IndexIVF::search_with_error_quantification(
         float* distances,
         idx_t* labels,
         float lamhat,
+        const std::vector<float>& diff_scores,
         std::unordered_map<faiss::idx_t, std::vector<float>>& nonconf_list,
         std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>& all_preds_list,
         const SearchParameters* params_in) const {
 
     FAISS_THROW_IF_NOT(k > 0);
 
-    bool calib_mode = lamhat == -1 ? true : false; 
+    bool calib_mode = lamhat == 0 ? true : false; 
 
     const IVFSearchParameters* params = nullptr;
     if (params_in) {
@@ -1604,6 +1619,7 @@ void IndexIVF::search_with_error_quantification(
                                    float* distances,
                                    idx_t* labels,
                                    IndexIVFStats* ivf_stats,
+                                   const std::vector<float>& diff_scores,
                                    std::unordered_map<faiss::idx_t, std::vector<float>>& nonconf_list,
                                    std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>& all_preds_list) {
 
@@ -1635,6 +1651,7 @@ void IndexIVF::search_with_error_quantification(
                     false,
                     calib_labels,
                     lamhat,
+                    diff_scores,
                     nonconf_list,
                     all_preds_list,
                     params,
@@ -1651,6 +1668,7 @@ void IndexIVF::search_with_error_quantification(
                     false,
                     test_labels,
                     lamhat,
+                    diff_scores,
                     nonconf_list,
                     all_preds_list, 
                     params,
@@ -1683,6 +1701,7 @@ void IndexIVF::search_with_error_quantification(
                             distances + i0 * k,
                             labels + i0 * k,
                             &stats[slice],
+                            std::vector<float>(diff_scores.begin() + i0, diff_scores.begin() + i1),
                             local_nonconf_list,
                             local_all_preds_list);
                     
@@ -1709,6 +1728,8 @@ void IndexIVF::search_with_error_quantification(
                     if (vec.empty()) continue;
 
                     float last_value = vec.back();
+                    if (last_value == 0)
+                        continue;
                     for (int i = vec.size() - 1; i >= 1; --i) {
                         if (vec[i] == last_value) {
                             vec[i] = 0;  // Replace subsequent occurrences with 0
@@ -1750,6 +1771,7 @@ void IndexIVF::search_preassigned_with_error_quantification(
         bool store_pairs,
         const std::vector<std::vector<faiss::idx_t>>& ground_truths, 
         float lamhat, 
+        const std::vector<float>& diff_scores,
         std::unordered_map<faiss::idx_t, std::vector<float>>& nonconf_list,
         std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>& all_preds_list,
         const IVFSearchParameters* params,
@@ -1985,7 +2007,17 @@ void IndexIVF::search_preassigned_with_error_quantification(
                         all_preds_list[i].push_back({});
                     }
 
-                    score_k = score_k / MAX_DISTANCE;
+                    score_k /= MAX_DISTANCE;
+                    //  Weight nonconformity scores by difficulty
+                    score_k *=(1.0f - diff_scores[i]); 
+
+                    if (score_k < lamhat) {
+                        // add more prediction
+                        nonconf_list[i].push_back(0.0);
+                        std::vector<faiss::idx_t> idxi_copy(idxi, idxi + k);
+                        all_preds_list[i].push_back(idxi_copy);
+                        break;
+                    }
 
                     // push back nonconfirmity score and predictions after searching each new cell
                     nonconf_list[i].push_back(score_k);
