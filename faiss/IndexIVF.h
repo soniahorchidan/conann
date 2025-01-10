@@ -470,9 +470,9 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::vector<std::vector<std::vector<faiss::idx_t>>> calib_preds;
 
     std::vector<std::vector<faiss::idx_t>> test_labels;
-    std::vector<float> test_diffs;
-    std::vector<std::vector<float>> test_nonconf;
-    std::vector<std::vector<std::vector<faiss::idx_t>>> test_preds;
+//     std::vector<float> test_diffs;
+//     std::vector<std::vector<float>> test_nonconf;
+//     std::vector<std::vector<std::vector<faiss::idx_t>>> test_preds;
 
     std::tuple<std::vector<std::vector<float>>, 
     std::vector<std::vector<float>>, std::vector<std::vector<float>>> split_dataset(
@@ -545,17 +545,14 @@ struct IndexIVF : Index, IndexIVFInterface {
                               
     float lamhat_threshold(float lambda, float target_fnr);
 
-    float evaluate_test(float lamhat);
+    std::pair<float, std::vector<int>> evaluate_test(float lamhat);
     
     std::pair<float, std::vector<int>> evaluate(float lamhat,
                                                 const std::vector<std::vector<float>>& queries,
-                                                const std::vector<float>& diff_scores,
-                                                const std::vector<std::vector<faiss::idx_t>>& labels,
-                                                const std::vector<std::vector<float>>& nonconf,
-                                                const std::vector<std::vector<std::vector<faiss::idx_t>>>& preds);
+                                                const std::vector<std::vector<faiss::idx_t>>& labels);
 
     
-    void eval_on_lambda_range(float min_alpha, float max_alpha, float step); 
+//     void eval_on_lambda_range(float min_alpha, float max_alpha, float step); 
 
     void print_validity(const std::vector<std::vector<float>>& all_fnrs, const std::vector<float>& alpha_values);
     void print_adaptivity(const std::vector<std::vector<std::vector<int>>>& all_nprobe_freqs, const std::vector<float>& alpha_values);

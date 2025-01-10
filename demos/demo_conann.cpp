@@ -10,6 +10,12 @@
 
 using namespace std::chrono;
 
+double computeAverage(const std::vector<int>& numbers) {
+    if (numbers.empty()) return 0.0;
+    double sum = std::accumulate(numbers.begin(), numbers.end(), 0);
+    return sum / numbers.size();
+}
+
 int main(void) {
     // dimension of the vectors to index
     int d = 3;
@@ -76,17 +82,25 @@ int main(void) {
     // Test calibration
     auto alpa = 0.1;
     auto lamhat = index.calibrate(alpa);
-    auto fnr = index.evaluate_test(lamhat);
+    auto [fnr, cls] = index.evaluate_test(lamhat);
     std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
-              << ", test fnr=" << fnr << std::endl;
+              << ", test fnr=" << fnr << ", avg cls searched=" << computeAverage(cls) << std::endl;
 
     alpa = 0.2;
     lamhat = index.calibrate(alpa);
-    fnr = index.evaluate_test(lamhat);
+    auto res = index.evaluate_test(lamhat);
+    fnr = res.first;
+    cls = res.second;
     std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
-              << ", test fnr=" << fnr << std::endl;
+              << ", test fnr=" << fnr << ", avg cls searched=" << computeAverage(cls) << std::endl;
 
-    index.eval_on_lambda_range(0.1, 0.31, 0.1);
+    alpa = 0.3;
+    lamhat = index.calibrate(alpa);
+    res = index.evaluate_test(lamhat);
+    fnr = res.first;
+    cls = res.second;
+    std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
+              << ", test fnr=" << fnr << ", avg cls searched=" << computeAverage(cls) << std::endl;
 
     // nq = 10;
 

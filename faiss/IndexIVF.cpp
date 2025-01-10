@@ -1280,10 +1280,10 @@ void IndexIVF::prep_calib() {
     calib_preds = c_clus;
 
     test_labels = get_one_hot_gt(test_cx);
-    test_diffs = compute_difficulty_scores(test_cx);
-    auto [tn, t_clus] = compute_scores(test_cx, test_diffs, test_labels);
-    test_nonconf = tn;
-    test_preds = t_clus;
+    // test_diffs = compute_difficulty_scores(test_cx);
+    // auto [tn, t_clus] = compute_scores(test_cx, test_diffs, test_labels);
+    // test_nonconf = tn;
+    // test_preds = t_clus;
 }
 
 std::vector<std::vector<faiss::idx_t>>
@@ -1340,7 +1340,6 @@ float IndexIVF::compute_l2_distance(const std::vector<float> &a,
 std::vector<float> IndexIVF::compute_difficulty_scores(
     const std::vector<std::vector<float>> &queries) {
     std::vector<float> diff_scores;
-
     for (const auto &query : queries) {
         std::vector<float> distances;
         for (const auto &centroid : centroids) {
@@ -1553,203 +1552,24 @@ float IndexIVF::false_negative_rate(
     }
 }
 
-float IndexIVF::evaluate_test(float lamhat) {
-    auto result = evaluate(lamhat, test_cx, test_diffs, test_labels,
-                           test_nonconf, test_preds);
+std::pair<float, std::vector<int>> IndexIVF::evaluate_test(float lamhat) {
+    auto result = evaluate(lamhat, test_cx, test_labels);
     // Return FNR only
-    return result.first;
+    return result;
 }
 
 std::pair<float, std::vector<int>> IndexIVF::evaluate(
     float lamhat, const std::vector<std::vector<float>> &queries,
-    const std::vector<float> &diff_scores,
-    const std::vector<std::vector<faiss::idx_t>> &labels,
-    const std::vector<std::vector<float>> &nonconf,
-    const std::vector<std::vector<std::vector<faiss::idx_t>>> &preds) {
+    const std::vector<std::vector<faiss::idx_t>> &labels) {
+    std::vector<float> diff_scores = compute_difficulty_scores(queries);
+    auto [tn, t_clus] = compute_scores(queries, diff_scores, labels);
+    std::vector<std::vector<float>> nonconf = tn; 
+    std::vector<std::vector<std::vector<faiss::idx_t>>> all_preds_per_nprobe = t_clus;
+
     auto [test_preds, cl_searched] =
-        compute_predictions(lamhat, queries, diff_scores, nonconf, preds);
+        compute_predictions(lamhat, queries, diff_scores, nonconf, all_preds_per_nprobe);
     float fnr = false_negative_rate(test_preds, labels);
     return {fnr, cl_searched};
-}
-
-void IndexIVF::eval_on_lambda_range(float min_alpha, float max_alpha,
-                                    float step) {
-    std::vector<float> alpha_values;
-    for (float alpha = min_alpha; alpha < max_alpha; alpha += step) {
-        alpha_values.push_back(alpha);
-    }
-    int N_ALPHA = alpha_values.size();
-
-    std::map<int, float> lamhats;
-    std::vector<std::vector<float>> all_fnrs;
-    std::vector<std::vector<std::vector<int>>> all_nprobe_freqs;
-
-    // TODO(sonia): parallelize
-    for (int alpha_index = 0; alpha_index < N_ALPHA; ++alpha_index) {
-        float alpha = alpha_values[alpha_index];
-        std::cout << "Run optimization for alpha: " << alpha << std::endl;
-        float lamhat = optimization(alpha);
-        std::cout << "Optimal lamhat=" << lamhat << " found for alpha=" << alpha
-                  << "." << std::endl;
-        lamhats[alpha_index] = lamhat;
-    }
-
-    // Now calculate fnrs and nprobe_freqs
-    for (int alpha_index = 0; alpha_index < N_ALPHA; ++alpha_index) {
-        std::vector<float> fnrs;
-        std::vector<std::vector<int>> nprobe_freqs;
-
-        float lamhat = lamhats[alpha_index];
-        float alpha = alpha_values[alpha_index];
-
-        // if (lamhat == 0.0) {
-        //     fnrs = std::vector<float>(ITERATIONS, 0.0);
-        //     nprobe_freqs = std::vector<int>(ITERATIONS, 0);
-        // } else {
-        std::random_device rd;
-        std::mt19937 gen(rd());
-
-        for (int j = 0; j < ITERATIONS; ++j) {
-            std::cout << "Run tests for alpha: " << alpha
-                      << ", iteration: " << j + 1 << std::endl;
-
-            std::vector<int> sampled_indices(Q_PER_ITER);
-            std::uniform_int_distribution<> dis(0, test_cx.size() - 1);
-            for (int i = 0; i < Q_PER_ITER; ++i) {
-                sampled_indices[i] = dis(gen);
-            }
-            std::vector<std::vector<float>> sampled_queries(Q_PER_ITER);
-            std::vector<std::vector<faiss::idx_t>> sampled_labels(Q_PER_ITER);
-            std::vector<float> sampled_diffs(Q_PER_ITER);
-            std::vector<std::vector<float>> sampled_nonconf(Q_PER_ITER);
-            std::vector<std::vector<std::vector<faiss::idx_t>>> sampled_preds(
-                Q_PER_ITER);
-
-            for (int i = 0; i < Q_PER_ITER; ++i) {
-                sampled_queries.push_back(test_cx[sampled_indices[i]]);
-                sampled_labels.push_back(test_labels[sampled_indices[i]]);
-                sampled_diffs.push_back(test_diffs[sampled_indices[i]]);
-                sampled_nonconf.push_back(test_nonconf[sampled_indices[i]]);
-                sampled_preds.push_back(test_preds[sampled_indices[i]]);
-            }
-
-            // Evaluate for fnr and nprobe_freqs
-            auto [fnr, cl_searched] =
-                evaluate(lamhat, sampled_queries, sampled_diffs, sampled_labels,
-                         sampled_nonconf, sampled_preds);
-            fnrs.push_back(fnr);
-            nprobe_freqs.push_back(cl_searched);
-        }
-        // }
-
-        all_fnrs.push_back(fnrs);
-        all_nprobe_freqs.push_back(nprobe_freqs);
-    }
-
-    print_validity(all_fnrs, alpha_values);
-    print_adaptivity(all_nprobe_freqs, alpha_values);
-}
-
-void IndexIVF::print_validity(const std::vector<std::vector<float>> &all_fnrs,
-                              const std::vector<float> &alpha_values) {
-    std::ofstream file(RES_PATH + "/validity_stats.txt");
-
-    if (!file.is_open()) {
-        std::cerr << "Error opening file!" << std::endl;
-        return;
-    }
-
-    file << "alpha,avg_fnr,stdev_fnr\n";
-    for (size_t i = 0; i < all_fnrs.size(); ++i) {
-        const auto &fnr_list = all_fnrs[i];
-        float sum = 0;
-        for (float fnr : fnr_list) {
-            sum += fnr;
-        }
-        float avg_fnr = sum / fnr_list.size();
-
-        float sq_sum = 0;
-        for (float fnr : fnr_list) {
-            sq_sum += (fnr - avg_fnr) * (fnr - avg_fnr);
-        }
-        float std_fnr = std::sqrt(sq_sum / fnr_list.size());
-
-        file << std::fixed << alpha_values[i] << "," << std::fixed << avg_fnr
-             << "," << std::fixed << std_fnr << "\n";
-    }
-
-    file.close();
-}
-
-void IndexIVF::print_adaptivity(
-    const std::vector<std::vector<std::vector<int>>> &all_nprobe_freqs,
-    const std::vector<float> &alpha_values) {
-    auto cl_searched = all_nprobe_freqs;
-    for (auto &outer : cl_searched) {
-        for (auto &inner : outer) {
-            for (auto &x : inner) {
-                if (x != -1)
-                    x += 1;
-            }
-        }
-    }
-    int MAX_OBSERVED = 0;
-    for (const auto &outer : all_nprobe_freqs) {
-        for (const auto &inner : outer) {
-            for (int k : inner) {
-                MAX_OBSERVED = std::max(MAX_OBSERVED, k);
-            }
-        }
-    }
-    std::cout << "Maximum number of clusters searched in any query="
-              << MAX_OBSERVED << std::endl;
-
-    // Reshaping
-    std::vector<std::vector<int>> reshaped_array(
-        alpha_values.size(), std::vector<int>(Q_PER_ITER * ITERATIONS));
-    int idx = 0;
-    for (size_t i = 0; i < alpha_values.size(); ++i) {
-        for (size_t j = 0; j < Q_PER_ITER * ITERATIONS; ++j) {
-            reshaped_array[i][j] =
-                cl_searched[idx % cl_searched.size()][j % cl_searched[0].size()]
-                           [j % cl_searched[0][0].size()];
-        }
-        ++idx;
-    }
-
-    std::unordered_map<float, std::vector<int>> freqs;
-    std::unordered_map<float, double> avgs;
-    for (size_t i = 0; i < reshaped_array.size(); ++i) {
-        float alpha = round(alpha_values[i] * 100) / 100.0;
-        const auto &r = reshaped_array[i];
-        std::unordered_map<int, int> frequency;
-        int nan_count = std::count(r.begin(), r.end(), -1);
-
-        for (int value : r) {
-            if (value != -1)
-                frequency[value]++;
-        }
-
-        freqs[alpha] = std::vector<int>(MAX_OBSERVED, 0);
-        freqs[alpha][0] = nan_count;
-        for (const auto &entry : frequency) {
-            int count_idx = std::min(entry.first, MAX_OBSERVED - 1);
-            freqs[alpha][count_idx] = entry.second;
-        }
-
-        double avg =
-            std::accumulate(r.begin(), r.end(), 0.0, [](double sum, int val) {
-                return val != -1 ? sum + val : sum;
-            });
-        avgs[alpha] =
-            (r.size() - nan_count) > 0 ? avg / (r.size() - nan_count) : 0.0;
-    }
-
-    std::ofstream file(RES_PATH + "/adaptivity_avg.txt");
-    file << "alpha,avg_num_probed\n";
-    for (auto &alpha : alpha_values) {
-        file << alpha << "," << avgs[alpha] << "\n";
-    }
 }
 
 
