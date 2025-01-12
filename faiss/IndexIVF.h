@@ -23,6 +23,7 @@
 #include <memory>
 #include <unordered_map>
 #include <vector>
+#include <map>
 
 namespace faiss {
 
@@ -398,6 +399,7 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     // TODO(sonia): do not hardcode
     int K;
+    int NUM_MONDRIAN_BINS = 5;
 
     // TODO(sonia): do we even need to keep train_cx?
     std::vector<std::vector<float>> train_cx;
@@ -439,6 +441,9 @@ struct IndexIVF : Index, IndexIVFInterface {
               std::vector<std::vector<std::vector<faiss::idx_t>>>>
     compute_scores(float lamhat, const std::vector<std::vector<float>>& queries,
                    const std::vector<float>& diff_scores);
+
+
+    std::pair<std::map<int, std::vector<int>>, std::vector<double>> partition_by_difficulty(const std::vector<float>& diff_scores, int n_groups = 5);
 
     std::pair<std::vector<std::vector<faiss::idx_t>>, std::vector<int>>
     compute_predictions(

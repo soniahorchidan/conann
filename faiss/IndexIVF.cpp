@@ -1149,34 +1149,10 @@ void IndexIVF::prep_calib() {
     calib_nonconf = cn;
     calib_preds = c_clus;
 
-    // int MAX_TO_PRINT = 5;
-    // std::cout << "DEBUG:: prep_calib{}:\n";
-    // std::cout << "calib_nonconf contents:" << std::endl;
-    // for (size_t i = 0; i < calib_nonconf.size(); ++i) {
-    //     std::cout << "Inner vector " << i << ": ";
-    //     for (size_t j = 0; j < calib_nonconf[i].size(); ++j) {
-    //         std::cout << calib_nonconf[i][j] << " ";
-    //     }
-    //     std::cout << std::endl;
-    //     MAX_TO_PRINT--;
-    //     if (MAX_TO_PRINT <= 0)
-    //         break;
-    // }
-    //  std::cout << std::endl;
-
-    //      std::cout << "calib_preds contents:" << std::endl;
-    // for (size_t i = 0; i < calib_preds.size(); ++i) {
-    //     std::cout << "Outer vector " << i << ":" << std::endl;
-    //     for (size_t j = 0; j < calib_preds[i].size(); ++j) {
-    //         std::cout << "  Inner vector " << j << ": ";
-    //         for (size_t k = 0; k < calib_preds[i][j].size(); ++k) {
-    //             std::cout << calib_preds[i][j][k] << " ";
-    //         }
-    //         std::cout << std::endl;
-    //     }
-    // }
-
     test_labels = get_one_hot_gt(test_cx);
+
+    auto partition_res = partition_by_difficulty(calib_diffs, NUM_MONDRIAN_BINS);
+    auto calib_groups = partition_res.first;
 }
 
 std::vector<std::vector<faiss::idx_t>> IndexIVF::get_one_hot_gt(
@@ -1237,11 +1213,18 @@ std::vector<float> IndexIVF::compute_difficulty_scores(
         for (const auto& centroid : centroids) {
             distances.push_back(compute_l2_distance(centroid, query));
         }
-        std::nth_element(distances.begin(), distances.begin() + 2,
-                         distances.end());
-        float closest_distances[2] = {distances[0], distances[1]};
-        float score = std::abs(closest_distances[0] - closest_distances[1]) /
-                      std::max(closest_distances[0], closest_distances[1]);
+
+        // Find the k smallest distances
+        std::nth_element(distances.begin(), distances.begin() + nlist, distances.end());
+        
+        // Collect the k closest distances
+        std::vector<float> closest_distances(distances.begin(), distances.begin() + nlist);
+        
+        // Compute the score based on the spread of the k closest distances
+        float mean_distance = std::accumulate(closest_distances.begin(), closest_distances.end(), 0.0f) / K;
+        float max_distance = *std::max_element(closest_distances.begin(), closest_distances.end());
+        float score = std::abs(mean_distance - max_distance) / std::max(mean_distance, max_distance);
+        
         diff_scores.push_back(score);
     }
 
@@ -1311,6 +1294,39 @@ IndexIVF::compute_scores(float lamhat,
     }
 
     return {n_vec, preds_vec};
+}
+
+std::pair<std::map<int, std::vector<int>>, std::vector<double>> IndexIVF::partition_by_difficulty(const std::vector<float>& diff_scores, int n_groups) {
+    std::map<int, std::vector<int>> groups;
+    std::vector<double> boundaries; // To store the boundary values
+    
+    std::vector<std::pair<double, int>> indexed_scores;
+    for (int i = 0; i < diff_scores.size(); ++i) {
+        indexed_scores.push_back({diff_scores[i], i});
+    }
+    
+    std::sort(indexed_scores.begin(), indexed_scores.end());
+    int group_size = diff_scores.size() / n_groups;
+    int remainder = diff_scores.size() % n_groups;
+
+    int group = 0;
+    for (int i = 0; i < diff_scores.size(); ++i) {
+        if (group < remainder) {
+            groups[group].push_back(indexed_scores[i].second);
+        } else {
+            groups[group].push_back(indexed_scores[i].second);
+        }
+
+        // NOTE: Move to the next group if current group reaches the target size.
+        // Done to ensure we have enough data in each group.
+        if (groups[group].size() >= group_size + (group < remainder ? 1 : 0)) {
+            if (group < n_groups - 1) {
+                boundaries.push_back(indexed_scores[i].first);
+            }
+            ++group;
+        }
+    }
+    return {groups, boundaries};
 }
 
 float IndexIVF::calibrate(float alpha, int k) {
@@ -1418,7 +1434,8 @@ IndexIVF::compute_predictions(
         }
 
         if (index > 1) {
-            // take smalles number of clusters searches which achieves this
+            // take smalles number of clusters searches which achieves this, 
+            // if multiple scores are equal to the optimal one.
             while (sc[index] == sc[index - 1]) {
                 index--;
             }
