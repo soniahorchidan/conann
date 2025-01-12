@@ -483,10 +483,10 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::unordered_map<int, float> calibrate_mondrian(float alpha, int k);
 
     float optimization(float alpha, const std::vector<std::vector<float>>& calib_cx,
-    const std::vector<std::vector<faiss::idx_t>>& calib_labels,
-    const std::vector<float>& calib_diffs,
-    const std::vector<std::vector<float>>& calib_nonconf,
-    const std::vector<std::vector<std::vector<faiss::idx_t>>>& calib_preds);
+        const std::vector<std::vector<faiss::idx_t>>& calib_labels,
+        const std::vector<float>& calib_diffs,
+        const std::vector<std::vector<float>>& calib_nonconf,
+        const std::vector<std::vector<std::vector<faiss::idx_t>>>& calib_preds);
     
     std::unordered_map<int, float> optimization_mondrian(float alpha);
 
@@ -494,7 +494,12 @@ struct IndexIVF : Index, IndexIVFInterface {
         const std::vector<std::vector<faiss::idx_t>>& prediction_set,
         const std::vector<std::vector<faiss::idx_t>>& gt_labels);
 
-    float lamhat_threshold(float lambda, float target_fnr);
+    float lamhat_threshold(float lambda, float target_fnr,
+        const std::vector<std::vector<float>>& calib_cx,
+        const std::vector<std::vector<faiss::idx_t>>& calib_labels,
+        const std::vector<float>& calib_diffs,
+        const std::vector<std::vector<float>>& calib_nonconf,
+        const std::vector<std::vector<std::vector<faiss::idx_t>>>& calib_preds);
 
     std::pair<float, std::vector<int>> evaluate_test(float lamhat);
 

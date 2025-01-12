@@ -1147,7 +1147,7 @@ void IndexIVF::prep_calib() {
     calib_labels = get_one_hot_gt(calib_cx);
     calib_diffs = compute_difficulty_scores(calib_cx);
 
-    std::cout << "DEBUG:: calib_diffs sz=" << calib_diffs.size() << "\n";
+    // std::cout << "DEBUG:: calib_diffs sz=" << calib_diffs.size() << "\n";
 
     auto [cn, c_clus] = compute_scores(-1, calib_cx, calib_diffs);
     calib_nonconf = cn;
@@ -1158,14 +1158,14 @@ void IndexIVF::prep_calib() {
     auto partition_res = partition_by_difficulty(calib_diffs, NUM_MONDRIAN_BINS);
     calib_groups = partition_res.first;
 
-    std::cout << "DEBUG:: calib_groups=\n";
-    for (const auto& pair : calib_groups) {
-        std::cout << "Key: " << pair.first << " -> Values: ";
-        for (const auto& value : pair.second) {
-            std::cout << value << " ";
-        }
-        std::cout << std::endl;
-    }
+    // std::cout << "DEBUG:: calib_groups=\n";
+    // for (const auto& pair : calib_groups) {
+    //     std::cout << "Key: " << pair.first << " -> Values: ";
+    //     for (const auto& value : pair.second) {
+    //         std::cout << value << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
 }
 
 std::vector<std::vector<faiss::idx_t>> IndexIVF::get_one_hot_gt(
@@ -1227,14 +1227,14 @@ std::vector<float> IndexIVF::compute_difficulty_scores(
             distances.push_back(compute_l2_distance(centroid, query));
         }
 
-        // Find the k smallest distances
-        std::nth_element(distances.begin(), distances.begin() + nlist, distances.end());
+        // Find the 2nd smallest distances
+        std::nth_element(distances.begin(), distances.begin() + 2, distances.end());
         
-        // Collect the k closest distances
-        std::vector<float> closest_distances(distances.begin(), distances.begin() + nlist);
+        // Collect the 2nd closest distances
+        std::vector<float> closest_distances(distances.begin(), distances.begin() + 2);
         
-        // Compute the score based on the spread of the k closest distances
-        float mean_distance = std::accumulate(closest_distances.begin(), closest_distances.end(), 0.0f) / K;
+        // Compute the score based on the spread of the 2nd closest distances
+        float mean_distance = std::accumulate(closest_distances.begin(), closest_distances.end(), 0.0f) / 2;
         float max_distance = *std::max_element(closest_distances.begin(), closest_distances.end());
         float score = std::abs(mean_distance - max_distance) / std::max(mean_distance, max_distance);
         
@@ -1377,11 +1377,11 @@ std::unordered_map<int, float> IndexIVF::optimization_mondrian(float alpha) {
         int gsz = group_indices.size();
 
         // Extract group-specific data
-        std::vector<std::vector<float>> group_queries(gsz);
-        std::vector<std::vector<faiss::idx_t>> group_labels(gsz);
-        std::vector<float> group_diffs(gsz);
-        std::vector<std::vector<float>> group_nonconf(gsz);
-        std::vector<std::vector<std::vector<faiss::idx_t>>> group_preds(gsz);
+        std::vector<std::vector<float>> group_queries;
+        std::vector<std::vector<faiss::idx_t>> group_labels;
+        std::vector<float> group_diffs;
+        std::vector<std::vector<float>> group_nonconf;
+        std::vector<std::vector<std::vector<faiss::idx_t>>> group_preds;
 
         // Populate group-specific vectors based on group_indices
         for (int idx : group_indices) {
@@ -1391,9 +1391,6 @@ std::unordered_map<int, float> IndexIVF::optimization_mondrian(float alpha) {
             group_nonconf.push_back(calib_nonconf[idx]);
             group_preds.push_back(calib_preds[idx]);
         }
-
-        std::cout << "DEBUG:: group=" << group << "\n";
-
         thresholds[group] = optimization(alpha, group_queries, group_labels, group_diffs, group_nonconf, group_preds);
     }
     return thresholds;
@@ -1412,13 +1409,28 @@ float IndexIVF::optimization(float alpha,
     // Use GSL's root-finding for the brentq method
     gsl_root_fsolver* solver = gsl_root_fsolver_alloc(gsl_root_fsolver_brent);
     gsl_function F;
-    F.function = [](double lambda, void* params) -> double {
-        auto* args = static_cast<std::pair<IndexIVF*, float>*>(params);
-        return args->first->lamhat_threshold(static_cast<float>(lambda),
-                                             args->second);
+    struct LamhatParams {
+        IndexIVF* index_ivf;
+        float target_fnr;
+        const std::vector<std::vector<float>>* calib_cx;
+        const std::vector<std::vector<faiss::idx_t>>* calib_labels;
+        const std::vector<float>* calib_diffs;
+        const std::vector<std::vector<float>>* calib_nonconf;
+        const std::vector<std::vector<std::vector<faiss::idx_t>>>* calib_preds;
     };
 
-    std::pair<IndexIVF*, float> params = {this, target_fnr};
+    F.function = [](double lambda, void* params) -> double {
+        auto* args = static_cast<LamhatParams*>(params);
+        return args->index_ivf->lamhat_threshold(
+            static_cast<float>(lambda), args->target_fnr, 
+            *(args->calib_cx), *(args->calib_labels),
+            *(args->calib_diffs), *(args->calib_nonconf), 
+            *(args->calib_preds));
+    };
+
+    LamhatParams params = {
+        this, target_fnr, &calib_cx, &calib_labels, &calib_diffs, &calib_nonconf, &calib_preds
+    };
     F.params = &params;
 
     float lower_bound = 0.0f;
@@ -1445,12 +1457,15 @@ float IndexIVF::optimization(float alpha,
         std::cerr << "Root-finding failed to converge.\n";
     }
 
-    std::cout << "DEBUG:: lamhat=" << lamhat << "\n";
-
     return lamhat;
 }
 
-float IndexIVF::lamhat_threshold(float lambda, float target_fnr) {
+float IndexIVF::lamhat_threshold(float lambda, float target_fnr,
+    const std::vector<std::vector<float>>& calib_cx,
+    const std::vector<std::vector<faiss::idx_t>>& calib_labels,
+    const std::vector<float>& calib_diffs,
+    const std::vector<std::vector<float>>& calib_nonconf,
+    const std::vector<std::vector<std::vector<faiss::idx_t>>>& calib_preds) {
     auto [preds, _] = compute_predictions(lambda, calib_cx, calib_diffs,
                                           calib_nonconf, calib_preds);
     float fnr = false_negative_rate(preds, calib_labels);
@@ -1463,28 +1478,6 @@ IndexIVF::compute_predictions(
     const std::vector<float>& diffs,
     const std::vector<std::vector<float>>& nonconf,
     const std::vector<std::vector<std::vector<faiss::idx_t>>>& preds) {
-    // std::cout << "DEBUG:: print stuff in compute_predictions\n";
-    // std::cout << "Nonconf scores=\n";
-
-    // for (size_t i = 0; i < nonconf.size(); ++i) {
-    //     std::cout << "nonconf[" << i << "]: ";
-    //     for (size_t j = 0; j < nonconf[i].size(); ++j) {
-    //         std::cout << nonconf[i][j] << " ";
-    //     }
-    //     std::cout << std::endl;
-    // }
-
-    //  std::cout << "\n\npreds=\n";
-    //     for (size_t i = 0; i < preds.size(); ++i) {
-    //     std::cout << "preds[" << i << "]:\n";
-    //     for (size_t j = 0; j < preds[i].size(); ++j) {
-    //         std::cout << "  preds[" << i << "][" << j << "]: ";
-    //         for (size_t k = 0; k < preds[i][j].size(); ++k) {
-    //             std::cout << preds[i][j][k] << " ";
-    //         }
-    //         std::cout << std::endl;
-    //     }
-    // }
 
     std::vector<std::vector<faiss::idx_t>> test_preds;
     std::vector<int> cl_searched;
@@ -1976,9 +1969,8 @@ void IndexIVF::search_preassigned_with_error_quantification(
                         nonconf_list[i].push_back(1.0);
                         all_preds_list[i].push_back(idxi_copy);
                     } else {
-                        // NOTE(sonia): disable diff scores for now.
                         score_k = score_k /
-                                  MAX_DISTANCE;  // * (1.0f - diff_scores[i]);
+                                  MAX_DISTANCE * (1.0f - diff_scores[i]);
                         nonconf_list[i].push_back(score_k);
                         all_preds_list[i].push_back(idxi_copy);
 
