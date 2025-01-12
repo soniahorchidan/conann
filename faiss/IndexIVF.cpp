@@ -221,6 +221,7 @@ IndexIVF::split_dataset(const float* data, size_t n, size_t d,
     size_t total_size = n;
     size_t test_size = static_cast<size_t>(total_size * test_ratio);
     size_t calibration_size = static_cast<size_t>(total_size * calib_ratio);
+    std::cout << "DEBUG:: calibration_size=" << calibration_size << "\n";
     size_t train_size = total_size - test_size - calibration_size;
 
     std::vector<size_t> indices(total_size);
@@ -1145,6 +1146,9 @@ void IndexIVF::train(idx_t n, const float* x) {
 void IndexIVF::prep_calib() {
     calib_labels = get_one_hot_gt(calib_cx);
     calib_diffs = compute_difficulty_scores(calib_cx);
+
+    std::cout << "DEBUG:: calib_diffs sz=" << calib_diffs.size() << "\n";
+
     auto [cn, c_clus] = compute_scores(-1, calib_cx, calib_diffs);
     calib_nonconf = cn;
     calib_preds = c_clus;
@@ -1152,7 +1156,16 @@ void IndexIVF::prep_calib() {
     test_labels = get_one_hot_gt(test_cx);
 
     auto partition_res = partition_by_difficulty(calib_diffs, NUM_MONDRIAN_BINS);
-    auto calib_groups = partition_res.first;
+    calib_groups = partition_res.first;
+
+    std::cout << "DEBUG:: calib_groups=\n";
+    for (const auto& pair : calib_groups) {
+        std::cout << "Key: " << pair.first << " -> Values: ";
+        for (const auto& value : pair.second) {
+            std::cout << value << " ";
+        }
+        std::cout << std::endl;
+    }
 }
 
 std::vector<std::vector<faiss::idx_t>> IndexIVF::get_one_hot_gt(
@@ -1296,47 +1309,102 @@ IndexIVF::compute_scores(float lamhat,
     return {n_vec, preds_vec};
 }
 
-std::pair<std::map<int, std::vector<int>>, std::vector<double>> IndexIVF::partition_by_difficulty(const std::vector<float>& diff_scores, int n_groups) {
+std::pair<std::map<int, std::vector<int>>, std::vector<float>> IndexIVF::partition_by_difficulty(const std::vector<float>& diff_scores, int n_groups) {
     std::map<int, std::vector<int>> groups;
-    std::vector<double> boundaries; // To store the boundary values
     
-    std::vector<std::pair<double, int>> indexed_scores;
+    // Step 1: Sort the scores along with their original indices
+    std::vector<std::pair<float, int>> indexed_scores(diff_scores.size());
     for (int i = 0; i < diff_scores.size(); ++i) {
-        indexed_scores.push_back({diff_scores[i], i});
+        indexed_scores[i] = {diff_scores[i], i}; // pair each score with its original index
     }
-    
-    std::sort(indexed_scores.begin(), indexed_scores.end());
+
+    std::sort(indexed_scores.begin(), indexed_scores.end(), [](const std::pair<float, int>& a, const std::pair<float, int>& b) {
+        return a.first < b.first; // Sort by difficulty score (ascending)
+    });
+
+    // Step 2: Divide the sorted indices into groups
+    std::map<int, std::vector<int>> grouped_indices;
+    std::vector<float> bin_boundaries(n_groups, 0.0);
     int group_size = diff_scores.size() / n_groups;
-    int remainder = diff_scores.size() % n_groups;
 
-    int group = 0;
-    for (int i = 0; i < diff_scores.size(); ++i) {
-        if (group < remainder) {
-            groups[group].push_back(indexed_scores[i].second);
-        } else {
-            groups[group].push_back(indexed_scores[i].second);
+    int remainder = diff_scores.size() % n_groups;
+    int current_group = 0;
+    int count = 0;
+
+    for (size_t i = 0; i < indexed_scores.size(); ++i) {
+        if (count == group_size + (current_group < remainder ? 1 : 0)) {
+            current_group++;
+            count = 0;
         }
 
-        // NOTE: Move to the next group if current group reaches the target size.
-        // Done to ensure we have enough data in each group.
-        if (groups[group].size() >= group_size + (group < remainder ? 1 : 0)) {
-            if (group < n_groups - 1) {
-                boundaries.push_back(indexed_scores[i].first);
-            }
-            ++group;
+        grouped_indices[current_group].push_back(indexed_scores[i].second);
+        count++;
+    }
+
+    // Step 3: Calculate the upper bound for each group
+    for (int i = 0; i < n_groups; ++i) {
+        if (!grouped_indices[i].empty()) {
+            int last_index_in_group = grouped_indices[i].back();
+            bin_boundaries[i] = indexed_scores[last_index_in_group].first; // Get the difficulty score of the last element in the group
         }
     }
-    return {groups, boundaries};
+
+    // Return the result
+    return {grouped_indices, bin_boundaries};
 }
+
 
 float IndexIVF::calibrate(float alpha, int k) {
     K = k;
     prep_calib();
-    float lamhat = optimization(alpha);
+    auto lamhat = optimization(alpha, calib_cx, calib_labels, calib_diffs, calib_nonconf, calib_preds);
     return lamhat;
 }
 
-float IndexIVF::optimization(float alpha) {
+std::unordered_map<int, float> IndexIVF::calibrate_mondrian(float alpha, int k) {
+    K = k;
+    prep_calib();
+    auto lamhat = optimization_mondrian(alpha);
+    return lamhat;
+}
+
+std::unordered_map<int, float> IndexIVF::optimization_mondrian(float alpha) {
+    std::unordered_map<int, float> thresholds;
+
+    for (const auto& group_pair : calib_groups) {
+        int group = group_pair.first;
+        const std::vector<int>& group_indices = group_pair.second;
+        int gsz = group_indices.size();
+
+        // Extract group-specific data
+        std::vector<std::vector<float>> group_queries(gsz);
+        std::vector<std::vector<faiss::idx_t>> group_labels(gsz);
+        std::vector<float> group_diffs(gsz);
+        std::vector<std::vector<float>> group_nonconf(gsz);
+        std::vector<std::vector<std::vector<faiss::idx_t>>> group_preds(gsz);
+
+        // Populate group-specific vectors based on group_indices
+        for (int idx : group_indices) {
+            group_queries.push_back(calib_cx[idx]);
+            group_labels.push_back(calib_labels[idx]);
+            group_diffs.push_back(calib_diffs[idx]);
+            group_nonconf.push_back(calib_nonconf[idx]);
+            group_preds.push_back(calib_preds[idx]);
+        }
+
+        std::cout << "DEBUG:: group=" << group << "\n";
+
+        thresholds[group] = optimization(alpha, group_queries, group_labels, group_diffs, group_nonconf, group_preds);
+    }
+    return thresholds;
+}
+
+float IndexIVF::optimization(float alpha, 
+    const std::vector<std::vector<float>>& calib_cx,
+    const std::vector<std::vector<faiss::idx_t>>& calib_labels,
+    const std::vector<float>& calib_diffs,
+    const std::vector<std::vector<float>>& calib_nonconf,
+    const std::vector<std::vector<std::vector<faiss::idx_t>>>& calib_preds) {
     int n = calib_cx.size();
     float target_fnr =
         (static_cast<float>(n) + 1.0f) / n * alpha - 1.0f / (n + 1.0f);
@@ -1376,6 +1444,8 @@ float IndexIVF::optimization(float alpha) {
     if (status != GSL_SUCCESS) {
         std::cerr << "Root-finding failed to converge.\n";
     }
+
+    std::cout << "DEBUG:: lamhat=" << lamhat << "\n";
 
     return lamhat;
 }

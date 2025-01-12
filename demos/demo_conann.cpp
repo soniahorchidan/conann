@@ -55,11 +55,18 @@ int main(void) {
 
     // Test calibration
     auto alpa = 0.1;
-    auto lamhat = index.calibrate(alpa, K);
-    auto [fnr, cls] = index.evaluate_test(lamhat);
-    std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
-              << ", test fnr=" << fnr
-              << ", avg cls searched=" << computeAverage(cls) << std::endl;
+    // auto lamhat = index.calibrate(alpa, K);
+    // auto [fnr, cls] = index.evaluate_test(lamhat);
+    // std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
+    //           << ", test fnr=" << fnr
+    //           << ", avg cls searched=" << computeAverage(cls) << std::endl;
+
+    auto lamhats = index.calibrate_mondrian(alpa, K);
+    std::cout << "alpha=" << alpa << ": lamhat= ";
+    for (const auto& pair : lamhats) {
+        std::cout << "Key: " << pair.first << ", Value: " << pair.second << std::endl;
+    }
+    std::cout << "\n";
 
     // alpa = 0.2;
     // lamhat = index.calibrate(alpa, K);

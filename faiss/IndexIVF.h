@@ -410,6 +410,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::vector<float> calib_diffs;
     std::vector<std::vector<float>> calib_nonconf;
     std::vector<std::vector<std::vector<faiss::idx_t>>> calib_preds;
+    std::map<int, std::vector<int>> calib_groups;
 
     std::vector<std::vector<faiss::idx_t>> test_labels;
     //     std::vector<float> test_diffs;
@@ -443,7 +444,7 @@ struct IndexIVF : Index, IndexIVFInterface {
                    const std::vector<float>& diff_scores);
 
 
-    std::pair<std::map<int, std::vector<int>>, std::vector<double>> partition_by_difficulty(const std::vector<float>& diff_scores, int n_groups = 5);
+    std::pair<std::map<int, std::vector<int>>, std::vector<float>> partition_by_difficulty(const std::vector<float>& diff_scores, int n_groups = 5);
 
     std::pair<std::vector<std::vector<faiss::idx_t>>, std::vector<int>>
     compute_predictions(
@@ -479,7 +480,15 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     float calibrate(float alpha, int k);
 
-    float optimization(float alpha);
+    std::unordered_map<int, float> calibrate_mondrian(float alpha, int k);
+
+    float optimization(float alpha, const std::vector<std::vector<float>>& calib_cx,
+    const std::vector<std::vector<faiss::idx_t>>& calib_labels,
+    const std::vector<float>& calib_diffs,
+    const std::vector<std::vector<float>>& calib_nonconf,
+    const std::vector<std::vector<std::vector<faiss::idx_t>>>& calib_preds);
+    
+    std::unordered_map<int, float> optimization_mondrian(float alpha);
 
     float false_negative_rate(
         const std::vector<std::vector<faiss::idx_t>>& prediction_set,
