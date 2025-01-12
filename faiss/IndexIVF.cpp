@@ -220,7 +220,6 @@ void IndexIVF::add_with_ids(idx_t n, const float* x, const idx_t* xids) {
     }
 
     printf("ConANN:: Centroids initialized.\n");
-    // ---------------------------
 
     // TODO: maybe use only IDs that point to data
     auto [train_data, calib_data, test_data] = split_dataset(x, n, quantizer->d, 0.1, 0.1);
@@ -1275,25 +1274,32 @@ void IndexIVF::prep_calib() {
     calib_nonconf = cn;
     calib_preds = c_clus;
 
-    std::cout << "\nDEBUG:: calib nonconformity scores:\n";
-    // Print the contents of calib_nonconf
-    for (size_t i = 0; i < calib_nonconf.size(); ++i) {
-        for (size_t j = 0; j < calib_nonconf[i].size(); ++j) {
-            std::cout << calib_nonconf[i][j] << " ";
-        }
-        std::cout << std::endl; // Print a newline after each inner vector
-    }
+    // int MAX_TO_PRINT = 5;
+    // std::cout << "DEBUG:: prep_calib{}:\n";
+    // std::cout << "calib_nonconf contents:" << std::endl;
+    // for (size_t i = 0; i < calib_nonconf.size(); ++i) {
+    //     std::cout << "Inner vector " << i << ": ";
+    //     for (size_t j = 0; j < calib_nonconf[i].size(); ++j) {
+    //         std::cout << calib_nonconf[i][j] << " ";
+    //     }
+    //     std::cout << std::endl;
+    //     MAX_TO_PRINT--;
+    //     if (MAX_TO_PRINT <= 0)
+    //         break;
+    // }
+    //  std::cout << std::endl;
 
-    std::cout << "\nDEBUG:: calib preds:\n";
-    for (size_t i = 0; i < calib_preds.size(); ++i) {
-            for (size_t j = 0; j < calib_preds[i].size(); ++j) {
-                for (size_t k = 0; k < calib_preds[i][j].size(); ++k) {
-                    std::cout << calib_preds[i][j][k] << " ";
-                }
-                std::cout << std::endl; // New line after printing inner vector
-            }
-            std::cout << std::endl; // New line after printing an outer vector
-        }
+    //      std::cout << "calib_preds contents:" << std::endl;
+    // for (size_t i = 0; i < calib_preds.size(); ++i) {
+    //     std::cout << "Outer vector " << i << ":" << std::endl;
+    //     for (size_t j = 0; j < calib_preds[i].size(); ++j) {
+    //         std::cout << "  Inner vector " << j << ": ";
+    //         for (size_t k = 0; k < calib_preds[i][j].size(); ++k) {
+    //             std::cout << calib_preds[i][j][k] << " ";
+    //         }
+    //         std::cout << std::endl;
+    //     }
+    // }
 
     test_labels = get_one_hot_gt(test_cx);
 }
@@ -1500,6 +1506,29 @@ IndexIVF::compute_predictions(
     const std::vector<std::vector<float>> &nonconf,
     const std::vector<std::vector<std::vector<faiss::idx_t>>> &preds) {
 
+    // std::cout << "DEBUG:: print stuff in compute_predictions\n";
+    // std::cout << "Nonconf scores=\n";
+
+    // for (size_t i = 0; i < nonconf.size(); ++i) {
+    //     std::cout << "nonconf[" << i << "]: ";
+    //     for (size_t j = 0; j < nonconf[i].size(); ++j) {
+    //         std::cout << nonconf[i][j] << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
+
+    //  std::cout << "\n\npreds=\n";
+    //     for (size_t i = 0; i < preds.size(); ++i) {
+    //     std::cout << "preds[" << i << "]:\n";
+    //     for (size_t j = 0; j < preds[i].size(); ++j) {
+    //         std::cout << "  preds[" << i << "][" << j << "]: ";
+    //         for (size_t k = 0; k < preds[i][j].size(); ++k) {
+    //             std::cout << preds[i][j][k] << " ";
+    //         }
+    //         std::cout << std::endl;
+    //     }
+    // }
+
     std::vector<std::vector<faiss::idx_t>> test_preds;
     std::vector<int> cl_searched;
 
@@ -1626,15 +1655,13 @@ void IndexIVF::search_with_error_quantification(
         idx_t k,
         float* distances,
         idx_t* labels,
-        float lamhat,
+        float lambda,
         const std::vector<float>& diff_scores,
         std::unordered_map<faiss::idx_t, std::vector<float>>& nonconf_list,
         std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>& all_preds_list,
         const SearchParameters* params_in) const {
 
     FAISS_THROW_IF_NOT(k > 0);
-
-    bool calib_mode = lamhat == -1 ? true : false; 
 
     const IVFSearchParameters* params = nullptr;
     if (params_in) {
@@ -1646,7 +1673,7 @@ void IndexIVF::search_with_error_quantification(
     FAISS_THROW_IF_NOT(nprobe > 0);
 
     // search function for a subset of queries
-    auto sub_search_func = [this, k, nprobe, params, lamhat, calib_mode](
+    auto sub_search_func = [this, k, nprobe, params, lambda](
                                    idx_t n,
                                    const float* x,
                                    float* distances,
@@ -1672,8 +1699,7 @@ void IndexIVF::search_with_error_quantification(
         double t1 = getmillisecs();
         invlists->prefetch_lists(idx.get(), n * nprobe);
 
-        if (calib_mode) {
-            search_preassigned_with_error_quantification(
+        search_preassigned_with_error_quantification(
                     n,
                     x,
                     k,
@@ -1682,29 +1708,13 @@ void IndexIVF::search_with_error_quantification(
                     distances,
                     labels,
                     false,
-                    -1,
+                    lambda,
                     diff_scores,
                     nonconf_list,
                     all_preds_list,
                     params,
                     ivf_stats); 
-        } else {
-            search_preassigned_with_error_quantification(
-                    n,
-                    x,
-                    k,
-                    idx.get(),
-                    coarse_dis.get(),
-                    distances,
-                    labels,
-                    false,
-                    lamhat,
-                    diff_scores,
-                    nonconf_list,
-                    all_preds_list, 
-                    params,
-                    ivf_stats); 
-        }
+
         double t2 = getmillisecs();
         ivf_stats->quantization_time += t1 - t0;
         ivf_stats->search_time += t2 - t0;
@@ -1996,6 +2006,7 @@ void IndexIVF::search_preassigned_with_error_quantification(
          ****************************************************/
 
         if (pmode == 0 || pmode == 3) {
+            int MAX_TO_PRINT = 5;
 #pragma omp for
             for (idx_t i = 0; i < n; i++) {
                 if (interrupt) {
@@ -2014,6 +2025,7 @@ void IndexIVF::search_preassigned_with_error_quantification(
                 // NOTE(sonia): adding results by searching each nprobe. 
                 // Here is where the intermediate results get updated!!
                 // loop over probes
+                MAX_TO_PRINT --;
                 for (size_t ik = 0; ik < nlist; ik++) {
                     nscan += scan_one_list(
                             keys[i * nprobe + ik],
@@ -2027,26 +2039,26 @@ void IndexIVF::search_preassigned_with_error_quantification(
 
                     float score_k = 0.0;
                     for (int j = 0; j < k; j++) {
-                        if (simi[j]  > score_k) {
-                            score_k = simi[j];
+                            if (simi[j] > 0 && simi[j] > score_k) {
+                                score_k = simi[j];
+                            }
                         }
-                    }
-
                     std::vector<faiss::idx_t> idxi_copy(idxi, idxi + k);
 
                     if (score_k > MAX_DISTANCE) {
                         nonconf_list[i].push_back(1.0);
                         all_preds_list[i].push_back(idxi_copy);
                     } else {
-                        score_k = score_k / MAX_DISTANCE * (1.0f - diff_scores[i]);
-                        if (score_k < lamhat) {
-                            nonconf_list[i].push_back(score_k);
-                            all_preds_list[i].push_back(idxi_copy);
-                            break;
-                        }
-
+                        // NOTE(sonia): disable diff scores for now.
+                        score_k = score_k / MAX_DISTANCE; // * (1.0f - diff_scores[i]);
                         nonconf_list[i].push_back(score_k);
                         all_preds_list[i].push_back(idxi_copy);
+
+                        // if (score_k < lamhat) {
+                        //     nonconf_list[i].push_back(0.0);
+                        //     all_preds_list[i].push_back(idxi_copy);
+                        //     break;
+                        // }
                     }
                 }
 
