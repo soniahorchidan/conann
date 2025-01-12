@@ -10,19 +10,19 @@
 #ifndef FAISS_INDEX_IVF_H
 #define FAISS_INDEX_IVF_H
 
-#include <stdint.h>
-#include <memory>
-#include <unordered_map>
-#include <vector>
-
 #include <faiss/Clustering.h>
 #include <faiss/Index.h>
+#include <faiss/IndexFlat.h>
 #include <faiss/impl/IDSelector.h>
 #include <faiss/impl/platform_macros.h>
 #include <faiss/invlists/DirectMap.h>
 #include <faiss/invlists/InvertedLists.h>
 #include <faiss/utils/Heap.h>
-#include <faiss/IndexFlat.h>
+#include <stdint.h>
+
+#include <memory>
+#include <unordered_map>
+#include <vector>
 
 namespace faiss {
 
@@ -44,18 +44,15 @@ struct Level1Quantizer {
      * = 2: kmeans training on a flat index + add the centroids to the quantizer
      */
     char quantizer_trains_alone = 0;
-    bool own_fields = false; ///< whether object owns the quantizer
+    bool own_fields = false;  ///< whether object owns the quantizer
 
-    ClusteringParameters cp; ///< to override default clustering params
+    ClusteringParameters cp;  ///< to override default clustering params
     /// to override index used during clustering
     Index* clustering_index = nullptr;
 
     /// Trains the quantizer and calls train_residual to train sub-quantizers
-    void train_q1(
-            size_t n,
-            const float* x,
-            bool verbose,
-            MetricType metric_type);
+    void train_q1(size_t n, const float* x, bool verbose,
+                  MetricType metric_type);
 
     /// compute the number of bytes required to store list ids
     size_t coarse_code_size() const;
@@ -70,8 +67,8 @@ struct Level1Quantizer {
 };
 
 struct SearchParametersIVF : SearchParameters {
-    size_t nprobe = 1;    ///< number of probes at query time
-    size_t max_codes = 0; ///< max nb of codes to visit to do a query
+    size_t nprobe = 1;     ///< number of probes at query time
+    size_t max_codes = 0;  ///< max nb of codes to visit to do a query
     SearchParameters* quantizer_params = nullptr;
     /// context object to pass to InvertedLists
     void* inverted_list_context = nullptr;
@@ -87,11 +84,11 @@ struct IndexIVFStats;
 struct CodePacker;
 
 struct IndexIVFInterface : Level1Quantizer {
-    size_t nprobe = 1;    ///< number of probes at query time
-    size_t max_codes = 0; ///< max nb of codes to visit to do a query
+    size_t nprobe = 1;     ///< number of probes at query time
+    size_t max_codes = 0;  ///< max nb of codes to visit to do a query
 
     explicit IndexIVFInterface(Index* quantizer = nullptr, size_t nlist = 0)
-            : Level1Quantizer(quantizer, nlist) {}
+        : Level1Quantizer(quantizer, nlist) {}
 
     /** search a set of vectors, that are pre-quantized by the IVF
      *  quantizer. Fill in the corresponding heaps with the query
@@ -112,17 +109,12 @@ struct IndexIVFInterface : Level1Quantizer {
      * @param params used to override the object's search parameters
      * @param stats  search stats to be updated (can be null)
      */
-    virtual void search_preassigned(
-            idx_t n,
-            const float* x,
-            idx_t k,
-            const idx_t* assign,
-            const float* centroid_dis,
-            float* distances,
-            idx_t* labels,
-            bool store_pairs,
-            const IVFSearchParameters* params = nullptr,
-            IndexIVFStats* stats = nullptr) const = 0;
+    virtual void search_preassigned(idx_t n, const float* x, idx_t k,
+                                    const idx_t* assign,
+                                    const float* centroid_dis, float* distances,
+                                    idx_t* labels, bool store_pairs,
+                                    const IVFSearchParameters* params = nullptr,
+                                    IndexIVFStats* stats = nullptr) const = 0;
 
     /** Range search a set of vectors, that are pre-quantized by the IVF
      *  quantizer. Fill in the RangeSearchResults results. The default
@@ -141,15 +133,10 @@ struct IndexIVFInterface : Level1Quantizer {
      * @param stats  search stats to be updated (can be null)
      */
     virtual void range_search_preassigned(
-            idx_t nx,
-            const float* x,
-            float radius,
-            const idx_t* keys,
-            const float* coarse_dis,
-            RangeSearchResult* result,
-            bool store_pairs = false,
-            const IVFSearchParameters* params = nullptr,
-            IndexIVFStats* stats = nullptr) const = 0;
+        idx_t nx, const float* x, float radius, const idx_t* keys,
+        const float* coarse_dis, RangeSearchResult* result,
+        bool store_pairs = false, const IVFSearchParameters* params = nullptr,
+        IndexIVFStats* stats = nullptr) const = 0;
 
     virtual ~IndexIVFInterface() {}
 };
@@ -179,7 +166,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     InvertedLists* invlists = nullptr;
     bool own_invlists = false;
 
-    size_t code_size = 0; ///< code size per vector in bytes
+    size_t code_size = 0;  ///< code size per vector in bytes
 
     /** Parallel mode determines how queries are parallelized with OpenMP
      *
@@ -206,12 +193,8 @@ struct IndexIVF : Index, IndexIVFInterface {
      * which implements the function mapping a vector to a list
      * identifier.
      */
-    IndexIVF(
-            Index* quantizer,
-            size_t d,
-            size_t nlist,
-            size_t code_size,
-            MetricType metric = METRIC_L2);
+    IndexIVF(Index* quantizer, size_t d, size_t nlist, size_t code_size,
+             MetricType metric = METRIC_L2);
 
     void reset() override;
 
@@ -231,12 +214,9 @@ struct IndexIVF : Index, IndexIVFInterface {
      * @param precomputed_idx    quantization indices for the input vectors
      * (size n)
      */
-    virtual void add_core(
-            idx_t n,
-            const float* x,
-            const idx_t* xids,
-            const idx_t* precomputed_idx,
-            void* inverted_list_context = nullptr);
+    virtual void add_core(idx_t n, const float* x, const idx_t* xids,
+                          const idx_t* precomputed_idx,
+                          void* inverted_list_context = nullptr);
 
     /** Encodes a set of vectors as they would appear in the inverted lists
      *
@@ -247,12 +227,9 @@ struct IndexIVF : Index, IndexIVFInterface {
      *                   include the list ids in the code (in this case add
      *                   ceil(log8(nlist)) to the code size)
      */
-    virtual void encode_vectors(
-            idx_t n,
-            const float* x,
-            const idx_t* list_nos,
-            uint8_t* codes,
-            bool include_listno = false) const = 0;
+    virtual void encode_vectors(idx_t n, const float* x, const idx_t* list_nos,
+                                uint8_t* codes,
+                                bool include_listno = false) const = 0;
 
     /** Add vectors that are computed with the standalone codec
      *
@@ -271,52 +248,33 @@ struct IndexIVF : Index, IndexIVFInterface {
     /// they need
     virtual idx_t train_encoder_num_vectors() const;
 
-    void search_preassigned(
-            idx_t n,
-            const float* x,
-            idx_t k,
-            const idx_t* assign,
-            const float* centroid_dis,
-            float* distances,
-            idx_t* labels,
-            bool store_pairs,
-            const IVFSearchParameters* params = nullptr,
-            IndexIVFStats* stats = nullptr) const override;
+    void search_preassigned(idx_t n, const float* x, idx_t k,
+                            const idx_t* assign, const float* centroid_dis,
+                            float* distances, idx_t* labels, bool store_pairs,
+                            const IVFSearchParameters* params = nullptr,
+                            IndexIVFStats* stats = nullptr) const override;
 
     void range_search_preassigned(
-            idx_t nx,
-            const float* x,
-            float radius,
-            const idx_t* keys,
-            const float* coarse_dis,
-            RangeSearchResult* result,
-            bool store_pairs = false,
-            const IVFSearchParameters* params = nullptr,
-            IndexIVFStats* stats = nullptr) const override;
+        idx_t nx, const float* x, float radius, const idx_t* keys,
+        const float* coarse_dis, RangeSearchResult* result,
+        bool store_pairs = false, const IVFSearchParameters* params = nullptr,
+        IndexIVFStats* stats = nullptr) const override;
 
     /** assign the vectors, then call search_preassign */
-    void search(
-            idx_t n,
-            const float* x,
-            idx_t k,
-            float* distances,
-            idx_t* labels,
-            const SearchParameters* params = nullptr) const override;
+    void search(idx_t n, const float* x, idx_t k, float* distances,
+                idx_t* labels,
+                const SearchParameters* params = nullptr) const override;
 
-    void range_search(
-            idx_t n,
-            const float* x,
-            float radius,
-            RangeSearchResult* result,
-            const SearchParameters* params = nullptr) const override;
+    void range_search(idx_t n, const float* x, float radius,
+                      RangeSearchResult* result,
+                      const SearchParameters* params = nullptr) const override;
 
     /** Get a scanner for this index (store_pairs means ignore labels)
      *
      * The default search implementation uses this to compute the distances
      */
     virtual InvertedListScanner* get_InvertedListScanner(
-            bool store_pairs = false,
-            const IDSelector* sel = nullptr) const;
+        bool store_pairs = false, const IDSelector* sel = nullptr) const;
 
     /** reconstruct a vector. Works only if maintain_direct_map is set to 1 or 2
      */
@@ -353,13 +311,8 @@ struct IndexIVF : Index, IndexIVFInterface {
      * @param recons      reconstructed vectors size (n, k, d)
      */
     void search_and_reconstruct(
-            idx_t n,
-            const float* x,
-            idx_t k,
-            float* distances,
-            idx_t* labels,
-            float* recons,
-            const SearchParameters* params = nullptr) const override;
+        idx_t n, const float* x, idx_t k, float* distances, idx_t* labels,
+        float* recons, const SearchParameters* params = nullptr) const override;
 
     /** Similar to search, but also returns the codes corresponding to the
      * stored vectors for the search results.
@@ -370,14 +323,9 @@ struct IndexIVF : Index, IndexIVFInterface {
      *                   ceil(log8(nlist)) to the code size)
      */
     void search_and_return_codes(
-            idx_t n,
-            const float* x,
-            idx_t k,
-            float* distances,
-            idx_t* labels,
-            uint8_t* recons,
-            bool include_listno = false,
-            const SearchParameters* params = nullptr) const;
+        idx_t n, const float* x, idx_t k, float* distances, idx_t* labels,
+        uint8_t* recons, bool include_listno = false,
+        const SearchParameters* params = nullptr) const;
 
     /** Reconstruct a vector given the location in terms of (inv list index +
      * inv list offset) instead of the id.
@@ -386,10 +334,8 @@ struct IndexIVF : Index, IndexIVFInterface {
      * the inv list offset is computed by search_preassigned() with
      * `store_pairs` set.
      */
-    virtual void reconstruct_from_offset(
-            int64_t list_no,
-            int64_t offset,
-            float* recons) const;
+    virtual void reconstruct_from_offset(int64_t list_no, int64_t offset,
+                                         float* recons) const;
 
     /// Dataset manipulation functions
 
@@ -405,11 +351,9 @@ struct IndexIVF : Index, IndexIVFInterface {
     /** copy a subset of the entries index to the other index
      * see Invlists::copy_subset_to for the meaning of subset_type
      */
-    virtual void copy_subset_to(
-            IndexIVF& other,
-            InvertedLists::subset_type_t subset_type,
-            idx_t a1,
-            idx_t a2) const;
+    virtual void copy_subset_to(IndexIVF& other,
+                                InvertedLists::subset_type_t subset_type,
+                                idx_t a1, idx_t a2) const;
 
     ~IndexIVF() override;
 
@@ -449,7 +393,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     // ConANN block
     faiss::IndexFlatL2* index_flat;
     float MAX_DISTANCE = 100;  // maybe redundant
-    int n_list; //redundant
+    int n_list;                // redundant
     std::vector<std::vector<float>> centroids;
 
     // TODO(sonia): do not hardcode
@@ -466,93 +410,83 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::vector<std::vector<std::vector<faiss::idx_t>>> calib_preds;
 
     std::vector<std::vector<faiss::idx_t>> test_labels;
-//     std::vector<float> test_diffs;
-//     std::vector<std::vector<float>> test_nonconf;
-//     std::vector<std::vector<std::vector<faiss::idx_t>>> test_preds;
+    //     std::vector<float> test_diffs;
+    //     std::vector<std::vector<float>> test_nonconf;
+    //     std::vector<std::vector<std::vector<faiss::idx_t>>> test_preds;
 
-    std::tuple<std::vector<std::vector<float>>, 
-    std::vector<std::vector<float>>, std::vector<std::vector<float>>> split_dataset(
-        const float* data, size_t n, size_t d, double calib_ratio, double test_ratio);
+    std::tuple<std::vector<std::vector<float>>, std::vector<std::vector<float>>,
+               std::vector<std::vector<float>>>
+    split_dataset(const float* data, size_t n, size_t d, double calib_ratio,
+                  double test_ratio);
 
     void prep_calib();
 
     std::vector<std::vector<faiss::idx_t>> get_one_hot_gt(
         const std::vector<std::vector<float>>& queries, int batch_size = 1000);
 
-    float compute_l2_distance(const std::vector<float>& a, const std::vector<float>& b);
+    float compute_l2_distance(const std::vector<float>& a,
+                              const std::vector<float>& b);
 
-    std::vector<float> compute_difficulty_scores(const std::vector<std::vector<float>>& queries);
-    
-    void search_index(
-        const std::vector<std::vector<float>>& queries, 
-        const std::vector<int>& active_indexes, 
-        std::vector<std::vector<float>>& s_distances, 
-        std::vector<std::vector<faiss::idx_t>>& s_indexes);
+    std::vector<float> compute_difficulty_scores(
+        const std::vector<std::vector<float>>& queries);
 
-    std::pair<std::vector<std::vector<float>>, std::vector<std::vector<std::vector<faiss::idx_t>>>> 
-    compute_scores(float lamhat,
-        const std::vector<std::vector<float>>& queries, 
-        const std::vector<float>& diff_scores);
+    void search_index(const std::vector<std::vector<float>>& queries,
+                      const std::vector<int>& active_indexes,
+                      std::vector<std::vector<float>>& s_distances,
+                      std::vector<std::vector<faiss::idx_t>>& s_indexes);
 
-    std::pair<std::vector<std::vector<faiss::idx_t>>, std::vector<int>> compute_predictions(
-        float lambda,
-        const std::vector<std::vector<float>>& queries,
+    std::pair<std::vector<std::vector<float>>,
+              std::vector<std::vector<std::vector<faiss::idx_t>>>>
+    compute_scores(float lamhat, const std::vector<std::vector<float>>& queries,
+                   const std::vector<float>& diff_scores);
+
+    std::pair<std::vector<std::vector<faiss::idx_t>>, std::vector<int>>
+    compute_predictions(
+        float lambda, const std::vector<std::vector<float>>& queries,
         const std::vector<float>& diffs,
         const std::vector<std::vector<float>>& nonconf,
         const std::vector<std::vector<std::vector<faiss::idx_t>>>& preds);
 
     // if in calibration mode, lamhat needs to be ??.
     void search_with_error_quantification(
-            idx_t n,
-            const float* x,
-            idx_t k,
-            float* distances,
-            idx_t* labels,
-            float lamhat,
-            const std::vector<float>& diff_scores,
-            std::unordered_map<faiss::idx_t, std::vector<float>>& nonconf_list,
-            std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>& all_preds_list,
-            const SearchParameters* params = nullptr) const;
+        idx_t n, const float* x, idx_t k, float* distances, idx_t* labels,
+        float lamhat, const std::vector<float>& diff_scores,
+        std::unordered_map<faiss::idx_t, std::vector<float>>& nonconf_list,
+        std::unordered_map<faiss::idx_t,
+                           std::vector<std::vector<faiss::idx_t>>>&
+            all_preds_list,
+        const SearchParameters* params = nullptr) const;
 
-   void search_conann(
-            idx_t n,
-            const float* x,
-            float lamhat,
-            float* distances,
-            idx_t* labels,
-            const SearchParameters* params = nullptr);
+    void search_conann(idx_t n, const float* x, float lamhat, float* distances,
+                       idx_t* labels, const SearchParameters* params = nullptr);
 
     // if in calibration mode, lamhat needs to be -1.
     void search_preassigned_with_error_quantification(
-        idx_t n,
-        const float* x,
-        idx_t k,
-        const idx_t* assign,
-        const float* centroid_dis,
-        float* distances,
-        idx_t* labels,
-        bool store_pairs,
-        float lamhat,
-        const std::vector<float>& diff_scores,
+        idx_t n, const float* x, idx_t k, const idx_t* assign,
+        const float* centroid_dis, float* distances, idx_t* labels,
+        bool store_pairs, float lamhat, const std::vector<float>& diff_scores,
         std::unordered_map<faiss::idx_t, std::vector<float>>& nonconf_list,
-        std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>& all_preds_list,
+        std::unordered_map<faiss::idx_t,
+                           std::vector<std::vector<faiss::idx_t>>>&
+            all_preds_list,
         const IVFSearchParameters* params = nullptr,
         IndexIVFStats* stats = nullptr) const;
-    
+
     float calibrate(float alpha, int k);
 
     float optimization(float alpha);
 
-    float false_negative_rate(const std::vector<std::vector<faiss::idx_t>>& prediction_set,
-                              const std::vector<std::vector<faiss::idx_t>>& gt_labels);
-                              
+    float false_negative_rate(
+        const std::vector<std::vector<faiss::idx_t>>& prediction_set,
+        const std::vector<std::vector<faiss::idx_t>>& gt_labels);
+
     float lamhat_threshold(float lambda, float target_fnr);
 
     std::pair<float, std::vector<int>> evaluate_test(float lamhat);
-    
-    std::pair<float, std::vector<int>> evaluate(float lamhat,
-                                                const std::vector<std::vector<float>>& queries,
-                                                const std::vector<std::vector<faiss::idx_t>>& labels);
+
+    std::pair<float, std::vector<int>> evaluate(
+        float lamhat, const std::vector<std::vector<float>>& queries,
+        const std::vector<std::vector<faiss::idx_t>>& labels);
     // ----------------------------
 };
 
@@ -563,18 +497,17 @@ struct RangeQueryResult;
  * distance_to_code and scan_codes can be called in multiple
  * threads */
 struct InvertedListScanner {
-    idx_t list_no = -1;    ///< remember current list
-    bool keep_max = false; ///< keep maximum instead of minimum
+    idx_t list_no = -1;     ///< remember current list
+    bool keep_max = false;  ///< keep maximum instead of minimum
     /// store positions in invlists rather than labels
     bool store_pairs;
 
     /// search in this subset of ids
     const IDSelector* sel;
 
-    InvertedListScanner(
-            bool store_pairs = false,
-            const IDSelector* sel = nullptr)
-            : store_pairs(store_pairs), sel(sel) {}
+    InvertedListScanner(bool store_pairs = false,
+                        const IDSelector* sel = nullptr)
+        : store_pairs(store_pairs), sel(sel) {}
 
     /// used in default implementation of scan_codes
     size_t code_size = 0;
@@ -600,39 +533,26 @@ struct InvertedListScanner {
      * @param k          heap size
      * @return number of heap updates performed
      */
-    virtual size_t scan_codes(
-            size_t n,
-            const uint8_t* codes,
-            const idx_t* ids,
-            float* distances,
-            idx_t* labels,
-            size_t k) const;
+    virtual size_t scan_codes(size_t n, const uint8_t* codes, const idx_t* ids,
+                              float* distances, idx_t* labels, size_t k) const;
 
     // same as scan_codes, using an iterator
-    virtual size_t iterate_codes(
-            InvertedListsIterator* iterator,
-            float* distances,
-            idx_t* labels,
-            size_t k,
-            size_t& list_size) const;
+    virtual size_t iterate_codes(InvertedListsIterator* iterator,
+                                 float* distances, idx_t* labels, size_t k,
+                                 size_t& list_size) const;
 
     /** scan a set of codes, compute distances to current query and
      * update results if distances are below radius
      *
      * (default implementation fails) */
-    virtual void scan_codes_range(
-            size_t n,
-            const uint8_t* codes,
-            const idx_t* ids,
-            float radius,
-            RangeQueryResult& result) const;
+    virtual void scan_codes_range(size_t n, const uint8_t* codes,
+                                  const idx_t* ids, float radius,
+                                  RangeQueryResult& result) const;
 
     // same as scan_codes_range, using an iterator
-    virtual void iterate_codes_range(
-            InvertedListsIterator* iterator,
-            float radius,
-            RangeQueryResult& result,
-            size_t& list_size) const;
+    virtual void iterate_codes_range(InvertedListsIterator* iterator,
+                                     float radius, RangeQueryResult& result,
+                                     size_t& list_size) const;
 
     virtual ~InvertedListScanner() {}
 };
@@ -641,16 +561,14 @@ struct InvertedListScanner {
 FAISS_API extern bool check_compatible_for_merge_expensive_check;
 
 struct IndexIVFStats {
-    size_t nq;                // nb of queries run
-    size_t nlist;             // nb of inverted lists scanned
-    size_t ndis;              // nb of distances computed
-    size_t nheap_updates;     // nb of times the heap was updated
-    double quantization_time; // time spent quantizing vectors (in ms)
-    double search_time;       // time spent searching lists (in ms)
+    size_t nq;                 // nb of queries run
+    size_t nlist;              // nb of inverted lists scanned
+    size_t ndis;               // nb of distances computed
+    size_t nheap_updates;      // nb of times the heap was updated
+    double quantization_time;  // time spent quantizing vectors (in ms)
+    double search_time;        // time spent searching lists (in ms)
 
-    IndexIVFStats() {
-        reset();
-    }
+    IndexIVFStats() { reset(); }
     void reset();
     void add(const IndexIVFStats& other);
 };
@@ -658,6 +576,6 @@ struct IndexIVFStats {
 // global var that collects them all
 FAISS_API extern IndexIVFStats indexIVF_stats;
 
-} // namespace faiss
+}  // namespace faiss
 
 #endif

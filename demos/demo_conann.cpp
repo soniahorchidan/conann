@@ -1,12 +1,11 @@
+#include <faiss/IndexFlat.h>
+#include <faiss/IndexIVFFlat.h>
+
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
 #include <random>
-
-#include <faiss/IndexFlat.h>
-#include <faiss/IndexIVFFlat.h>
-
 
 using namespace std::chrono;
 
@@ -30,16 +29,17 @@ int main(void) {
     std::mt19937 rng(12345);
 
     // make the IVF index object and train it
-    faiss::IndexFlatL2 quantizer(d); // The quantizer (flat index)
-    faiss::IndexIVFFlat index(&quantizer, d, nlist, faiss::METRIC_L2); // IVF index
-    index.nprobe = 100; // number of probes
+    faiss::IndexFlatL2 quantizer(d);  // The quantizer (flat index)
+    faiss::IndexIVFFlat index(&quantizer, d, nlist,
+                              faiss::METRIC_L2);  // IVF index
+    index.nprobe = 100;                           // number of probes
 
     // train the index on some data
-    std::vector<float> training_data(nt * d); // Random training data
+    std::vector<float> training_data(nt * d);  // Random training data
     std::uniform_real_distribution<float> dist(
-        0.0f, 1.0f); // Distribution between 0 and 1
+        0.0f, 1.0f);  // Distribution between 0 and 1
     for (size_t i = 0; i < nt * d; i++) {
-        training_data[i] = dist(rng); // Generate float between 0 and 1
+        training_data[i] = dist(rng);  // Generate float between 0 and 1
     }
     index.train(nt, training_data.data());
 
@@ -49,7 +49,7 @@ int main(void) {
         database[i] = dist(rng);
     }
 
-    { // populate the database
+    {  // populate the database
         index.add(nb, database.data());
     }
 
@@ -58,7 +58,8 @@ int main(void) {
     auto lamhat = index.calibrate(alpa, K);
     auto [fnr, cls] = index.evaluate_test(lamhat);
     std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
-              << ", test fnr=" << fnr << ", avg cls searched=" << computeAverage(cls) << std::endl;
+              << ", test fnr=" << fnr
+              << ", avg cls searched=" << computeAverage(cls) << std::endl;
 
     alpa = 0.2;
     lamhat = index.calibrate(alpa, K);
@@ -66,7 +67,8 @@ int main(void) {
     fnr = res.first;
     cls = res.second;
     std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
-              << ", test fnr=" << fnr << ", avg cls searched=" << computeAverage(cls) << std::endl;
+              << ", test fnr=" << fnr
+              << ", avg cls searched=" << computeAverage(cls) << std::endl;
 
     alpa = 0.3;
     lamhat = index.calibrate(alpa, K);
@@ -74,8 +76,8 @@ int main(void) {
     fnr = res.first;
     cls = res.second;
     std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
-              << ", test fnr=" << fnr << ", avg cls searched=" << computeAverage(cls) << std::endl;
-
+              << ", test fnr=" << fnr
+              << ", avg cls searched=" << computeAverage(cls) << std::endl;
 
     size_t nq = 3;
 
@@ -90,7 +92,8 @@ int main(void) {
         std::vector<float> dis(K * nq);
 
         auto start = high_resolution_clock::now();
-        index.search_conann(nq, queries.data(), lamhat, dis.data(), nns.data());
+        index.search_conann(nq, queries.data(), lamhat, dis.data(),
+        nns.data());
 
         for (int i = 0; i < nq; i ++) {
             std::cout << "[";
