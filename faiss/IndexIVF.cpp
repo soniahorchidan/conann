@@ -227,10 +227,6 @@ void IndexIVF::add_with_ids(idx_t n, const float* x, const idx_t* xids) {
     train_cx = train_data;
     calib_cx = calib_data;
     test_cx = test_data;
-
-    // TODO(Sonia): only if not prepped already
-    // ConANN Block
-    prep_calib();
     // ----------------------------
 }
 
@@ -1275,9 +1271,29 @@ void IndexIVF::train(idx_t n, const float* x) {
 void IndexIVF::prep_calib() {
     calib_labels = get_one_hot_gt(calib_cx);
     calib_diffs = compute_difficulty_scores(calib_cx);
-    auto [cn, c_clus] = compute_scores(0.0, calib_cx, calib_diffs);
+    auto [cn, c_clus] = compute_scores(-1, calib_cx, calib_diffs);
     calib_nonconf = cn;
     calib_preds = c_clus;
+
+    std::cout << "\nDEBUG:: calib nonconformity scores:\n";
+    // Print the contents of calib_nonconf
+    for (size_t i = 0; i < calib_nonconf.size(); ++i) {
+        for (size_t j = 0; j < calib_nonconf[i].size(); ++j) {
+            std::cout << calib_nonconf[i][j] << " ";
+        }
+        std::cout << std::endl; // Print a newline after each inner vector
+    }
+
+    std::cout << "\nDEBUG:: calib preds:\n";
+    for (size_t i = 0; i < calib_preds.size(); ++i) {
+            for (size_t j = 0; j < calib_preds[i].size(); ++j) {
+                for (size_t k = 0; k < calib_preds[i][j].size(); ++k) {
+                    std::cout << calib_preds[i][j][k] << " ";
+                }
+                std::cout << std::endl; // New line after printing inner vector
+            }
+            std::cout << std::endl; // New line after printing an outer vector
+        }
 
     test_labels = get_one_hot_gt(test_cx);
 }
@@ -1419,7 +1435,9 @@ IndexIVF::compute_scores(
     return {n_vec, preds_vec};
 }
 
-float IndexIVF::calibrate(float alpha) {
+float IndexIVF::calibrate(float alpha, int k) {
+    K = k;
+    prep_calib();
     float lamhat = optimization(alpha);
     return lamhat;
 }
@@ -1510,7 +1528,6 @@ IndexIVF::compute_predictions(
             cl_searched.push_back(static_cast<int>(index) + 1);
         }
     }
-
     return {test_preds, cl_searched};
 }
 
@@ -1568,7 +1585,6 @@ std::pair<float, std::vector<int>> IndexIVF::evaluate(
 void IndexIVF::search_conann(
         idx_t n,
         const float* x,
-        idx_t k,
         float lamhat,
         float* distances,
         idx_t* labels,
@@ -1618,7 +1634,7 @@ void IndexIVF::search_with_error_quantification(
 
     FAISS_THROW_IF_NOT(k > 0);
 
-    bool calib_mode = lamhat == 0 ? true : false; 
+    bool calib_mode = lamhat == -1 ? true : false; 
 
     const IVFSearchParameters* params = nullptr;
     if (params_in) {
@@ -1666,7 +1682,7 @@ void IndexIVF::search_with_error_quantification(
                     distances,
                     labels,
                     false,
-                    lamhat,
+                    -1,
                     diff_scores,
                     nonconf_list,
                     all_preds_list,
@@ -2024,7 +2040,7 @@ void IndexIVF::search_preassigned_with_error_quantification(
                     } else {
                         score_k = score_k / MAX_DISTANCE * (1.0f - diff_scores[i]);
                         if (score_k < lamhat) {
-                            nonconf_list[i].push_back(0.0);
+                            nonconf_list[i].push_back(score_k);
                             all_preds_list[i].push_back(idxi_copy);
                             break;
                         }

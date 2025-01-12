@@ -453,7 +453,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::vector<std::vector<float>> centroids;
 
     // TODO(sonia): do not hardcode
-    int K = 100;
+    int K;
 
     // TODO(sonia): do we even need to keep train_cx?
     std::vector<std::vector<float>> train_cx;
@@ -501,7 +501,7 @@ struct IndexIVF : Index, IndexIVFInterface {
         const std::vector<std::vector<float>>& nonconf,
         const std::vector<std::vector<std::vector<faiss::idx_t>>>& preds);
 
-    // if in calibration mode, lamhat needs to be 0.0.
+    // if in calibration mode, lamhat needs to be ??.
     void search_with_error_quantification(
             idx_t n,
             const float* x,
@@ -517,7 +517,6 @@ struct IndexIVF : Index, IndexIVFInterface {
    void search_conann(
             idx_t n,
             const float* x,
-            idx_t k,
             float lamhat,
             float* distances,
             idx_t* labels,
@@ -540,7 +539,7 @@ struct IndexIVF : Index, IndexIVFInterface {
         const IVFSearchParameters* params = nullptr,
         IndexIVFStats* stats = nullptr) const;
     
-    float calibrate(float alpha);
+    float calibrate(float alpha, int k);
 
     float optimization(float alpha);
 
