@@ -503,6 +503,8 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     std::pair<float, std::vector<int>> evaluate_test(float lamhat);
 
+    std::pair<float, std::vector<int>> evaluate_test_mondrian(std::unordered_map<int, float> lamhats);
+
     std::pair<float, std::vector<int>> evaluate(
         float lamhat, const std::vector<std::vector<float>>& queries,
         const std::vector<std::vector<faiss::idx_t>>& labels);

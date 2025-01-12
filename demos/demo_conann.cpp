@@ -54,35 +54,28 @@ int main(void) {
     }
 
     // Test calibration
-    auto alpa = 0.1;
-    // auto lamhat = index.calibrate(alpa, K);
+    // auto alpha = 0.1;
+    // auto lamhat = index.calibrate(alpha, K);
     // auto [fnr, cls] = index.evaluate_test(lamhat);
-    // std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
+    // std::cout << "alpha=" << alpha << ": lamhat= " << lamhat
     //           << ", test fnr=" << fnr
     //           << ", avg cls searched=" << computeAverage(cls) << std::endl;
 
-    auto lamhats = index.calibrate_mondrian(alpa, K);
-    std::cout << "alpha=" << alpa << ": lamhat= ";
-    for (const auto& pair : lamhats) {
-        std::cout << "Key: " << pair.first << ", Value: " << pair.second << std::endl;
-    }
-    std::cout << "\n";
-
-    // alpa = 0.2;
-    // lamhat = index.calibrate(alpa, K);
+    // alpha = 0.2;
+    // lamhat = index.calibrate(alpha, K);
     // auto res = index.evaluate_test(lamhat);
     // fnr = res.first;
     // cls = res.second;
-    // std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
+    // std::cout << "alpha=" << alpha << ": lamhat= " << lamhat
     //           << ", test fnr=" << fnr
     //           << ", avg cls searched=" << computeAverage(cls) << std::endl;
 
-    // alpa = 0.3;
-    // lamhat = index.calibrate(alpa, K);
+    // alpha = 0.3;
+    // lamhat = index.calibrate(alpha, K);
     // res = index.evaluate_test(lamhat);
     // fnr = res.first;
     // cls = res.second;
-    // std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
+    // std::cout << "alpha=" << alpha << ": lamhat= " << lamhat
     //           << ", test fnr=" << fnr
     //           << ", avg cls searched=" << computeAverage(cls) << std::endl;
 
@@ -151,5 +144,31 @@ int main(void) {
     //     printf("QPS: %d\n", qps);
     // }
 
+
+    // Test Mondrian
+    float alpha = 0.1;
+    auto lamhats = index.calibrate_mondrian(alpha, K);
+    for (const auto& pair : lamhats) {
+        std::cout << "Group: " << pair.first << ", lamhat: " << pair.second << std::endl;
+    }
+    std::cout << "\n";
+    auto [fnr, cls] = index.evaluate_test_mondrian(lamhats);
+    std::cout << " avg test fnr=" << fnr
+              << ", avg cls searched=" << computeAverage(cls) << std::endl;
+    std::cout << "\n";
+
+    alpha = 0.2;
+    lamhats = index.calibrate_mondrian(alpha, K);
+    for (const auto& pair : lamhats) {
+        std::cout << "Group: " << pair.first << ", lamhat: " << pair.second << std::endl;
+    }
+    std::cout << "\n";
+    auto res = index.evaluate_test_mondrian(lamhats);
+    fnr = res.first;
+    cls = res.second;
+    std::cout << " avg test fnr=" << fnr
+              << ", avg cls searched=" << computeAverage(cls) << std::endl;
+
+        
     return 0;
 }

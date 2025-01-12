@@ -1146,26 +1146,13 @@ void IndexIVF::train(idx_t n, const float* x) {
 void IndexIVF::prep_calib() {
     calib_labels = get_one_hot_gt(calib_cx);
     calib_diffs = compute_difficulty_scores(calib_cx);
-
-    // std::cout << "DEBUG:: calib_diffs sz=" << calib_diffs.size() << "\n";
-
     auto [cn, c_clus] = compute_scores(-1, calib_cx, calib_diffs);
     calib_nonconf = cn;
     calib_preds = c_clus;
-
-    test_labels = get_one_hot_gt(test_cx);
-
     auto partition_res = partition_by_difficulty(calib_diffs, NUM_MONDRIAN_BINS);
     calib_groups = partition_res.first;
 
-    // std::cout << "DEBUG:: calib_groups=\n";
-    // for (const auto& pair : calib_groups) {
-    //     std::cout << "Key: " << pair.first << " -> Values: ";
-    //     for (const auto& value : pair.second) {
-    //         std::cout << value << " ";
-    //     }
-    //     std::cout << std::endl;
-    // }
+    test_labels = get_one_hot_gt(test_cx);
 }
 
 std::vector<std::vector<faiss::idx_t>> IndexIVF::get_one_hot_gt(
@@ -1370,7 +1357,6 @@ std::unordered_map<int, float> IndexIVF::calibrate_mondrian(float alpha, int k) 
 
 std::unordered_map<int, float> IndexIVF::optimization_mondrian(float alpha) {
     std::unordered_map<int, float> thresholds;
-
     for (const auto& group_pair : calib_groups) {
         int group = group_pair.first;
         const std::vector<int>& group_indices = group_pair.second;
@@ -1550,9 +1536,44 @@ float IndexIVF::false_negative_rate(
 }
 
 std::pair<float, std::vector<int>> IndexIVF::evaluate_test(float lamhat) {
-    auto result = evaluate(lamhat, test_cx, test_labels);
-    // Return FNR only
-    return result;
+    return evaluate(lamhat, test_cx, test_labels);
+}
+
+std::pair<float, std::vector<int>> IndexIVF::evaluate_test_mondrian(std::unordered_map<int, float> lamhats) {
+    std::pair<float, std::vector<int>> all;
+    all.first = 0;
+
+    auto test_diffs = compute_difficulty_scores(test_cx);
+    // TODO(sonia): use boundaries found during calib
+    auto test_groups = partition_by_difficulty(test_diffs, NUM_MONDRIAN_BINS).first;
+
+    for (const auto& group_pair : test_groups) {
+        int group = group_pair.first;
+        const std::vector<int>& group_indices = group_pair.second;
+        auto lamhat = lamhats[group];
+
+        std::vector<std::vector<float>> group_queries;
+        std::vector<std::vector<faiss::idx_t>> group_labels;
+        std::vector<float> group_diffs;
+        std::vector<std::vector<float>> group_nonconf;
+        std::vector<std::vector<std::vector<faiss::idx_t>>> group_preds;
+
+        for (int idx : group_indices) {
+            group_queries.push_back(test_cx[idx]);
+            group_labels.push_back(test_labels[idx]);
+        }
+        std::pair<float, std::vector<int>> eval_res = evaluate(lamhat, group_queries, group_labels);
+
+        // add fnr
+        all.first += eval_res.first;
+
+        // append clusters searched
+        all.second.insert(all.second.end(), eval_res.second.begin(), eval_res.second.end());
+    }
+
+    all.first /= NUM_MONDRIAN_BINS;
+
+    return all;
 }
 
 std::pair<float, std::vector<int>> IndexIVF::evaluate(
