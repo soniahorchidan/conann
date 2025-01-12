@@ -60,24 +60,24 @@ int main(void) {
     std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
               << ", test fnr=" << fnr << ", avg cls searched=" << computeAverage(cls) << std::endl;
 
-    // alpa = 0.2;
-    // lamhat = index.calibrate(alpa, K);
-    // auto res = index.evaluate_test(lamhat);
-    // fnr = res.first;
-    // cls = res.second;
-    // std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
-    //           << ", test fnr=" << fnr << ", avg cls searched=" << computeAverage(cls) << std::endl;
+    alpa = 0.2;
+    lamhat = index.calibrate(alpa, K);
+    auto res = index.evaluate_test(lamhat);
+    fnr = res.first;
+    cls = res.second;
+    std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
+              << ", test fnr=" << fnr << ", avg cls searched=" << computeAverage(cls) << std::endl;
 
-    // alpa = 0.3;
-    // lamhat = index.calibrate(alpa, K);
-    // res = index.evaluate_test(lamhat);
-    // fnr = res.first;
-    // cls = res.second;
-    // std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
-    //           << ", test fnr=" << fnr << ", avg cls searched=" << computeAverage(cls) << std::endl;
+    alpa = 0.3;
+    lamhat = index.calibrate(alpa, K);
+    res = index.evaluate_test(lamhat);
+    fnr = res.first;
+    cls = res.second;
+    std::cout << "alpha=" << alpa << ": lamhat= " << lamhat
+              << ", test fnr=" << fnr << ", avg cls searched=" << computeAverage(cls) << std::endl;
 
 
-    size_t nq = 5;
+    size_t nq = 3;
 
     std::vector<float> queries(nq * d);
     for (size_t i = 0; i < nq * d; i++) {

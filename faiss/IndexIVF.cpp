@@ -1633,6 +1633,12 @@ void IndexIVF::search_conann(
     auto [test_preds, cl_searched] =
         compute_predictions(lamhat, queries, diff_scores, nonconf, all_preds_per_nprobe);
 
+    std::cout << "DEBUG:: searched clusters: ";
+    for (auto x: cl_searched) {
+        std::cout << x << " ";
+    }
+    std::cout << "\n";
+
     // Move results
     // TODO: optimize
     int nq = queries.size();
@@ -2054,11 +2060,12 @@ void IndexIVF::search_preassigned_with_error_quantification(
                         nonconf_list[i].push_back(score_k);
                         all_preds_list[i].push_back(idxi_copy);
 
-                        // if (score_k < lamhat) {
-                        //     nonconf_list[i].push_back(0.0);
-                        //     all_preds_list[i].push_back(idxi_copy);
-                        //     break;
-                        // }
+                        // ConANN:: Early stopping
+                        if (score_k < lamhat) {
+                            nonconf_list[i].push_back(0.0);
+                            all_preds_list[i].push_back(idxi_copy);
+                            break;
+                        }
                     }
                 }
 
