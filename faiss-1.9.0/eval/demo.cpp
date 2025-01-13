@@ -73,15 +73,15 @@ float* fvecs_read(const char* fname, size_t* d_out, size_t* n_out) {
     assert(nr == n * (d + 1) || !"could not read whole file");
 
     // shift array to remove row headers
-    int MAX_TO_MOVE = 1000;
-    printf("WARNING[ConANN]:: limited to only %d vectors to test functionality.\n", MAX_TO_MOVE);
-    *n_out = MAX_TO_MOVE;
+    // int MAX_TO_MOVE = 1000;
+    // printf("WARNING[ConANN]:: limited to only %d vectors to test functionality.\n", MAX_TO_MOVE);
+    // *n_out = MAX_TO_MOVE;
     for (size_t i = 0; i < n; i++) {
         memmove(x + i * d, x + 1 + i * (d + 1), d * sizeof(*x));
-        MAX_TO_MOVE --;
-        if (MAX_TO_MOVE <= 0) {
-            break;
-        }
+        // MAX_TO_MOVE --;
+        // if (MAX_TO_MOVE <= 0) {
+        //     break;
+        // }
     }
 
     fclose(f);
@@ -125,13 +125,13 @@ int main() {
 
         size_t nt;
         printf("WARNING[ConANN]: train queries should be different than the database!\n");
-        float* xt = fvecs_read("../data/gist/gist_query.fvecs", &d, &nt);
+        float* xt = fvecs_read("../data/sift10k/siftsmall_base.fvecs", &d, &nt);
 
         printf("[%.3f s] Preparing index \"%s\" d=%ld\n",
                elapsed() - t0,
                index_key,
                d);
-        int nlist = 30;   // as per index_key
+        int nlist = 100;   // 1024 as per index_key
         printf("WARNING[ConANN]: hardcoded nlist to %d for testing purposes.\n", nlist);
         faiss::IndexFlatL2* flat_index = new faiss::IndexFlatL2(d);
         index = new faiss::IndexIVFFlat(flat_index, d, nlist, faiss::METRIC_L2);
@@ -146,7 +146,7 @@ int main() {
         printf("[%.3f s] Loading database\n", elapsed() - t0);
 
         size_t nb, d2;
-        float* xb = fvecs_read("../data/gist/gist_base.fvecs", &d2, &nb);
+        float* xb = fvecs_read("../data/sift10k/siftsmall_base.fvecs", &d2, &nb);
         assert(d == d2 || !"dataset does not have same dimension as train set");
 
         printf("[%.3f s] Indexing database, size %ld*%ld\n",
@@ -166,7 +166,7 @@ int main() {
         printf("[%.3f s] Loading queries\n", elapsed() - t0);
 
         size_t d2;
-        xq = fvecs_read("../data/gist/gist_query.fvecs", &d2, &nq);
+        xq = fvecs_read("../data/sift10k/siftsmall_query.fvecs", &d2, &nq);
         assert(d == d2 || !"query does not have same dimension as train set");
     }
 
@@ -180,7 +180,7 @@ int main() {
 
         // load ground-truth and convert int to long
         size_t nq2;
-        int* gt_int = ivecs_read("../data/gist/gist_groundtruth.ivecs", &k, &nq2);
+        int* gt_int = ivecs_read("../data/sift10k/siftsmall_groundtruth.ivecs", &k, &nq2);
         assert(nq2 == nq || !"incorrect nb of ground truth entries");
 
         gt = new faiss::idx_t[k * nq];
