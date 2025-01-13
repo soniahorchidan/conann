@@ -206,7 +206,7 @@ int main(int argc,char **argv) {
         db = "../data/gist/gist_base.fvecs";
         query = "../data/gist/gist_query.fvecs";
         gtI = "../data/gist/gist_groundtruth.ivecs";
-        gtD = "../data/gist/gist_learn.fvecs";
+        gtD = "../data/gist/dis.fvecs";
     }
     else if(p1 == "spacev"){
         db = "/workspace/data/spacev/spacev10M.fvecs";
