@@ -1,24 +1,40 @@
-*.swp
-*.swo
+# Ignore build artifacts from any directory level
+
+# Object files
 *.o
+*.obj
+
+# Precompiled headers
+*.gch
+*.pch
+
+# Executables
+*.exe
+*.out
+*.app
+*.bin
+
+# Static libraries
 *.a
-*.dSYM
+*.lib
+
+# Dynamic libraries
 *.so
 *.dylib
-*.pyc
-*~
+*.dll
 
+# CMake build directories
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.cmake
 
-/build/
-/config.*
-/aclocal.m4
-/autom4te.cache/
-/makefile.inc
-/bin/
-/c_api/bin/
-/c_api/gpu/bin/
-/tests/test
-/tests/gtest/
-faiss/python/swigfaiss_avx2.swig
-faiss/python/swigfaiss_avx512.swig
-faiss/python/swigfaiss_sve.swig
+# Ignore build directories at any depth
+**/build/
+**/debug/
+**/release/
+
+# IDE or editor-specific files (if applicable)
+.vscode/
+.idea/
