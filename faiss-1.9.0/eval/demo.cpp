@@ -290,6 +290,48 @@ int main() {
         delete[] D;
     }
 
+    { // ConANN block
+        // Run auto-tuning with a 10% error bound
+        printf("[%.3f s] Preparing auto-tune criterion 1-recall at 1 with k=%ld nq=%ld\n",
+            elapsed() - t0, k, nq);
+
+        // Use IntersectionCriterion to calculate recall@1 with a tolerance
+        faiss::IntersectionCriterion crit(nq, 100);
+        crit.set_groundtruth(k, nullptr, gt);
+        crit.nnn = k; // The number of nearest neighbors
+
+        printf("[%.3f s] Preparing auto-tune parameters\n", elapsed() - t0);
+
+        faiss::ParameterSpace params;
+        params.initialize(index);
+
+        printf("[%.3f s] Auto-tuning over %ld parameters (%ld combinations)\n",
+            elapsed() - t0,
+            params.parameter_ranges.size(),
+            params.n_combinations());
+
+        faiss::OperatingPoints ops;
+        params.explore(index, nq, xq, crit, &ops);
+
+        printf("[%.3f s] Found the following operating points: \n", elapsed() - t0);
+        ops.display();
+
+        // Select a parameter configuration that meets the error bound
+        int ind = 0;
+        for (; ind < ops.optimal_pts.size(); ind++) {
+            float recall = ops.optimal_pts[ind].perf;
+            if (1.0 - recall <= 0.1) { // 10% error bound
+                selected_params = ops.optimal_pts[ind].key;
+                break;
+            }
+        }
+        assert(!selected_params.empty() || !"Could not find a parameter set within the error bound");
+        printf("[%.3f s] Setting parameter configuration \"%s\" on index\n",
+               elapsed() - t0,
+               selected_params.c_str());
+    }
+
+
     delete[] xq;
     delete[] gt;
     delete index;
