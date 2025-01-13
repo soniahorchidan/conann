@@ -189,6 +189,11 @@ int main(int argc,char **argv) {
         query = "/workspace/data/sift/1M_query.fvecs";
         gtI = "/workspace/data/sift/idx_1M.ivecs";
         gtD = "/workspace/data/sift/dis_1M.fvecs";
+    } else if (p1 == "bert") {
+        db = "../data/bert/db.fvecs";
+        query = "../data/bert/queries.fvecs";
+        gtI = "../data/bert/indices.fvecs";
+        gtD = "../data/bert/distances.fvecs";
     }
     else if(p1 == "sift10M"){
         db = "/workspace/data/sift/sift10M/sift10M.fvecs";
