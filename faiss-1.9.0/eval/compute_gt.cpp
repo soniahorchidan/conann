@@ -158,11 +158,6 @@ int main(int argc, char **argv) {
 
     faiss::IndexFlatL2 exact_index(d);
     exact_index.add(nb, xb);
-
-    std::cout << "DEBUG:: xb[0]=" << xb[2] << "\n";
-
-    delete[] xb;
-
     size_t nq;
     float *xq;
 
@@ -192,6 +187,8 @@ int main(int argc, char **argv) {
         xq = fvecs_read(query.c_str(), &d2, &nq);
         assert(d == d2 || !"query does not have same dimension as train set");
     }
+
+    delete[] xb;
 
     faiss::idx_t *gt_indices = new faiss::idx_t[nq * input_k];
     float *gt_distances = new float[nq * input_k];
