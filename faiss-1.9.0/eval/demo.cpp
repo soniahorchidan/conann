@@ -187,6 +187,8 @@ int main() {
         size_t nq2;
         // int* gt_int = ivecs_read("../data/sift10k/siftsmall_groundtruth.ivecs", &k, &nq2);
         int* gt_int = ivecs_read("../data/bert/indices.fvecs", &k, &nq2);
+
+        std::cout << "GT[0]=" << gt_int[0] << "\n";
         assert(nq2 == nq || !"incorrect nb of ground truth entries");
 
         gt = new faiss::idx_t[k * nq];
