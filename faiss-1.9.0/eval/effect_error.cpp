@@ -119,7 +119,7 @@ int main(int argc, char **argv) {
         figureid = 11;
         db = "../data/gist/gist_base.fvecs";
         query = "../data/gist/gist_query.fvecs";
-        gtI = "../data/gist/gist_groundtruth.ivecs";
+        gtI = "../data/gist/idx.ivecs";
         gtD = "../data/gist/dis.fvecs";
     }
     else if(param1 == "spacev"){
@@ -162,6 +162,9 @@ int main(int argc, char **argv) {
         size_t nt;
         float* xt = fvecs_read(db.c_str(), &d, &nt);
 
+        // TODO(sonia): increase
+        nt = 40000;
+
         printf("[%.3f s] Preparing index \"%s\" d=%ld\n",
                elapsed() - t0,
                index_key,
@@ -180,8 +183,8 @@ int main(int argc, char **argv) {
         //     printf("Output tune type: %d %d\n", index->tune, ix->quantizer->tune);
         // }
 
-        int nlist = 30;   // as per index_key
-        printf("WARNING[ConANN]: hardcoded nlist to %d for testing purposes.\n", nlist);
+        int nlist = 1024;   // 1024 as per index_key
+        // printf("WARNING[ConANN]: hardcoded nlist to %d for testing purposes.\n", nlist);
         faiss::IndexFlatL2* flat_index = new faiss::IndexFlatL2(d);
         index = new faiss::IndexIVFFlat(flat_index, d, nlist, faiss::METRIC_L2);
         
@@ -254,7 +257,7 @@ int main(int argc, char **argv) {
 
     {
         printf("[%.3f s] Loading groud truth vector\n", elapsed() - t0);
-        // printf("WARNING[ConANN]: need to compute GT distances\n");
+        printf("WARNING[ConANN]: need to compute GT distances\n");
 
         size_t nq3;
         gt_v = fvecs_read(gtD.c_str(), &kk, &nq3);

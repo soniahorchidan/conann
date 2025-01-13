@@ -19,6 +19,7 @@
 #include <fstream>
 #include <cstdio>
 #include <iostream>
+#include <random>
 
 /*****************************************************
  * I/O functions for fvecs and ivecs
@@ -40,6 +41,7 @@ float *fvecs_read(const char *fname, size_t *d_out, size_t *n_out) {
     struct stat st;
     fstat(fileno(f), &st);
     size_t sz = st.st_size;
+    std::cout << "DEBUG::" << sz << " " << d << "\n";
     assert(sz % ((d + 1) * 4) == 0 || !"weird file size");
     size_t n = sz / ((d + 1) * 4);
 
@@ -96,6 +98,26 @@ void write_gt_distances(const std::string &filename, const float *distances,
     fclose(f);
 }
 
+
+void write_fvecs(const std::string& filepath, float* data, size_t num_vectors, size_t dim) {
+    std::ofstream out_file(filepath, std::ios::binary);
+    if (!out_file.is_open()) {
+        std::cerr << "Failed to open file " << filepath << std::endl;
+        return;
+    }
+
+    // Write the number of vectors and the dimension
+    out_file.write(reinterpret_cast<const char*>(&num_vectors), sizeof(num_vectors));
+    out_file.write(reinterpret_cast<const char*>(&dim), sizeof(dim));
+
+    // Write the vectors
+    for (size_t i = 0; i < num_vectors; ++i) {
+        out_file.write(reinterpret_cast<const char*>(data + i * dim), dim * sizeof(float));
+    }
+
+    out_file.close();
+}
+
 /// Command like this: ./knn_script sift1M 100 2000 8000
 int main(int argc, char **argv) {
     std::cout << argc << " arguments" << std::endl;
@@ -114,41 +136,8 @@ int main(int argc, char **argv) {
         query = "../data/sift10k/siftsmall_query.fvecs";
         gtI = "../data/sift10k/sift10k_gt_indices_k100.ivecs";
         gtD = "../data/sift10k/sift10k_gt_distances_k100.ivecs";
-    } else if (param1 == "sift1M") {
-        db = "/workspace/data/sift/sift1M.fvecs";
-        query = "/workspace/data/sift/1M_query.fvecs";
-        gtI = "/workspace/data/sift/idx_1M.ivecs";
-        gtD = "/workspace/data/sift/dis_1M.fvecs";
-    } else if (param1 == "sift10M") {
-        db = "/workspace/data/sift/sift10M/sift10M.fvecs";
-        query = "/workspace/data/sift/sift10M/query.fvecs";
-        gtI = "/workspace/data/sift/sift10M/idx.ivecs";
-        gtD = "/workspace/data/sift/sift10M/dis.fvecs";
-    } else if (param1 == "deep10M") {
-        db = "/workspace/data/deep/deep10M.fvecs";
-        query = "/workspace/data/deep/query.fvecs";
-        gtI = "/workspace/data/deep/idx.ivecs";
-        gtD = "/workspace/data/deep/dis.fvecs";
-    } else if(param1 == "gist"){
-        db = "../data/gist/gist_base.fvecs";
-        query = "../data/gist/gist_query.fvecs";
-        gtI = "../data/gist/gist_groundtruth.ivecs";
-        gtD = "../data/gist/gist_learn.fvecs";
-    } else if (param1 == "spacev") {
-        db = "/workspace/data/spacev/spacev10M.fvecs";
-        query = "/workspace/data/spacev/query.fvecs";
-        gtI = "/workspace/data/spacev/idx.ivecs";
-        gtD = "/workspace/data/spacev/dis.fvecs";
-    } else if (param1 == "glove") {
-        db = "/workspace/data/glove/glove.fvecs";
-        query = "/workspace/data/glove/query.fvecs";
-        gtI = "/workspace/data/glove/idx.ivecs";
-        gtD = "/workspace/data/glove/dis.fvecs";
-    } else if (param1 == "text") {
-        db = "/workspace/data/text/text10M.fvecs";
-        query = "/workspace/data/text/query.fvecs";
-        gtI = "/workspace/data/text/idx.ivecs";
-        gtD = "/workspace/data/text/dis.fvecs";
+    } else if (param1 == "bert") {
+        db = "../data/bert/db.fvecs";
     } else {
         printf("Your dataset name is illegal\n");
         return 0;
@@ -177,11 +166,32 @@ int main(int argc, char **argv) {
     size_t nq;
     float *xq;
 
-    printf("[%.3f s] Loading queries\n", elapsed() - t0);
+    if (query.empty()) {
+        printf("[%.3f s] Query not set, sampling 1k queries from the database\n", elapsed() - t0);
 
-    size_t d2;
-    xq = fvecs_read(query.c_str(), &d2, &nq);
-    assert(d == d2 || !"query does not have same dimension as train set");
+        // Sample 1000 random queries from the database
+        nq = 1000;
+        xq = new float[nq * d];
+
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<size_t> dis(0, nb - 1);
+
+        for (size_t i = 0; i < nq; ++i) {
+            size_t random_index = dis(gen);
+            std::memcpy(xq + i * d, xb + random_index * d, d * sizeof(float));
+        }
+
+        std::string output_filepath = "../data/bert/queries.fvecs";
+        write_fvecs(output_filepath, xq, nq, d);
+        printf("[%.3f s] Sampled queries written to %s\n", elapsed() - t0, output_filepath.c_str());
+    } else {
+        printf("[%.3f s] Loading queries\n", elapsed() - t0);
+
+        size_t d2;
+        xq = fvecs_read(query.c_str(), &d2, &nq);
+        assert(d == d2 || !"query does not have same dimension as train set");
+    }
 
     faiss::idx_t *gt_indices = new faiss::idx_t[nq * input_k];
     float *gt_distances = new float[nq * input_k];
