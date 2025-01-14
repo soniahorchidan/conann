@@ -1,4 +1,4 @@
-#include <faiss/perf_tests/utils.h>
+#include <perf_tests/utils.h>
 namespace faiss::perf_tests {
 std::map<std::string, faiss::ScalarQuantizer::QuantizerType> sq_types() {
     static std::map<std::string, faiss::ScalarQuantizer::QuantizerType>

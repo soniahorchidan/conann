@@ -12,7 +12,7 @@
 
 #include <benchmark/benchmark.h>
 #include <faiss/impl/ScalarQuantizer.h>
-#include <faiss/perf_tests/utils.h>
+#include <perf_tests/utils.h>
 #include <faiss/utils/random.h>
 #include <faiss/utils/utils.h>
 

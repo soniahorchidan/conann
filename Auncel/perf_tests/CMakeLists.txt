@@ -25,7 +25,7 @@ add_library(faiss_perf_tests_utils
 )
 # `#include <faiss/perf_tests/utils.h>` or any other headers
 target_include_directories(faiss_perf_tests_utils PRIVATE
-   ${PROJECT_SOURCE_DIR}/../..)
+   ${PROJECT_SOURCE_DIR}/..)
 
 function(link_to_faiss_lib target)
   if(NOT FAISS_OPT_LEVEL STREQUAL "avx2" AND NOT FAISS_OPT_LEVEL STREQUAL "avx512" AND NOT FAISS_OPT_LEVEL STREQUAL "sve")
@@ -93,6 +93,6 @@ foreach(bench ${FAISS_PERF_TEST_SRC})
   target_link_libraries(${bench_exec} PRIVATE faiss_perf_tests_utils OpenMP::OpenMP_CXX benchmark::benchmark gflags)
   # `#include <faiss/perf_tests/utils.h>` or any other headers
   target_include_directories(${bench_exec} PRIVATE
-   ${PROJECT_SOURCE_DIR}/../..)
+   ${PROJECT_SOURCE_DIR}/..)
 
 endforeach()
