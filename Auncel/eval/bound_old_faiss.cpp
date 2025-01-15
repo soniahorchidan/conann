@@ -1,31 +1,55 @@
+/**
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
 #include <cassert>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
+#include<fstream>
 
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include <sys/time.h>
-#include <omp.h>
 
 #include "faiss/AutoTune.h"
-#include "faiss/IndexIVF.h"
-#include "faiss/index_io.h"
-#include "faiss/profile.h"
-#include "faiss/index_factory.h"
+#include "faiss/IndexFlat.h"
+#include "faiss/IndexIVFFlat.h"
+#include "faiss/impl/FaissAssert.h"
 
+#include <omp.h>
+#define DC(classname) classname* ix = dynamic_cast<classname*>(index)
 
-#include<iostream>
-#include<fstream>
+/**
+ * To run this demo, please download the ANN_SIFT1M dataset from
+ *
+ *   http://corpus-texmex.irisa.fr/
+ *
+ * and unzip it to the sudirectory sift1M.
+ **/
 
 /*****************************************************
  * I/O functions for fvecs and ivecs
  *****************************************************/
 
-#define DC(classname) classname* ix = dynamic_cast<classname*>(index)
+/**
+ * To run this demo, please download the ANN_SIFT1M dataset from
+ *
+ *   http://corpus-texmex.irisa.fr/
+ *
+ * and unzip it to the sudirectory sift1M.
+ **/
+
+/*****************************************************
+ * I/O functions for fvecs and ivecs
+ *****************************************************/
 
 float* fvecs_read(const char* fname, size_t* d_out, size_t* n_out) {
     FILE* f = fopen(fname, "r");
@@ -35,7 +59,7 @@ float* fvecs_read(const char* fname, size_t* d_out, size_t* n_out) {
         abort();
     }
     int d;
-    fread(&d, sizeof(int), 1, f);
+    fread(&d, 1, sizeof(int), f);
     assert((d > 0 && d < 1000000) || !"unreasonable dimension");
     fseek(f, 0, SEEK_SET);
     struct stat st;
@@ -51,8 +75,16 @@ float* fvecs_read(const char* fname, size_t* d_out, size_t* n_out) {
     assert(nr == n * (d + 1) || !"could not read whole file");
 
     // shift array to remove row headers
-    for (size_t i = 0; i < n; i++)
+    int MAX_TO_MOVE = 1000;
+    printf("WARNING[ConANN]:: limited to only %d vectors to test functionality.\n", MAX_TO_MOVE);
+    *n_out = MAX_TO_MOVE;
+    for (size_t i = 0; i < n; i++) {
         memmove(x + i * d, x + 1 + i * (d + 1), d * sizeof(*x));
+        MAX_TO_MOVE --;
+        if (MAX_TO_MOVE <= 0) {
+            break;
+        }
+    }
 
     fclose(f);
     return x;
@@ -114,6 +146,12 @@ int* ibin_read(const char* fname, size_t* d_out, size_t* n_out, int num = 100000
     return (int*)fbin_read(fname, d_out, n_out, num, bytes);
 }
 
+double elapsed() {
+    struct timeval tv;
+    gettimeofday(&tv, nullptr);
+    return tv.tv_sec + tv.tv_usec * 1e-6;
+}
+
 /* type = 0 : L2, 1 : IP*/
 size_t inter_sec(size_t max_topk, const float *gt, size_t topk, const float *I, int type = 0){
     size_t res = 0;
@@ -128,17 +166,9 @@ size_t inter_sec(size_t max_topk, const float *gt, size_t topk, const float *I, 
     return res;
 }
 
-double elapsed() {
-    struct timeval tv;
-    gettimeofday(&tv, nullptr);
-    return tv.tv_sec + tv.tv_usec * 1e-6;
-}
-
-/// Command like this: ./knn_script sift1M 100 2000 8000
 int main(int argc,char **argv) {
-    std::cout << argc << " arguments" <<std::endl;
-    if(argc - 1 != 6){
-        printf("You should at least input 6 params: the dataset name, train size, query size, topk , error bound and figure id\n");
+    if(argc - 1 != 5){
+        printf("You should at least input 5 params: the dataset name, train size, query size, topk and error bound\n");
         return 0;
     }
     std::string p1 = argv[1];
@@ -146,79 +176,81 @@ int main(int argc,char **argv) {
     std::string p3 = argv[3];
     std::string p4 = argv[4];
     std::string p5 = argv[5];
-    std::string p6 = argv[6];
 
     int input_k = std::stoi(p4);
-    int ts = std::stoi(p2);
-    int ses = std::stoi(p3);
     float error_bound = std::stof(p5);
-    int figureid = std::stoi(p6);
+    int trains = std::stoi(p2);
+    int tests = std::stoi(p3);
 
-    if(input_k>100 || input_k <0){
-        printf("Input topk must be lower than or equal to 100 and greater than 0\n");
-        return 0;
-    }
     std::string db, query, gtI, gtD;
+
     if(p1 == "sift1M"){
         db = "/workspace/data/sift/sift1M.fvecs";
         query = "/workspace/data/sift/1M_query.fvecs";
         gtI = "/workspace/data/sift/idx_1M.ivecs";
         gtD = "/workspace/data/sift/dis_1M.fvecs";
-        // db = "/workspace/data/sift/sift1M.bin";
-        // query = "/workspace/data/sift/1M_query.bin";
-        // gtI = "/workspace/data/sift/idx_1M.bin";
-        // gtD = "/workspace/data/sift/dis_1M.bin";
+    } else if (p1 == "bert") {
+        db = "../data/bert/db.fvecs";
+        query = "../data/bert/queries.fvecs";
+        gtI = "../data/bert/indices.fvecs";
+        gtD = "../data/bert/distances.fvecs";
     }
     else if(p1 == "sift10M"){
         db = "/workspace/data/sift/sift10M/sift10M.fvecs";
         query = "/workspace/data/sift/sift10M/query.fvecs";
         gtI = "/workspace/data/sift/sift10M/idx.ivecs";
         gtD = "/workspace/data/sift/sift10M/dis.fvecs";
-        // db = "/workspace/data/sift/sift10M/sift10M.bin";
-        // query = "/workspace/data/sift/sift10M/query.bin";
-        // gtI = "/workspace/data/sift/sift10M/idx.bin";
-        // gtD = "/workspace/data/sift/sift10M/dis.bin";
     }
     else if(p1 == "deep10M"){
         db = "/workspace/data/deep/deep10M.fvecs";
         query = "/workspace/data/deep/query.fvecs";
         gtI = "/workspace/data/deep/idx.ivecs";
         gtD = "/workspace/data/deep/dis.fvecs";
-        // db = "/workspace/data/deep/deep10M.bin";
-        // query = "/workspace/data/deep/query.bin";
-        // gtI = "/workspace/data/deep/idx.bin";
-        // gtD = "/workspace/data/deep/dis.bin";
     }
     else if(p1 == "gist"){
-        db = "/workspace/data/gist/gist1M.fvecs";
-        query = "/workspace/data/gist/query.fvecs";
-        gtI = "/workspace/data/gist/idx.ivecs";
-        gtD = "/workspace/data/gist/dis.fvecs";
-        // db = "/workspace/data/gist/gist1M.bin";
-        // query = "/workspace/data/gist/query.bin";
-        // gtI = "/workspace/data/gist/idx.bin";
-        // gtD = "/workspace/data/gist/dis.bin";
+        db = "../data/gist/gist_base.fvecs";
+        query = "../data/gist/gist_query.fvecs";
+        gtI = "../data/gist/gist_groundtruth.ivecs";
+        gtD = "../data/gist/dis.fvecs";
+    }
+    else if(p1 == "spacev"){
+        db = "/workspace/data/spacev/spacev10M.fvecs";
+        query = "/workspace/data/spacev/query.fvecs";
+        gtI = "/workspace/data/spacev/idx.ivecs";
+        gtD = "/workspace/data/spacev/dis.fvecs";
+    }
+    else if(p1 == "glove"){
+        db = "/workspace/data/glove/glove.fvecs";
+        query = "/workspace/data/glove/query.fvecs";
+        gtI = "/workspace/data/glove/idx.ivecs";
+        gtD = "/workspace/data/glove/dis.fvecs";
     }
     else if(p1 == "text"){
         db = "/workspace/data/text/text10M.fvecs";
         query = "/workspace/data/text/query.fvecs";
         gtI = "/workspace/data/text/idx.ivecs";
         gtD = "/workspace/data/text/dis.fvecs";
-        // db = "/workspace/data/text/text10M.bin";
-        // query = "/workspace/data/text/query.bin";
-        // gtI = "/workspace/data/text/idx.bin";
-        // gtD = "/workspace/data/text/dis.bin";
     }
     else{
         printf("Your dataset name is illegal\n");
         return 0;
     }
 
-	omp_set_num_threads(16);
+    omp_set_num_threads(16);
     double t0 = elapsed();
-    
+
     // this is typically the fastest one.
     const char* index_key = "IVF1024,Flat";
+
+    // these ones have better memory usage
+    // const char *index_key = "Flat";
+    // const char *index_key = "PQ32";
+    // const char *index_key = "PCA80,Flat";
+    // const char *index_key = "IVF4096,PQ8+16";
+    // const char *index_key = "IVF4096,PQ32";
+    // const char *index_key = "IMI2x8,PQ32";
+    // const char *index_key = "IMI2x8,PQ8+16";
+    // const char *index_key = "OPQ16_64,IMI2x8,PQ8+16";
 
     faiss::Index* index;
 
@@ -229,44 +261,26 @@ int main(int argc,char **argv) {
 
         size_t nt;
         float* xt = fvecs_read(db.c_str(), &d, &nt);
-        // float* xt;
-        // if (p1 == "sift1M")
-        //     xt = fbin_read(db.c_str(), &d, &nt, 1000000, 1);
-        // else if (p1 == "sift10M")
-        //     xt = fbin_read(db.c_str(), &d, &nt, 10000000, 1);
-        // else
-        //     xt = fbin_read(db.c_str(), &d, &nt);
 
         printf("[%.3f s] Preparing index \"%s\" d=%ld\n",
                elapsed() - t0,
                index_key,
                d);
-        if(p1 == "sift1M" || p1 == "sift10M" || p1 == "deep10M" || p1 == "gist" || p1 == "spacev")
-            index = faiss::index_factory(d, index_key);
-        else
-            index = faiss::index_factory(d, index_key
-            ,faiss::METRIC_INNER_PRODUCT
-            );
+        // TODO(sonia): text
+        // if (p1 == "text")
+        //     index = faiss::index_factory(d, index_key, faiss::METRIC_INNER_PRODUCT);
+        // else
+        //    index = faiss::index_factory(d, index_key);
 
-        // index->set_tune_mode();
-        // if(DC(faiss::IndexIVF)){
-        //     printf("Output tune type: %d %d\n", index->tune, ix->quantizer->tune);
-        // }
-        
-        printf("Output index type: %d\n", index->type);
+        int nlist = 30;   // as per index_key
+        printf("WARNING[ConANN]: hardcoded nlist to %d for testing purposes.\n", nlist);
+        faiss::IndexFlatL2* flat_index = new faiss::IndexFlatL2(d);
+        index = new faiss::IndexIVFFlat(flat_index, d, nlist, faiss::METRIC_L2);
 
         printf("[%.3f s] Training on %ld vectors\n", elapsed() - t0, nt);
 
-        // nt = 500000;
-
-        index->set_tune_mode();
         index->train(nt, xt);
-        index->set_tune_off();
         delete[] xt;
-        std::string filenameIn = "./trained_index/";
-        filenameIn += p1;
-        filenameIn += "_IVF1024,Flat_trained.index";
-        faiss::write_index(index, filenameIn.c_str());
     }
 
     {
@@ -274,14 +288,6 @@ int main(int argc,char **argv) {
 
         size_t nb, d2;
         float* xb = fvecs_read(db.c_str(), &d2, &nb);
-        // float* xb;
-        // if (p1 == "sift1M")
-        //     xb = fbin_read(db.c_str(), &d2, &nb, 1000000, 1);
-        // else if (p1 == "sift10M")
-        //     xb = fbin_read(db.c_str(), &d2, &nb, 10000000, 1);
-        // else
-        //     xb = fbin_read(db.c_str(), &d2, &nb);
-
         assert(d == d2 || !"dataset does not have same dimension as train set");
 
         printf("[%.3f s] Indexing database, size %ld*%ld\n",
@@ -302,17 +308,10 @@ int main(int argc,char **argv) {
 
         size_t d2;
         xq = fvecs_read(query.c_str(), &d2, &nq);
-        // float* xq;
-        // if (p1 == "sift1M" || p1 == "sift10M")
-        //     xq = fbin_read(query.c_str(), &d2, &nq, 10000, 1);
-        // else
-        //     xq = fbin_read(query.c_str(), &d2, &nq, 10000);
         assert(d == d2 || !"query does not have same dimension as train set");
     }
 
     size_t k;                // nb of results per query in the GT
-    // faiss::Index::idx_t* gt; // nq * k matrix of ground-truth nearest-neighbors
-    // CHANGED TO
     faiss::idx_t* gt; // nq * k matrix of ground-truth nearest-neighbors
 
     {
@@ -323,12 +322,8 @@ int main(int argc,char **argv) {
         // load ground-truth and convert int to long
         size_t nq2;
         int* gt_int = ivecs_read(gtI.c_str(), &k, &nq2);
-        // int* gt_int;
-        // gt_int = ibin_read(gtI.c_str(), &k, &nq2, 10000);
         assert(nq2 == nq || !"incorrect nb of ground truth entries");
 
-        // gt = new faiss::Index::idx_t[k * nq];
-        // CHANGED TO
         gt = new faiss::idx_t[k * nq];
         for (int i = 0; i < k * nq; i++) {
             gt[i] = gt_int[i];
@@ -336,104 +331,136 @@ int main(int argc,char **argv) {
         delete[] gt_int;
     }
 
-    size_t kk;
-    float *gt_v;
+    float* gt_D;
 
     {
-        printf("[%.3f s] Loading groud truth vector\n", elapsed() - t0);
+        printf("[%.3f s] Loading ground truth distance for %ld queries\n",
+               elapsed() - t0,
+               nq);
 
-        size_t nq3;
-        gt_v = fvecs_read(gtD.c_str(), &kk, &nq3);
-        // gt_v = fbin_read(gtD.c_str(), &kk, &nq3, 10000);
-        assert(kk == k || !"gt diatance does not have same dimension as gt IDs");
-        assert(nq3 == nq || !"incorrect nb of ground truth entries");
+        // load ground-truth and convert int to long
+        size_t nq2;
+        gt_D = fvecs_read(gtD.c_str(), &k, &nq2);
+        assert(nq2 == nq || !"incorrect nb of ground truth entries");
     }
 
-    size_t topk = k;
-    size_t max_topk = k;
-    // Run error profile system
-    {
-        printf("[%.3f s] Preparing error profile system criterion 100-recall at 100 "
-               "criterion, with k=%ld nq=%ld\n",
+    // Result of the auto-tuning
+    std::string selected_params;
+    FAISS_ASSERT(nq == trains + tests);
+
+    { // run auto-tuning
+
+        printf("[%.3f s] Preparing auto-tune with k=%ld nq=%ld\n",
                elapsed() - t0,
                k,
-               nq);
-        faiss::Error_sys err_sys(index, nq , k);
+               trains);
 
-        err_sys.set_gt(gt_v, gt);
-        printf("[%.3f s] Start error profile system training\n",
-               elapsed() - t0);
-        err_sys.sys_train(ts, xq);
-        printf("[%.3f s] Finish error profile system training\n",
+        faiss::IntersectionCriterion crit(trains, input_k);
+        crit.set_groundtruth(k, nullptr, gt);
+        crit.nnn = k; // by default, the criterion will request only 1 NN
+
+        printf("[%.3f s] Preparing auto-tune parameters\n", elapsed() - t0);
+
+        faiss::ParameterSpace params;
+        params.initialize(index);
+
+        printf("[%.3f s] Auto-tuning over %ld parameters (%ld combinations)\n",
+               elapsed() - t0,
+               params.parameter_ranges.size(),
+               params.n_combinations());
+
+        faiss::OperatingPoints ops;
+        params.explore(index, trains, xq, crit, &ops);
+
+        printf("[%.3f s] Found the following operating points: \n",
                elapsed() - t0);
 
-        std::vector<float> D;
-        std::vector<int64_t> I;
-        std::vector<float> acc;
-        size_t demo_size = ses;
-        topk = input_k;
-        // Set query topk val
-        err_sys.set_topk(topk);
-        D.resize(demo_size * k);
-        I.resize(demo_size * k);
-        // Set required recalls
-        std::vector<float> accs;
-        accs.push_back(1. - error_bound);
-        for(int i = 0; i<demo_size+ts;i++){
-            int index = i%accs.size();
-            acc.push_back(accs[index]);
+        // ops.display(); //
+
+        // keep the first parameter that obtains > 0.5 1-recall@1
+        int ind = 0;
+        for (; ind < ops.optimal_pts.size(); ind++) {
+            // std::cout << ops.optimal_pts[ind].key << "\n";
+            if (ops.optimal_pts[ind].perf >= (1 - error_bound)) {
+                selected_params = ops.optimal_pts[ind].key;
+                break;
+            }
         }
-        
-        err_sys.set_queries(demo_size, xq, acc.data(), ts+ses);
-        printf("[%.3f s] Start error profile system search\n",
-               elapsed() - t0);
-        t0 = elapsed();
-        if(DC(faiss::IndexIVF)){
-            ix->t->setparam(figureid);
-        }
+        assert(selected_params.size() >= 0 ||
+               !"could not find good enough op point");
+    }
 
-        std::vector<double> latency;
-        for(int i = ts; i<ts+ses ;i++){
+    { // Use the found configuration to perform a search
+
+        faiss::ParameterSpace params;
+
+        params.set_index_parameters(index, selected_params.c_str());
+
+        printf("[%.3f s] Perform a search on %ld queries\n",
+               elapsed() - t0,
+               tests);
+
+        // output buffers
+        omp_set_num_threads(1);
+
+        faiss::idx_t* I = new faiss::idx_t[tests * input_k];
+        float* D = new float[tests * input_k];
+
+        // if(DC(faiss::IndexIVF)){
+        //     // ix->nprobe = ix->nlist / 2;
+        //     ix -> nprobe = 300;
+        // }
+
+        std::vector<double> perf;
+        for (int i = 0; i < tests; i++) {
             auto tt0 = elapsed();
-            err_sys.search(D.data() + k * (i - ts), I.data() + k * (i - ts), i, 1);
+            index->search(1, xq + d * trains + d * i, input_k, D + i * input_k, I + i * input_k);
             auto tt1 = elapsed();
-            latency.push_back(tt1 - tt0);
+            perf.push_back(tt1 - tt0);
         }
-        printf("Finish error profile system search: %.3f\n",
-               elapsed() - t0);
+
+        printf("[%.3f s] Compute Bound Error\n", elapsed() - t0);
 
         int type = 0;
         if (p1 == "text")
             type = 1;
 
         float minf = 1.;
-        for (int i = ts; i < ses + ts; i++) {
-            minf = std::min(minf, inter_sec(k, &gt_v[i * 100], 
-                input_k, D.data() + (i - ts) * k , type)/float(input_k));
+        for (int i = trains; i < tests + trains; i++) {
+            minf = std::min(minf, inter_sec(k, &gt_D[i * 100], 
+                input_k, D + (i - trains) * input_k , type)/float(input_k));
         }
-        if (minf >= (1 - error_bound))
-            printf("Error bound is guaranteed\n\n\n");
-        else
-            printf("NO NO NO !!! Error bound is not guaranteed, please enlarge top-n \n");
 
-        printf("Error Bound : %f\n", minf);
+        // NOTE(sonia): commented out because the original Auncel code checks for maximum error, but 
+        // Faiss does average, so this fails.
+        // if (minf >= (1 - error_bound))
+        //     printf("Error bound is guaranteed\n\n\n");
+        // else{
+        //     printf("NO NO NO !!! Error bound is not guaranteed,\
+        //     please enlarge top-n (i,e, find the next n in th map) \n");
+        //     return 0;
+        // }
+
 
         // Output the latency to file
         std::stringstream fn;
-        fn<<"Auncel_Latency" << "_" << p1 << "_" << input_k << "_" << int(error_bound*100) <<".log";
+        fn<<"Faiss_Latency" << "_" << p1 << "_" << input_k << "_" << int(error_bound*100) <<".log";
         std::string filename = fn.str();
 
         std::ofstream outfile;
         outfile.open(filename);
-        for(int i = 0;i < ses; i++){
-            outfile << latency[i] << std::endl;
+        for(int i = 0;i < tests; i++){
+            outfile << perf[i] << std::endl;
         }
         outfile.close();
 
+        delete[] I;
+        delete[] D;
     }
+
     delete[] xq;
     delete[] gt;
-    delete[] gt_v;
+    delete[] gt_D;
     delete index;
     return 0;
 }

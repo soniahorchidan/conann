@@ -56,6 +56,15 @@ struct IDSelector;
 struct RangeSearchResult;
 struct DistanceComputer;
 
+// BEGIN AUNCEL BLOCK
+/// @brief Auncel IndexType definition
+typedef enum IndexType {
+    IVF = 0,
+    NSW = 1,
+    OTHER = 2,
+} FaissMetricType;
+// END AUNCEL BLOCK
+
 /** Parent class for the optional search paramenters.
  *
  * Sub-classes with additional search parameters should inherit this class.
@@ -81,6 +90,16 @@ struct Index {
     int d;        ///< vector dimension
     idx_t ntotal; ///< total nb of indexed vectors
     bool verbose; ///< verbosity level
+
+// BEGIN AUNCEL BLOCK
+    /// Auncel Tune is turned off by default
+    bool tune = false;
+
+    // Auncel sets index type to other by default
+    IndexType type = OTHER;
+    virtual void set_tune_mode();
+    virtual void set_tune_off();
+// END AUNCEL BLOCK
 
     /// set if the Index does not require training, or if training is
     /// done already

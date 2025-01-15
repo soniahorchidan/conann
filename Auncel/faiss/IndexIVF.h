@@ -23,6 +23,11 @@
 #include <faiss/invlists/InvertedLists.h>
 #include <faiss/utils/Heap.h>
 
+// BEGIN AUNCEL BLOCK
+#include "IVF_pro.h"
+// #include <stdint.h> not needed
+// END AUNCEL BLOCK
+
 namespace faiss {
 
 /** Encapsulates a quantizer object for the IndexIVF
@@ -36,6 +41,10 @@ struct Level1Quantizer {
 
     /// number of inverted lists
     size_t nlist = 0;
+
+// BEGIN AUNCEL BLOCK
+    std::vector<float> interdis_cem;
+// END AUNCEL BLOCK
 
     /**
      * = 0: use the quantizer as index in a kmeans training
@@ -61,7 +70,11 @@ struct Level1Quantizer {
     void encode_listno(idx_t list_no, uint8_t* code) const;
     idx_t decode_listno(const uint8_t* code) const;
 
-    Level1Quantizer(Index* quantizer, size_t nlist);
+// BEGIN AUNCEL BLOCK
+    // Level1Quantizer(Index* quantizer, size_t nlist);
+    // Changed to:
+    Level1Quantizer(Index* quantizer, size_t nlist, bool t = false);
+// END AUNCEL BLOCK
 
     Level1Quantizer();
 
@@ -178,6 +191,15 @@ struct IndexIVF : Index, IndexIVFInterface {
     InvertedLists* invlists = nullptr;
     bool own_invlists = false;
 
+// BEGIN AUNCEL BLOCK
+    // Set training to false
+    bool training = false;
+    // Auncel Error Profile
+    error_pro *t;
+
+    double time() const; 
+// END AUNCEL BLOCK
+
     size_t code_size = 0; ///< code size per vector in bytes
 
     /** Parallel mode determines how queries are parallelized with OpenMP
@@ -211,6 +233,23 @@ struct IndexIVF : Index, IndexIVFInterface {
             size_t nlist,
             size_t code_size,
             MetricType metric = METRIC_L2);
+
+// BEGIN AUNCEL BLOCK
+    // Added functions
+    void set_tune_mode() override;
+
+    void set_tune_off() override;
+
+    void set_train_mode();
+
+    void set_train_off();
+
+//     void init_tune(size_t train_num, size_t topk, const float *train_q, const float *train_D, 
+//         const long *train_I, float *train_cd, long *train_ci);
+    // CHANGED TO
+    void init_tune(size_t train_num, size_t topk, const float *train_q, const float *train_D, 
+        const idx_t *train_I, float *train_cd, idx_t *train_ci);
+// END AUNCEL BLOCK
 
     void reset() override;
 
@@ -301,6 +340,27 @@ struct IndexIVF : Index, IndexIVFInterface {
             float* distances,
             idx_t* labels,
             const SearchParameters* params = nullptr) const override;
+
+// BEGIN AUNCEL BLOCK
+    void search(
+            idx_t n,
+            const float* x,
+            idx_t k,
+            float* distances,
+            idx_t* labels,
+            size_t offset) const;
+
+
+    void search(
+            idx_t n,
+            const float* x,
+            idx_t k,
+            float* distances,
+            idx_t* labels,
+            float * coarse_dis,
+            idx_t * idx,
+            size_t offset = -1) const;
+// END AUNCEL BLOCK
 
     void range_search(
             idx_t n,

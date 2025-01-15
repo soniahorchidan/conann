@@ -5,6 +5,8 @@
 # LICENSE file in the root directory of this source tree.
 
 set(FAISS_SRC
+  IVF_pro.cpp
+  profile.cpp
   AutoTune.cpp
   Clustering.cpp
   IVFlib.cpp
@@ -99,6 +101,8 @@ set(FAISS_SRC
 )
 
 set(FAISS_HEADERS
+  IVF_pro.h
+  profile.h
   AutoTune.h
   Clustering.h
   IVFlib.h

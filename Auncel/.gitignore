@@ -6,6 +6,7 @@
 *.so
 *.dylib
 *.pyc
+*.log
 *~
 /build/
 /config.*

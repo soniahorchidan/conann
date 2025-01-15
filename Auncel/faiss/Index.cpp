@@ -24,6 +24,16 @@ void Index::train(idx_t /*n*/, const float* /*x*/) {
     // does nothing by default
 }
 
+// BEGIN AUNCEL BLOCK
+void Index::set_tune_mode(){
+    tune = true;
+}
+
+void Index::set_tune_off() {
+    tune = false;
+}
+// END AUNCEL BLOCK
+
 void Index::range_search(
         idx_t,
         const float*,

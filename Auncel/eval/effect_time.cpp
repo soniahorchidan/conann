@@ -69,7 +69,7 @@ double elapsed() {
 }
 
 /// Command like this: ./knn_script sift1M 100 2000 8000
-int main(int argc, char **argv) {
+int main(int argc,char **argv) {
     std::cout << argc << " arguments" <<std::endl;
     if(argc - 1 != 4){
         printf("You should at least input 4 params: the dataset name, topk, train size, query size\n");
@@ -83,7 +83,7 @@ int main(int argc, char **argv) {
     int input_k = std::stoi(param2);
     int ts = std::stoi(p3);
     int ses = std::stoi(p4);
-    int figureid = -1;
+
     if(input_k>100 || input_k <0){
         printf("Input topk must be lower than or equal to 100 and greater than 0\n");
         return 0;
@@ -96,21 +96,18 @@ int main(int argc, char **argv) {
         gtD = "/workspace/data/sift/dis_1M.fvecs";
     }
     else if(param1 == "sift10M"){
-        figureid = 9;
         db = "/workspace/data/sift/sift10M/sift10M.fvecs";
         query = "/workspace/data/sift/sift10M/query.fvecs";
         gtI = "/workspace/data/sift/sift10M/idx.ivecs";
         gtD = "/workspace/data/sift/sift10M/dis.fvecs";
     }
     else if(param1 == "deep10M"){
-        figureid = 10;
         db = "/workspace/data/deep/deep10M.fvecs";
         query = "/workspace/data/deep/query.fvecs";
         gtI = "/workspace/data/deep/idx.ivecs";
         gtD = "/workspace/data/deep/dis.fvecs";
     }
     else if(param1 == "gist"){
-        figureid = 11;
         db = "/workspace/data/gist/gist1M.fvecs";
         query = "/workspace/data/gist/query.fvecs";
         gtI = "/workspace/data/gist/idx.ivecs";
@@ -129,7 +126,6 @@ int main(int argc, char **argv) {
         gtD = "/workspace/data/glove/dis.fvecs";
     }
     else if(param1 == "text"){
-        figureid = 12;
         db = "/workspace/data/text/text10M.fvecs";
         query = "/workspace/data/text/query.fvecs";
         gtI = "/workspace/data/text/idx.ivecs";
@@ -231,8 +227,6 @@ int main(int argc, char **argv) {
         int* gt_int = ivecs_read(gtI.c_str(), &k, &nq2);
         assert(nq2 == nq || !"incorrect nb of ground truth entries");
 
-        // gt = new faiss::Index::idx_t[k * nq];
-        // CHANGED TO
         gt = new faiss::idx_t[k * nq];
         for (int i = 0; i < k * nq; i++) {
             gt[i] = gt_int[i];
@@ -279,8 +273,8 @@ int main(int argc, char **argv) {
         err_sys.set_topk(topk);
         D.resize(demo_size * k);
         I.resize(demo_size * k);
-        // Set required recalls
-        std::vector<float> accs = {0.9, 0.8, 0.7, 0.6, 0.5, 0.4,0.3};
+        std::vector<float> accs = {5, 10, 15, 20, 25, 30, 35, 40, 45, 50};
+        // Set required time(ms)
         for(int i = 0; i<demo_size+ts;i++){
             int index = i%accs.size();
             acc.push_back(accs[index]);
@@ -291,25 +285,30 @@ int main(int argc, char **argv) {
                elapsed() - t0);
         t0 = elapsed();
         if(DC(faiss::IndexIVF)){
-            assert(figureid >= 1 && figureid <= 12);
-            ix->t->setparam(figureid);
             ix->t->profile = true;
         }
-        err_sys.search(D.data(), I.data(), ts);
+        double tv0 = elapsed();
+        std::vector<float> times;
+        for(int i = ts; i<ts+ses ;i++){
+            t0 = elapsed();
+            err_sys.time_search(D.data(), I.data(), i, 1);
+            double t1 = elapsed();
+            float latency = t1 - t0;
+            times.push_back(latency);
+        }
         printf("Finish error profile system search: %.3f\n",
-               elapsed() - t0);
+               elapsed() - tv0);
 
         if(DC(faiss::IndexIVF)){
-            /// Store the recalls and true recalls in logs
+            /// Store the optimal and ELP's nprobe into logs
             std::stringstream ss;
-            ss<<"Effective_error_"<< param1 <<".log";
+            ss<<"Effective_time_" << param1<<".log";
             std::string filename = ss.str();
+
             std::ofstream outfile;
             outfile.open(filename);
-            for(int i = ts;i < (ts+ses); i++){
-                outfile << acc[i] << " ";
-                outfile << ix->t->t_recalls[i];
-                outfile << std::endl;
+            for(int i = ts;i < ts+ses; i++){
+                outfile << acc[i] << " " << times[i-ts]*1000 <<std::endl;
             }
         }
     }

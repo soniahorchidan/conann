@@ -29,6 +29,21 @@
 #include <faiss/impl/FaissAssert.h>
 #include <faiss/impl/IDSelector.h>
 
+// BEGIN AUNCEL BLOCK
+#include <float.h>
+// #include <algorithm>
+#include <sys/time.h>
+
+//for debug and eval
+#include <fstream>
+#include <stdio.h>
+#include <iostream>
+
+// NOTE(fabi) added by myself
+#include "faiss/utils/distances.h"
+#include "faiss/impl/FaissException.h"
+// END AUNCEL BLOCK
+
 namespace faiss {
 
 using ScopedIds = InvertedLists::ScopedIds;
@@ -38,12 +53,16 @@ using ScopedCodes = InvertedLists::ScopedCodes;
  * Level1Quantizer implementation
  ******************************************/
 
-Level1Quantizer::Level1Quantizer(Index* quantizer, size_t nlist)
+Level1Quantizer::Level1Quantizer(Index* quantizer, size_t nlist, bool t)
         : quantizer(quantizer), nlist(nlist) {
     // here we set a low # iterations because this is typically used
     // for large clusterings (nb this is not used for the MultiIndex,
     // for which quantizer_trains_alone = true)
-    cp.niter = 10;
+    cp.niter = 10; // In Auncel code this was still 25
+// BEGIN AUNCEL BLOCK
+    if (t)
+        quantizer->tune = t;
+// END AUNCEL BLOCK
 }
 
 Level1Quantizer::Level1Quantizer() = default;
@@ -83,6 +102,29 @@ void Level1Quantizer::train_q1(
         } else {
             clus.train(n, x, *quantizer);
         }
+// BEGIN AUNCEL BLOCK
+        if (quantizer->tune){
+            interdis_cem.resize(nlist*(nlist - 1) / 2);
+            if (metric_type != METRIC_INNER_PRODUCT)
+                fvec_inter_vecs(interdis_cem.data(), clus.centroids.data(), nlist, d);
+            else{
+                for(int i = 0; i < nlist; i++){
+                    float *st = clus.centroids.data();
+                    float norm = sqrtf(fvec_norm_L2sqr(st, d));
+                    for(int j = 0; j<d;j++)
+                        st[j] /= norm;
+                }
+                fvec_inter_vecs_IP(interdis_cem.data(), clus.centroids.data(), nlist, d);
+                for (int i = 0; i < interdis_cem.size();i++)
+                    interdis_cem[i] = std::acos(interdis_cem[i]);
+            }
+            // std::ofstream outfile;
+            // outfile.open("sift_cenTocen.txt");
+            // for(size_t ik = 0;ik < interdis_cem.size();ik++){
+            //     outfile << interdis_cem[ik] << std::endl;
+            // }
+        }
+// END AUNCEL BLOCK
         quantizer->is_trained = true;
     } else if (quantizer_trains_alone == 2) {
         if (verbose) {
@@ -171,9 +213,99 @@ IndexIVF::IndexIVF(
     if (metric_type == METRIC_INNER_PRODUCT) {
         cp.spherical = true;
     }
+
+// BEGIN AUNCEL BLOCK
+     // Set index type
+    type = IVF;
+    // Set original tuner to nullptr
+    t = nullptr;
+    tune = false;
+// END AUNCEL BLOCK
 }
 
 IndexIVF::IndexIVF() = default;
+// BEGIN AUNCEL BLOCK
+/** In the old code there was a second constructor
+ * but I don't see a need to add this here.
+ IndexIVF::IndexIVF ():
+    invlists (nullptr), own_invlists (false),
+    code_size (0),
+    nprobe (1), max_codes (0), parallel_mode (0),
+    maintain_direct_map (false)
+{
+    type = IVF;
+    t = nullptr;
+    tune = false;
+}
+ */
+// END AUNCEL BLOCK
+
+// BEGIN AUNCEL BLOCK
+// Added function definitions
+void IndexIVF::set_tune_mode(){
+    tune = true;
+    quantizer->tune = true;
+}
+
+void IndexIVF::set_tune_off(){
+    tune = false;
+    quantizer->tune = false;
+}
+
+void IndexIVF::set_train_mode(){
+    training = true;
+    quantizer->tune = true;
+}
+
+void IndexIVF::set_train_off(){
+    training = false;
+    quantizer->tune = false;
+}
+
+// Changed index type from long to idx_t see Index.h
+void IndexIVF::init_tune(size_t train_num, size_t topk,const float *train_q, const float *train_D, 
+        const idx_t *train_I,  float *train_cd, idx_t *train_ci){
+    this->t = new error_pro;
+    t->construct_arcos();
+    size_t ind = 0;
+    if(t->traces.empty()){
+        size_t nprobe = 1;
+        while(nprobe <= nlist/8){
+            Trace tmp;
+            tmp.nprobe = nprobe;
+            // tradeoff between space and parallel synchronization overhead
+            auto init_v = std::make_pair(-1, -1);
+            // topk/4 is map 's vals granularity
+            tmp.trace.resize((topk/4)*train_num, init_v);
+            t->traces.push_back(tmp);
+            nprobe = nprobe << 1;
+            ind++;
+        }
+    }
+
+
+    if (metric_type == METRIC_INNER_PRODUCT)
+        t->m_type = error_pro::IP;
+    else
+        t->m_type = error_pro::L2;
+    t->count = 0;
+    t->nlist = nlist;
+    t->max_topk = topk;
+    t->d = d;
+    // t->knn = nullptr;
+    // t->disToBoundary.resize((nlist / 10 - 1) * train_num);
+    // t->cenTocen.resize((nlist / 10 - 1) * train_num);
+    // whether needed to memcpy
+    t->interdis_cem = interdis_cem.data();
+    // init from param
+    t->train_num = train_num;
+    t->train_q = train_q;
+    t->train_D = train_D;
+    t->train_I = train_I;
+    t->train_cd = train_cd;
+    t->train_ci = train_ci;
+}
+// END AUNCEL BLOCK
 
 void IndexIVF::add(idx_t n, const float* x) {
     add_with_ids(n, x, nullptr);
@@ -287,6 +419,66 @@ void IndexIVF::set_direct_map_type(DirectMap::Type type) {
     direct_map.set_type(type, invlists, ntotal);
 }
 
+// BEGIN AUNCEL BLOCK
+// Added function defintion for time
+double IndexIVF::time() const {
+    struct timeval tv;
+    gettimeofday(&tv, nullptr);
+    return tv.tv_sec + tv.tv_usec * 1e-6;
+}
+// END AUNCEL BLOCK
+
+// BEGIN AUNCEL BLOCK
+void IndexIVF::search (idx_t n, const float *x, idx_t k,
+                         float *distances, idx_t *labels, size_t offset) const
+{
+    /** Old Auncel Code
+    long * idx = new long [n * nprobe];
+    ScopeDeleter<long> del (idx);
+    float * coarse_dis = new float [n * nprobe];
+    ScopeDeleter<float> del2 (coarse_dis);
+
+    double t0 = getmillisecs();
+    quantizer->search (n, x, nprobe, coarse_dis, idx);
+    indexIVF_stats.quantization_time += getmillisecs() - t0;
+
+    t0 = getmillisecs();
+    invlists->prefetch_lists (idx, n * nprobe);
+
+    // compress topk and offset into one integer
+    idx_t _offset = offset, tmpk = k;
+    _offset <<= 32;
+    tmpk = _offset | k;
+
+    search_preassigned (n, x, tmpk, idx, coarse_dis,
+                        distances, labels, false);
+    indexIVF_stats.search_time += getmillisecs() - t0;
+    */
+
+    // Ported Code
+    // I think we can be fine (and safer) without the parrallization code here.
+    std::unique_ptr<idx_t[]> idx(new idx_t[n * nprobe]);
+    std::unique_ptr<float[]> coarse_dis(new float[n * nprobe]);
+
+    double t0 = getmillisecs();
+    quantizer->search(n, x, nprobe, coarse_dis.get(), idx.get());
+    indexIVF_stats.quantization_time += getmillisecs() - t0;
+
+    t0 = getmillisecs();
+    invlists->prefetch_lists(idx.get(), n * nprobe);
+
+    // NOTE(fabi): extrected below in search_preassigned
+    // compress topk and offset into one integer
+    idx_t _offset = offset, tmpk = k;
+    _offset <<= 32;
+    tmpk = _offset | k;
+
+    search_preassigned (n, x, tmpk, idx.get(), coarse_dis.get(),
+                        distances, labels, false);
+    indexIVF_stats.search_time += getmillisecs() - t0;
+}
+// END AUNCEL BLOCK
+
 /** It is a sad fact of software that a conceptually simple function like this
  * becomes very complex when you factor in several ways of parallelizing +
  * interrupt/error handling + collecting stats + min/max collection. The
@@ -398,6 +590,17 @@ void IndexIVF::search_preassigned(
         bool store_pairs,
         const IVFSearchParameters* params,
         IndexIVFStats* ivf_stats) const {
+    
+// BEGIN AUNCEL BLOCK
+    // NOTE(fabi): 
+    // In summary, this code snippet is used to split a 64-bit integer k into its upper and lower 32-bit components.
+    // The upper 32 bits are stored in the offset variable, while the lower 32 bits remain in k.
+    idx_t offset = 0, andnum = 0xffffffff;
+    // std::cout<<k<<" "<<offset<<std::endl;
+    offset = (k >> 32) & andnum;
+    k = k & andnum; 
+// END AUNCEL BLOCK
+
     FAISS_THROW_IF_NOT(k > 0);
 
     idx_t nprobe = params ? params->nprobe : this->nprobe;
@@ -584,11 +787,20 @@ void IndexIVF::search_preassigned(
          ****************************************************/
 
         if (pmode == 0 || pmode == 3) {
+// BEGIN AUNCEL BLOCK
+            // NOTE(fabi): originally this line was after the #pragma omp for directive but thats a syntax error.
+            // Therefore the overh variable was moved outside of the parallel code.
+            // There is a possible issue with thread safety here.
+            double overh = 0;
+// END AUNCEL BLOCK
 #pragma omp for
             for (idx_t i = 0; i < n; i++) {
                 if (interrupt) {
                     continue;
                 }
+// BEGIN AUNCEL BLOCK
+                int id_q = i + offset;
+// END AUNCEL BLOCK
 
                 // loop over queries
                 scanner->set_query(x + i * d);
@@ -599,17 +811,192 @@ void IndexIVF::search_preassigned(
 
                 idx_t nscan = 0;
 
+// BEGIN AUNCEL BLOCK
+                    // Auncel: Init the profile vals
+                    std::vector<float> disToBoundary;
+                    std::vector<float> cenTocen;
+                    size_t pre_num = 0;
+                    float true_KD_K = 0;
+                    size_t query_k = 0;
+                    double t0 = 0;
+                    if (t && t->time_tune){
+                        t0 = time();
+                    }
+                    if (tune){
+                        query_k = t->query_topk;
+                        true_KD_K = t->train_D[id_q * k + query_k - 1];
+                    }
+                    size_t stoped = 0;
+                    float pre_val;
+                    if (tune){
+                        FAISS_THROW_IF_NOT_MSG((t != nullptr), 
+                            "Search tune start can't start without IVF_pro init and training");
+                        t->set_online(id_q, k, &coarse_dis[i * nprobe], &keys[i * nprobe], interdis_cem.data(), disToBoundary, cenTocen);
+                    }
+                    if (training){
+                        FAISS_THROW_IF_NOT_MSG((t != nullptr), 
+                            "Search tune start can't start without IVF_pro init and training");
+                        t->set_online(id_q, k, &coarse_dis[i * nprobe], &keys[i * nprobe], 
+                            interdis_cem.data(), disToBoundary, cenTocen, true);
+                    }
+                    double tall1 = 0, tall2 = 0, tall3 = 0;
+// END AUNCEL BLOCK
+
                 // loop over probes
                 for (size_t ik = 0; ik < nprobe; ik++) {
+
+// BEGIN AUNCEL BLOCK
+                    double tt0 = 0;
+                    if (t->overhead_profile) tt0 = time();
+// END AUNCEL BLOCK
+
                     nscan += scan_one_list(
                             keys[i * nprobe + ik],
                             coarse_dis[i * nprobe + ik],
                             simi,
                             idxi,
                             max_codes - nscan);
+
+// BEGIN AUNCEL BLOCK
+                    if (t->overhead_profile) overh += time()- tt0;
+// END AUNCEL BLOCK
+
                     if (nscan >= max_codes) {
                         break;
                     }
+
+// BEGIN AUNCEL BLOCK
+                    /*Begin error profile*/
+                    if (t && t->time_tune){
+                        double now = time();
+                        if((now - t0)*1000 >= t->require_acc[id_q]*0.95 - (now - t0)*1000/(ik+1))
+                            break;
+                    }
+                    // extract intermediate search result and get the appropriate stop nprobe
+                    if (tune) {
+                        // The current search clusters' NO.
+                        // double tt1 = time();
+                        size_t stage = ik + 1;
+
+                        size_t ind = 0;
+                        size_t tmp_stage = (stage >= nlist/8 ? nlist/8 -1 : stage);
+                        while(tmp_stage > (1<<ind))
+                            ind++;
+                        std::vector<float> tmp_simi(t->max_topk);
+                        memcpy(tmp_simi.data(), simi, sizeof(simi[0])* t->max_topk);
+                        if(metric_type==METRIC_INNER_PRODUCT)
+                            for(int i = 0;i < k;i++)
+                                tmp_simi[i] = t->arcos(tmp_simi[i]);
+                        std::sort(tmp_simi.data(), tmp_simi.data()+t->max_topk);
+                        // Get prediction
+                        pre_num = t->cur_num(tmp_simi.data(), i, disToBoundary, ind, query_k);
+                        float recall = pre_num/float(query_k);
+                        // Determine whether to terminate
+                        size_t cnt = 0;
+                        float max_val = -1;
+                        size_t stops = t->require_acc[id_q]*12;
+                        if(metric_type == METRIC_L2){
+                            for (size_t index = 0; index < k; index++){
+                                max_val = fmax(max_val, simi[index]);
+                                if(simi[index] <= true_KD_K*1.0005)
+                                    cnt++;
+                            }
+                        }
+                        else{
+                            max_val = FLT_MAX;
+                            for (size_t index = 0; index < k; index++){
+                                max_val = fmin(max_val, simi[index]);
+                                if(simi[index] >= true_KD_K*0.9995)
+                                    cnt++;
+                            }
+                        }
+                        if (stage > 1){
+                            if (max_val == pre_val){
+                                stoped++;
+                            }
+                            else{
+                                stoped = 0;
+                            }
+                            if(stoped >= stops)
+                                recall = 1;
+                            pre_val = max_val;
+                        }
+                        else{
+                            pre_val = max_val;
+                        }
+                        float true_recall = cnt/float(query_k);
+                        // For debug
+                        // if (id_q == 4104){
+                        //     printf("stage: %d, recall: %.3f, true recall: %.3f, True KD: %f, KD: %f\n", stage, recall, true_recall
+                        //     , true_KD_K, tmp_simi[0]);
+                        //     printf("%f %d\n", t->train_D[id_q * k], t->train_D[id_q * k]);
+                        //     if (stage == 1){
+                        //         for(int ijj = 0; ijj < 100 ;ijj ++)
+                        //             printf("%f\n", simi[ijj]);
+                        //     }
+                        // }
+                        float require_recall = t->require_acc[id_q];
+                        if (!t->overhead_profile){
+                            if (recall >= require_recall && t->my_nprobe[id_q] == 0){
+                                t->my_nprobe[id_q] = stage * t->multipler;
+                                if (t->my_nprobe[id_q] >= nlist)
+                                    t->t_recalls[id_q] = 1.;
+                                /*You should comment this line to get optimal solutions*/
+                            }
+                            if (stage >= nlist/8 && t->my_nprobe[id_q] == 0)
+                            {
+                                t->my_nprobe[id_q] = stage * t->multipler;
+                                if (t->my_nprobe[id_q] >= nlist)
+                                    t->t_recalls[id_q] = 1.;
+                            }
+                            if (t->profile && t->my_nprobe[id_q] != 0 &&t->my_nprobe[id_q]  <= stage){
+                                t->t_recalls[id_q] = true_recall;
+                                break;
+                            }
+                            if (!t->profile && t->my_nprobe[id_q] != 0 &&t->my_nprobe[id_q]  <= stage)
+                                break;
+                        }
+                        else{
+                            if (stage >= nlist / 8)
+                                break;
+                        }
+                    }
+                    // extract intermediate search result for training
+                    if(training){
+                        size_t stage = ik + 1;
+                        // Not a power of 2
+                        if(stage > nlist/8)
+                            break;
+                        if( (stage & stage - 1) != 0)
+                            continue;
+                        size_t ind = 0;
+                        while(stage != (1<<ind))
+                            ind++;
+                        std::vector<float> tmp_simi;
+                        size_t max_topk = t->max_topk;
+                        tmp_simi.resize(max_topk);
+                        memcpy(tmp_simi.data(), simi, sizeof(simi[0])* max_topk);
+                        std::sort(tmp_simi.data(), tmp_simi.data() + max_topk);
+                        if(metric_type==METRIC_INNER_PRODUCT)
+                            std::reverse(tmp_simi.begin(),tmp_simi.end());
+                        int count = 0;
+                        for(int ij = 0; ij < max_topk; ij++){
+                            float ks = kscaling(tmp_simi[ij], ij, t->train_D + (id_q*max_topk), max_topk);
+                            // if (id_q == 0)
+                            //     printf("stage: %d %f %f\n", stage,tmp_simi[ij], t->train_D[max_topk]);
+                            if(ks < 0)
+                                break;
+                            // nlist/10 - 1 is tuner param
+                            float tval = tmp_simi[ij];
+                            if(metric_type==METRIC_INNER_PRODUCT)
+                                tval = t->arcos(tval);
+                            float sum_a = t->sum_angle(tval, disToBoundary.data(), 15, stage - 1);
+                            t->traces[ind].trace[id_q * (max_topk/4) + count++] = std::make_pair(sum_a, ks);
+                            if(count >= max_topk/4)
+                                break;
+                        }
+                    }
+// END AUNCEL BLOCK
                 }
 
                 ndis += nscan;
@@ -620,6 +1007,9 @@ void IndexIVF::search_preassigned(
                 }
 
             } // parallel for
+// BEGIN AUNCEL BLOCK
+            if(tune && t->overhead_profile) printf("Without ELP search Time: %.3f s\n", overh);
+// END AUNCEL BLOCK
         } else if (pmode == 1) {
             std::vector<idx_t> local_idx(k);
             std::vector<float> local_dis(k);

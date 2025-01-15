@@ -88,6 +88,8 @@ double IntersectionCriterion::evaluate(const float* /*D*/, const idx_t* I)
     FAISS_THROW_IF_NOT_MSG(
             (gt_I.size() == gt_nnn * nq && gt_nnn >= R && nnn >= R),
             "ground truth not initialized");
+// BEGIN AUNCEL BLOCK
+// unchanged!
     int64_t n_ok = 0;
 #pragma omp parallel for reduction(+ : n_ok)
     for (idx_t q = 0; q < nq; q++) {
@@ -95,6 +97,7 @@ double IntersectionCriterion::evaluate(const float* /*D*/, const idx_t* I)
                 R, &gt_I[q * gt_nnn], R, I + q * nnn);
     }
     return n_ok / double(nq * R);
+// END AUNCEL BLOCK
 }
 
 /***************************************************************
@@ -252,7 +255,10 @@ void OperatingPoints::display(bool only_optimal) const {
  ***************************************************************/
 
 ParameterSpace::ParameterSpace()
+// BEGIN AUNCEL BLOCK
+// unchanged!
         : verbose(1),
+// END AUNCEL BLOCK
           n_experiments(500),
           batchsize(1 << 30),
           thread_over_batches(false),
@@ -617,7 +623,10 @@ void ParameterSpace::explore(
     size_t n_comb = n_combinations();
 
     if (n_experiments == 0) {
+// BEGIN AUNCEL BLOCK
+// unchanged!
         for (size_t cno = 0; cno < n_comb; cno++) {
+// END AUNCEL BLOCK
             set_index_parameters(index, cno);
             std::vector<idx_t> I(nq * crit.nnn);
             std::vector<float> D(nq * crit.nnn);
