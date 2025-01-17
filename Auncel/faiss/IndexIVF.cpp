@@ -262,7 +262,7 @@ void IndexIVF::set_train_off(){
     quantizer->tune = false;
 }
 
-// Changed index type from long to idx_t see Index.h
+// CHANGED TO index type from long to idx_t see Index.h
 void IndexIVF::init_tune(size_t train_num, size_t topk,const float *train_q, const float *train_D, 
         const idx_t *train_I,  float *train_cd, idx_t *train_ci){
     this->t = new error_pro;
@@ -800,6 +800,8 @@ void IndexIVF::search_preassigned(
                 }
 // BEGIN AUNCEL BLOCK
                 int id_q = i + offset;
+                // CHANGED TO
+                // int id_q = i;
 // END AUNCEL BLOCK
 
                 // loop over queries
@@ -844,7 +846,6 @@ void IndexIVF::search_preassigned(
 
                 // loop over probes
                 for (size_t ik = 0; ik < nprobe; ik++) {
-
 // BEGIN AUNCEL BLOCK
                     double tt0 = 0;
                     if (t->overhead_profile) tt0 = time();
@@ -866,6 +867,14 @@ void IndexIVF::search_preassigned(
                     }
 
 // BEGIN AUNCEL BLOCK
+                    // NOTE(fabi): debug print
+                    // if ((id_q == 0) || (id_q == 100 && ik == nprobe-1)) {
+                    //     std::cout << "simi vector: ";
+                    //     for (size_t index = 0; index < k; index++) {
+                    //         std::cout << simi[index] << " ";
+                    //     }
+                    //     std::cout << std::endl;
+                    // }
                     /*Begin error profile*/
                     if (t && t->time_tune){
                         double now = time();
@@ -895,6 +904,19 @@ void IndexIVF::search_preassigned(
                         size_t cnt = 0;
                         float max_val = -1;
                         size_t stops = t->require_acc[id_q]*12;
+
+                        // NOTE(fabi): debug print
+                        std::cout << "simi vector: ";
+                        for (size_t index = 0; index < k; index++) {
+                            std::cout << simi[index] << " ";
+                        }
+                        std::cout << std::endl;
+                        std::cout << "idxi vector:";
+                        for (size_t index = 0; index < k; index++) {
+                            std::cout << idxi[index] << " ";
+                        }
+                        std::cout << std::endl;
+                        
                         if(metric_type == METRIC_L2){
                             for (size_t index = 0; index < k; index++){
                                 max_val = fmax(max_val, simi[index]);
@@ -926,7 +948,7 @@ void IndexIVF::search_preassigned(
                         }
                         float true_recall = cnt/float(query_k);
                         // For debug
-                        // if (id_q == 4104){
+                        // if (id_q == 12){
                         //     printf("stage: %d, recall: %.3f, true recall: %.3f, True KD: %f, KD: %f\n", stage, recall, true_recall
                         //     , true_KD_K, tmp_simi[0]);
                         //     printf("%f %d\n", t->train_D[id_q * k], t->train_D[id_q * k]);
@@ -935,8 +957,35 @@ void IndexIVF::search_preassigned(
                         //             printf("%f\n", simi[ijj]);
                         //     }
                         // }
+                        // End debug
+
+                        std::vector<idx_t> tmp_idxi(t->max_topk);
+                        memcpy(tmp_idxi.data(), idxi, sizeof(idxi[0]) * t->max_topk);
+                        
+                        std::vector<idx_t> gt_idxi(t->max_topk);
+                        memcpy(gt_idxi.data(), t->train_I + id_q * k, sizeof(t->train_I[0]) * t->max_topk);
+
+                        int num_true_res = 0;
+                        int gt_start_index = id_q * k;
+                        // Compute intersection between GT and actual result.
+                        // Assumes no duplicate values in both loops which is reasonable
+                        for (size_t j = gt_start_index; j < gt_start_index + k; j++) {
+                            idx_t gt_index = t->train_I[j];
+                            for (size_t jk = 0; jk < k; jk++) {
+                                idx_t res_index = idxi[jk];
+                                if (idxi[jk] == t->train_I[j]) {
+                                    num_true_res = num_true_res + 1;
+                                    break;
+                                }
+                            }
+                        }
+                        float hello = static_cast<float>(num_true_res) / static_cast<float>(k);
+                        float fnr = 1 - hello;
+
+
                         float require_recall = t->require_acc[id_q];
                         if (!t->overhead_profile){
+                            // t->my_nprobe[id_q] = ik;
                             if (recall >= require_recall && t->my_nprobe[id_q] == 0){
                                 t->my_nprobe[id_q] = stage * t->multipler;
                                 if (t->my_nprobe[id_q] >= nlist)
