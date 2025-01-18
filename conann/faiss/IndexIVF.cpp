@@ -198,8 +198,6 @@ void IndexIVF::add_with_ids(idx_t n, const float* x, const idx_t* xids) {
         centroids.push_back(std::move(centroid));
     }
 
-    printf("ConANN:: Centroids initialized.\n");
-
     // // TODO: maybe use only IDs that point to data
     // auto [train_data, calib_data, test_data] =
     //     split_dataset(x, n, quantizer->d, 0.1, 0.1);
@@ -207,46 +205,6 @@ void IndexIVF::add_with_ids(idx_t n, const float* x, const idx_t* xids) {
     // calib_cx = calib_data;
     // test_cx = test_data;
     // // ----------------------------
-}
-
-// TODO(sonia): might need to delete; the queries come from the app level
-std::tuple<std::vector<std::vector<float>>, std::vector<std::vector<float>>,
-           std::vector<std::vector<float>>>
-IndexIVF::split_dataset(const float* data, size_t n, size_t d,
-                        double calib_ratio, double test_ratio) {
-    size_t total_size = n;
-    size_t test_size = static_cast<size_t>(total_size * test_ratio);
-    size_t calibration_size = static_cast<size_t>(total_size * calib_ratio);
-    std::cout << "DEBUG:: calibration_size=" << calibration_size << "\n";
-    size_t train_size = total_size - test_size - calibration_size;
-
-    std::vector<size_t> indices(total_size);
-    std::iota(indices.begin(), indices.end(), 0);
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::shuffle(indices.begin(), indices.end(), gen);
-
-    std::vector<std::vector<float>> train, calibration, test;
-    train.reserve(train_size);
-    calibration.reserve(calibration_size);
-    test.reserve(test_size);
-
-    for (size_t i = 0; i < total_size; ++i) {
-        size_t index = indices[i];
-        const float* data_point = data + index * d;
-
-        std::vector<float> data_vector(data_point, data_point + d);
-
-        if (i < test_size) {
-            test.push_back(data_vector);
-        } else if (i < test_size + calibration_size) {
-            calibration.push_back(data_vector);
-        } else {
-            train.push_back(data_vector);
-        }
-    }
-
-    return {train, calibration, test};
 }
 
 void IndexIVF::add_sa_codes(idx_t n, const uint8_t* codes, const idx_t* xids) {
@@ -1167,6 +1125,15 @@ void IndexIVF::prep_calib(float* xq, size_t nq, faiss::idx_t* gt) {
     calib_nonconf = cn;
     calib_preds = c_clus;
 
+    // std::cout << "DEBUG:: calib_nonconf=\n";
+    // for (int i = 0; i < calib_nonconf.size(); i ++) {
+    //     auto ncf = calib_nonconf[i];
+    //     for (auto x: ncf) {
+    //         std::cout << x << " ";
+    //     }
+    //     std::cout << "\n";
+    // }
+
     // // TODO(sonia): store min/max in calib.
     // calib_groups = partition_by_difficulty(calib_diffs, NUM_MONDRIAN_BINS);
 }
@@ -1412,34 +1379,31 @@ IndexIVF::compute_predictions(
     for (size_t query_idx = 0; query_idx < queries.size(); ++query_idx) {
         const auto& sc = nonconf[query_idx];
         const auto& p = preds[query_idx];
+        int index = 0;
 
-        int index = -1;
-        // TODO(sonia): unoptimal because we already stop early in the search
-        // method, so we could optimize this part. However, it is correct for
-        // calibration.
-        for (int i = 0; i < sc.size(); ++i) {
-            if (sc[i] >= lambda) {
-                index = i;
-            }
-        }
+        while (index < sc.size() && sc[index] >= lambda)
+            index ++;
 
-        if (index > 1) {
-            // take smalles number of clusters searches which achieves this, 
-            // if multiple scores are equal to the optimal one.
-            while (sc[index] == sc[index - 1]) {
-                index--;
-            }
-        }
-
-        if (index == -1) {
-            test_preds.push_back({});  // Empty set if no valid predictions
-            cl_searched.push_back(
-                static_cast<int>(std::find(sc.begin(), sc.end(), 0.0f) -
-                                 sc.begin()) -
-                1);
+        if (index == sc.size()) {
+            int gt_idx = std::distance(sc.begin(), std::find(sc.begin(), sc.end(), 0.0f));
+            test_preds.push_back({p[gt_idx]});   // push gt
+            cl_searched.push_back(gt_idx);
         } else {
+            if (index > 1 && index < sc.size()) {
+                // take smalles number of clusters searches which achieves this, 
+                // if multiple scores are equal to the optimal one.
+                int old = index;
+                while (sc[index] == sc[index - 1]) {
+                    index--;
+                }
+                int nw = index;
+                if (nw != index) {
+                    std::cout << "DEBUG:: decreased from "  << old << " to " << nw << "\n";
+                }
+            }
+
             test_preds.push_back({p[index]});  // Add prediction at index
-            cl_searched.push_back(static_cast<int>(index) + 1);
+            cl_searched.push_back(index);
         }
     }
     return {test_preds, cl_searched};
@@ -1469,11 +1433,11 @@ std::vector<float> IndexIVF::false_negative_rate_per_q(
         total_overlap += intersection_size;
         total_gt_size += gt_size;
 
-        // Calculate FNR for this query
         if (gt_size > 0) {
             fnr_per_query.push_back(1.0f - static_cast<float>(intersection_size) / gt_size);
         } else {
-            fnr_per_query.push_back(0.0f); // No ground truth, FNR is 0 for this case
+            // no gt
+            fnr_per_query.push_back(-2.0f); 
         }
     }
 
@@ -1575,12 +1539,6 @@ void IndexIVF::search_conann(idx_t n, const float* x, float lamhat,
 
     auto [test_preds, cl_searched] = compute_predictions(
         lamhat, queries, diff_scores, nonconf, all_preds_per_nprobe);
-
-    std::cout << "DEBUG:: searched clusters: ";
-    for (auto x : cl_searched) {
-        std::cout << x << " ";
-    }
-    std::cout << "\n";
 
     // Move results
     // TODO: optimize
@@ -1698,12 +1656,8 @@ void IndexIVF::search_with_error_quantification(
                         if (last_value == 0) continue;
                         for (int i = vec.size() - 1; i >= 1; --i) {
                             if (vec[i] == last_value) {
-                                vec[i] =
-                                    0;  // Replace subsequent occurrences with 0
-                            } else {
-                                vec[i + 1] = last_value;
-                                break;
-                            }
+                                vec[i] = 0;
+                            } 
                         }
                     }
 
@@ -1917,7 +1871,6 @@ void IndexIVF::search_preassigned_with_error_quantification(
          ****************************************************/
 
         if (pmode == 0 || pmode == 3) {
-            int MAX_TO_PRINT = 5;
 #pragma omp for
             for (idx_t i = 0; i < n; i++) {
                 if (interrupt) {
@@ -1936,7 +1889,6 @@ void IndexIVF::search_preassigned_with_error_quantification(
                 // NOTE(sonia): adding results by searching each nprobe.
                 // Here is where the intermediate results get updated!!
                 // loop over probes
-                MAX_TO_PRINT--;
                 for (size_t ik = 0; ik < nlist; ik++) {
                     nscan += scan_one_list(keys[i * nprobe + ik],
                                            coarse_dis[i * nprobe + ik], simi,
@@ -1946,6 +1898,9 @@ void IndexIVF::search_preassigned_with_error_quantification(
                     }
 
                     float score_k = 0.0;
+
+                    // Find largest score corresponding to the kth closest vector.
+                    // Needed because FAISS does not maintain them ordered.
                     for (int j = 0; j < k; j++) {
                         if (simi[j] > 0 && simi[j] > score_k) {
                             score_k = simi[j];
@@ -1958,11 +1913,11 @@ void IndexIVF::search_preassigned_with_error_quantification(
                         all_preds_list[i].push_back(idxi_copy);
                     } else {
                         score_k = score_k /
-                                  MAX_DISTANCE * (1.0f - diff_scores[i]);
+                                  MAX_DISTANCE; // * (1.0f - diff_scores[i]);
                         nonconf_list[i].push_back(score_k);
                         all_preds_list[i].push_back(idxi_copy);
 
-                        // ConANN:: Early stopping
+                        // ConANN:: Early stopping; passing lamhat=-1 at calibration to compute all.
                         if (score_k < lamhat) {
                             nonconf_list[i].push_back(0.0);
                             all_preds_list[i].push_back(idxi_copy);
@@ -1980,7 +1935,7 @@ void IndexIVF::search_preassigned_with_error_quantification(
 
             }  // parallel for
         }
-        // TODO(sonia): other paralle modes
+        // TODO(sonia): other parallel modes
     }  // parallel section
 
     if (interrupt) {

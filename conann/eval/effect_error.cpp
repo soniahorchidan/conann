@@ -131,10 +131,10 @@ int main(int argc, char **argv) {
         gtD = "../data/bert/distances.fvecs";
     }  
     else if(param1 == "sift1M"){
-        db = "/workspace/data/sift/sift1M.fvecs";
-        query = "/workspace/data/sift/1M_query.fvecs";
-        gtI = "/workspace/data/sift/idx_1M.ivecs";
-        gtD = "/workspace/data/sift/dis_1M.fvecs";
+        db = "../data/sift1M/sift1M.fvecs";
+        query = "../data/sift1M/1M_query.fvecs";
+        gtI = "../data/sift1M/idx_1M.ivecs";
+        gtD = "../data/sift1M/dis_1M.fvecs";
     }
     else if(param1 == "sift10M"){
         db = "/workspace/data/sift/sift10M/sift10M.fvecs";
@@ -176,7 +176,7 @@ int main(int argc, char **argv) {
         float* xt = fvecs_read(db.c_str(), &d, &nt);
 
         // TODO(sonia): training dataset size. increase if needed. 
-        nt = 10000;
+        nt = 20000;
 
         printf("[%.3f s] Preparing index \"%s\" d=%ld\n",
                elapsed() - t0,
@@ -260,11 +260,31 @@ int main(int argc, char **argv) {
         assert(nq3 == nq || !"incorrect nb of ground truth entries");
     }
 
+    printf("[%.3f s] ConANN Calibration\n", elapsed() - t0);
     auto lamhat = index->calibrate(alpha, k, xq, nq, gt);
+    printf("[%.3f s] ConANN Evaluation\n", elapsed() - t0);
     auto [fnr, cls] = index->evaluate_test(lamhat);
     std::cout << "alpha=" << alpha << ": lamhat= " << lamhat
               << ", test fnr=" << computeAverage(fnr)
               << ", avg cls searched=" << computeAverage(cls) << std::endl;
+
+    // alpha = 0.1;
+    // printf("[%.3f s] ConANN Calibration\n", elapsed() - t0);
+    // lamhat = index->calibrate(alpha, k, xq, nq, gt);
+    // printf("[%.3f s] ConANN Evaluation\n", elapsed() - t0);
+    // auto [fnr2, cls2] = index->evaluate_test(lamhat);
+    // std::cout << "alpha=" << alpha << ": lamhat= " << lamhat
+    //           << ", test fnr=" << computeAverage(fnr2)
+    //           << ", avg cls searched=" << computeAverage(cls2) << std::endl;
+
+    // alpha = 0.2;
+    // printf("[%.3f s] ConANN Calibration\n", elapsed() - t0);
+    // lamhat = index->calibrate(alpha, k, xq, nq, gt);
+    // printf("[%.3f s] ConANN Evaluation\n", elapsed() - t0);
+    // auto [fnr3, cls3] = index->evaluate_test(lamhat);
+    // std::cout << "alpha=" << alpha << ": lamhat= " << lamhat
+    //           << ", test fnr=" << computeAverage(fnr3)
+    //           << ", avg cls searched=" << computeAverage(cls3) << std::endl;
 
     std::string fnr_filename = generate_filename(param1, alpha, "fnr");
     std::string cls_filename = generate_filename(param1, alpha, "cls");

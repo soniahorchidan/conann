@@ -392,7 +392,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     IndexIVF();
 
     // ConANN block
-    float MAX_DISTANCE = 10000;  // maybe redundant
+    float MAX_DISTANCE = 1000;  // maybe redundant
     int n_list;                // redundant
     std::vector<std::vector<float>> centroids;
 
@@ -400,8 +400,6 @@ struct IndexIVF : Index, IndexIVFInterface {
     int K;
     int NUM_MONDRIAN_BINS = 5;
 
-    // TODO(sonia): do we even need to keep train_cx?
-    std::vector<std::vector<float>> train_cx;
     std::vector<std::vector<float>> calib_cx;
     std::vector<std::vector<float>> test_cx;
 
@@ -412,14 +410,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::map<int, std::vector<int>> calib_groups;
 
     std::vector<std::vector<faiss::idx_t>> test_labels;
-    //     std::vector<float> test_diffs;
-    //     std::vector<std::vector<float>> test_nonconf;
-    //     std::vector<std::vector<std::vector<faiss::idx_t>>> test_preds;
 
-    std::tuple<std::vector<std::vector<float>>, std::vector<std::vector<float>>,
-               std::vector<std::vector<float>>>
-    split_dataset(const float* data, size_t n, size_t d, double calib_ratio,
-                  double test_ratio);
 
     void prep_calib(float* xq, size_t nq, faiss::idx_t* gt);
 
