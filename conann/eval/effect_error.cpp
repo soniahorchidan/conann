@@ -95,21 +95,24 @@ std::string generate_filename(const std::string& dataset_name, float lamhat_valu
     return filename.str();
 }
 
-/// Command like this: ./knn_script sift1M 100 2000 8000
+/// Command like this: ./knn_script sift1M 100 2000 8000 0.1
 int main(int argc, char **argv) {
     std::cout << argc << " arguments" <<std::endl;
-    if(argc - 1 != 4){
-        printf("You should at least input 4 params: the dataset name, topk, train size, query size\n");
+    if(argc - 1 != 5){
+        printf("You should at least input 5 params: the dataset name, topk, train size, query size, alpha\n");
         return 0;
     }
     std::string param1 = argv[1];
     std::string param2 = argv[2];
     std::string p3 = argv[3];
     std::string p4 = argv[4];
+    std::string p5 = argv[5];
 
     int input_k = std::stoi(param2);
     int ts = std::stoi(p3);
     int ses = std::stoi(p4);
+    float alpha = std::stof(p5);
+
     if(input_k>100 || input_k <0){
         printf("Input topk must be lower than or equal to 100 and greater than 0\n");
         return 0;
@@ -257,8 +260,7 @@ int main(int argc, char **argv) {
         assert(nq3 == nq || !"incorrect nb of ground truth entries");
     }
 
-    auto alpha = 0.1;
-    auto lamhat = index->calibrate(alpha, k);
+    auto lamhat = index->calibrate(alpha, k, xq, nq, gt);
     auto [fnr, cls] = index->evaluate_test(lamhat);
     std::cout << "alpha=" << alpha << ": lamhat= " << lamhat
               << ", test fnr=" << computeAverage(fnr)

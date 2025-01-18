@@ -205,15 +205,16 @@ void IndexIVF::add_with_ids(idx_t n, const float* x, const idx_t* xids) {
 
     printf("ConANN:: Centroids initialized.\n");
 
-    // TODO: maybe use only IDs that point to data
-    auto [train_data, calib_data, test_data] =
-        split_dataset(x, n, quantizer->d, 0.1, 0.1);
-    train_cx = train_data;
-    calib_cx = calib_data;
-    test_cx = test_data;
-    // ----------------------------
+    // // TODO: maybe use only IDs that point to data
+    // auto [train_data, calib_data, test_data] =
+    //     split_dataset(x, n, quantizer->d, 0.1, 0.1);
+    // train_cx = train_data;
+    // calib_cx = calib_data;
+    // test_cx = test_data;
+    // // ----------------------------
 }
 
+// TODO(sonia): might need to delete; the queries come from the app level
 std::tuple<std::vector<std::vector<float>>, std::vector<std::vector<float>>,
            std::vector<std::vector<float>>>
 IndexIVF::split_dataset(const float* data, size_t n, size_t d,
@@ -1143,54 +1144,36 @@ void IndexIVF::train(idx_t n, const float* x) {
     is_trained = true;
 }
 
-void IndexIVF::prep_calib() {
-    calib_labels = get_one_hot_gt(calib_cx);
-    test_labels = get_one_hot_gt(test_cx);
+void IndexIVF::prep_calib(float* xq, size_t nq, faiss::idx_t* gt) {
+
+    size_t half_nq = nq / 2;
+    calib_cx.resize(half_nq);
+    calib_labels.resize(half_nq);
+    test_cx.resize(nq - half_nq);
+    test_labels.resize(nq - half_nq);
+
+    for (size_t i = 0; i < half_nq; ++i) {
+        calib_cx[i].resize(d);
+        std::memcpy(calib_cx[i].data(), xq + i * d, d * sizeof(float));
+
+        calib_labels[i].resize(K);
+        std::memcpy(calib_labels[i].data(), gt + i * K, K * sizeof(faiss::idx_t));
+    }
+    for (size_t i = half_nq; i < nq; ++i) {
+        test_cx[i - half_nq].resize(d);
+        std::memcpy(test_cx[i - half_nq].data(), xq + i * d, d * sizeof(float));
+
+        test_labels[i - half_nq].resize(K);
+        std::memcpy(test_labels[i - half_nq].data(), gt + i * K, K * sizeof(faiss::idx_t));
+    }
+
     calib_diffs = compute_difficulty_scores(calib_cx);
     auto [cn, c_clus] = compute_scores(-1, calib_cx, calib_diffs);
     calib_nonconf = cn;
     calib_preds = c_clus;
 
-    // TODO(sonia): store min/max in calib.
-    calib_groups = partition_by_difficulty(calib_diffs, NUM_MONDRIAN_BINS);
-}
-
-std::vector<std::vector<faiss::idx_t>> IndexIVF::get_one_hot_gt(
-    const std::vector<std::vector<float>>& queries, int batch_size) {
-    std::vector<std::vector<faiss::idx_t>> result;
-    for (size_t start = 0; start < queries.size(); start += batch_size) {
-        size_t end = std::min(start + batch_size, queries.size());
-        std::vector<std::vector<float>> batch_queries(queries.begin() + start,
-                                                      queries.begin() + end);
-        // Convert batch queries into a flat array of floats (FAISS expects this
-        // format)
-        size_t num_queries = batch_queries.size();
-        size_t dim = batch_queries[0].size();
-        std::vector<float> flat_queries(num_queries * dim);
-
-        for (size_t i = 0; i < num_queries; ++i) {
-            std::copy(batch_queries[i].begin(), batch_queries[i].end(),
-                      flat_queries.begin() + i * dim);
-        }
-
-        std::vector<faiss::idx_t> flat_gt_indexes(num_queries * K);
-        std::vector<float> distances(num_queries * K);
-        index_flat->search(num_queries, flat_queries.data(), K,
-                           distances.data(), flat_gt_indexes.data());
-
-        // Convert the flat indices to a 2D vector (batch-wise ground truth
-        // indices)
-        for (size_t i = 0; i < num_queries; ++i) {
-            std::vector<faiss::idx_t> batch_gt_indexes(
-                flat_gt_indexes.begin() + i * K,
-                flat_gt_indexes.begin() + (i + 1) * K);
-            result.push_back(batch_gt_indexes);
-        }
-
-        std::cout << "Batch " << start << "-" << end << " done." << std::endl;
-    }
-
-    return result;
+    // // TODO(sonia): store min/max in calib.
+    // calib_groups = partition_by_difficulty(calib_diffs, NUM_MONDRIAN_BINS);
 }
 
 // Compute the L2 distance between two vectors
@@ -1329,45 +1312,46 @@ std::map<int, std::vector<int>> IndexIVF::partition_by_difficulty(const std::vec
 }
 
 
-float IndexIVF::calibrate(float alpha, int k) {
+float IndexIVF::calibrate(float alpha, int k, float* xq, size_t nq, faiss::idx_t* gt) {
     K = k;
-    prep_calib();
+    prep_calib(xq, nq, gt);
     auto lamhat = optimization(alpha, calib_cx, calib_labels, calib_diffs, calib_nonconf, calib_preds);
     return lamhat;
 }
 
+// TODO(sonia): might delete; not useful in high dimensional spaces (yet?)
 std::unordered_map<int, float> IndexIVF::calibrate_mondrian(float alpha, int k) {
-    K = k;
-    prep_calib();
-    auto lamhat = optimization_mondrian(alpha);
-    return lamhat;
+    // K = k;
+    // prep_calib();
+    // auto lamhat = optimization_mondrian(alpha);
+    // return lamhat;
 }
 
 std::unordered_map<int, float> IndexIVF::optimization_mondrian(float alpha) {
-    std::unordered_map<int, float> thresholds;
-    for (const auto& group_pair : calib_groups) {
-        int group = group_pair.first;
-        const std::vector<int>& group_indices = group_pair.second;
-        int gsz = group_indices.size();
+    // std::unordered_map<int, float> thresholds;
+    // for (const auto& group_pair : calib_groups) {
+    //     int group = group_pair.first;
+    //     const std::vector<int>& group_indices = group_pair.second;
+    //     int gsz = group_indices.size();
 
-        // Extract group-specific data
-        std::vector<std::vector<float>> group_queries;
-        std::vector<std::vector<faiss::idx_t>> group_labels;
-        std::vector<float> group_diffs;
-        std::vector<std::vector<float>> group_nonconf;
-        std::vector<std::vector<std::vector<faiss::idx_t>>> group_preds;
+    //     // Extract group-specific data
+    //     std::vector<std::vector<float>> group_queries;
+    //     std::vector<std::vector<faiss::idx_t>> group_labels;
+    //     std::vector<float> group_diffs;
+    //     std::vector<std::vector<float>> group_nonconf;
+    //     std::vector<std::vector<std::vector<faiss::idx_t>>> group_preds;
 
-        // Populate group-specific vectors based on group_indices
-        for (int idx : group_indices) {
-            group_queries.push_back(calib_cx[idx]);
-            group_labels.push_back(calib_labels[idx]);
-            group_diffs.push_back(calib_diffs[idx]);
-            group_nonconf.push_back(calib_nonconf[idx]);
-            group_preds.push_back(calib_preds[idx]);
-        }
-        thresholds[group] = optimization(alpha, group_queries, group_labels, group_diffs, group_nonconf, group_preds);
-    }
-    return thresholds;
+    //     // Populate group-specific vectors based on group_indices
+    //     for (int idx : group_indices) {
+    //         group_queries.push_back(calib_cx[idx]);
+    //         group_labels.push_back(calib_labels[idx]);
+    //         group_diffs.push_back(calib_diffs[idx]);
+    //         group_nonconf.push_back(calib_nonconf[idx]);
+    //         group_preds.push_back(calib_preds[idx]);
+    //     }
+    //     thresholds[group] = optimization(alpha, group_queries, group_labels, group_diffs, group_nonconf, group_preds);
+    // }
+    // return thresholds;
 }
 
 float IndexIVF::optimization(float alpha, 

@@ -422,7 +422,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     split_dataset(const float* data, size_t n, size_t d, double calib_ratio,
                   double test_ratio);
 
-    void prep_calib();
+    void prep_calib(float* xq, size_t nq, faiss::idx_t* gt);
 
     std::vector<std::vector<faiss::idx_t>> get_one_hot_gt(
         const std::vector<std::vector<float>>& queries, int batch_size = 10000);
@@ -478,7 +478,7 @@ struct IndexIVF : Index, IndexIVFInterface {
         const IVFSearchParameters* params = nullptr,
         IndexIVFStats* stats = nullptr) const;
 
-    float calibrate(float alpha, int k);
+    float calibrate(float alpha, int k, float* xq, size_t nq, faiss::idx_t* gt);
 
     std::unordered_map<int, float> calibrate_mondrian(float alpha, int k);
 
