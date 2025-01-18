@@ -392,7 +392,6 @@ struct IndexIVF : Index, IndexIVFInterface {
     IndexIVF();
 
     // ConANN block
-    faiss::IndexFlatL2* index_flat;
     float MAX_DISTANCE = 10000;  // maybe redundant
     int n_list;                // redundant
     std::vector<std::vector<float>> centroids;
@@ -429,11 +428,6 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     std::vector<float> compute_difficulty_scores(
         const std::vector<std::vector<float>>& queries);
-
-    void search_index(const std::vector<std::vector<float>>& queries,
-                      const std::vector<int>& active_indexes,
-                      std::vector<std::vector<float>>& s_distances,
-                      std::vector<std::vector<faiss::idx_t>>& s_indexes);
 
     std::pair<std::vector<std::vector<float>>,
               std::vector<std::vector<std::vector<faiss::idx_t>>>>

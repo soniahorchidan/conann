@@ -171,8 +171,6 @@ IndexIVF::IndexIVF(Index* quantizer, size_t d, size_t nlist, size_t code_size,
     }
 
     // ConANN block
-    index_flat = new faiss::IndexFlatL2(d);
-    printf("ConANN:: Training exact index done.\n");
     n_list = nlist;
     // ------------------------
 }
@@ -188,9 +186,6 @@ void IndexIVF::add_with_ids(idx_t n, const float* x, const idx_t* xids) {
 
     // ConANN Block
     // Add data to the exact index
-    index_flat->add(n, x);
-    printf("ConANN:: Exact index populated.\n");
-
     std::shared_ptr<std::vector<float>> centroids_flat =
         std::make_shared<std::vector<float>>(n_list * quantizer->d);
     quantizer->reconstruct_n(0, n_list, centroids_flat->data());
@@ -1214,32 +1209,6 @@ std::vector<float> IndexIVF::compute_difficulty_scores(
     return diff_scores;
 }
 
-void IndexIVF::search_index(const std::vector<std::vector<float>>& queries,
-                            const std::vector<int>& active_indexes,
-                            std::vector<std::vector<float>>& s_distances,
-                            std::vector<std::vector<faiss::idx_t>>& s_indexes) {
-    int num_queries = active_indexes.size();
-    std::vector<float> query_vectors;
-    for (int idx : active_indexes) {
-        for (size_t j = 0; j < queries[idx].size(); ++j) {
-            query_vectors.push_back(queries[idx][j]);
-        }
-    }
-
-    std::vector<float> flat_distances(num_queries * K);
-    std::vector<faiss::idx_t> flat_indexes(num_queries * K);
-    search(num_queries, query_vectors.data(), K, flat_distances.data(),
-           flat_indexes.data());
-
-    s_distances.resize(num_queries, std::vector<float>(K));
-    s_indexes.resize(num_queries, std::vector<faiss::idx_t>(K));
-    for (int i = 0; i < num_queries; ++i) {
-        for (int j = 0; j < K; ++j) {
-            s_distances[i][j] = flat_distances[i * K + j];
-            s_indexes[i][j] = flat_indexes[i * K + j];
-        }
-    }
-}
 
 std::pair<std::vector<std::vector<float>>,
           std::vector<std::vector<std::vector<faiss::idx_t>>>>
