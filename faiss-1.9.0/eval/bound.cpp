@@ -75,15 +75,8 @@ float* fvecs_read(const char* fname, size_t* d_out, size_t* n_out) {
     assert(nr == n * (d + 1) || !"could not read whole file");
 
     // shift array to remove row headers
-    int MAX_TO_MOVE = 1000;
-    printf("WARNING[ConANN]:: limited to only %d vectors to test functionality.\n", MAX_TO_MOVE);
-    *n_out = MAX_TO_MOVE;
     for (size_t i = 0; i < n; i++) {
         memmove(x + i * d, x + 1 + i * (d + 1), d * sizeof(*x));
-        MAX_TO_MOVE --;
-        if (MAX_TO_MOVE <= 0) {
-            break;
-        }
     }
 
     fclose(f);
@@ -194,7 +187,7 @@ int main(int argc,char **argv) {
         query = "../data/bert/queries.fvecs";
         gtI = "../data/bert/indices.fvecs";
         gtD = "../data/bert/distances.fvecs";
-    }
+    }  
     else if(p1 == "sift10M"){
         db = "/workspace/data/sift/sift10M/sift10M.fvecs";
         query = "/workspace/data/sift/sift10M/query.fvecs";
@@ -272,7 +265,7 @@ int main(int argc,char **argv) {
         // else
         //    index = faiss::index_factory(d, index_key);
 
-        int nlist = 30;   // as per index_key
+        int nlist = 100;   // as per index_key
         printf("WARNING[ConANN]: hardcoded nlist to %d for testing purposes.\n", nlist);
         faiss::IndexFlatL2* flat_index = new faiss::IndexFlatL2(d);
         index = new faiss::IndexIVFFlat(flat_index, d, nlist, faiss::METRIC_L2);
@@ -380,9 +373,10 @@ int main(int argc,char **argv) {
         // keep the first parameter that obtains > 0.5 1-recall@1
         int ind = 0;
         for (; ind < ops.optimal_pts.size(); ind++) {
-            // std::cout << ops.optimal_pts[ind].key << "\n";
             if (ops.optimal_pts[ind].perf >= (1 - error_bound)) {
                 selected_params = ops.optimal_pts[ind].key;
+                printf("[%.3f s] Optimal found: ",elapsed() - t0);
+                std::cout << ops.optimal_pts[ind].key << "\n";
                 break;
             }
         }
@@ -426,10 +420,24 @@ int main(int argc,char **argv) {
             type = 1;
 
         float minf = 1.;
+        std::vector<float> error_per_query;
+
         for (int i = trains; i < tests + trains; i++) {
-            minf = std::min(minf, inter_sec(k, &gt_D[i * 100], 
-                input_k, D + (i - trains) * input_k , type)/float(input_k));
+            float query_error = inter_sec(k, &gt_D[i * 100], 
+                                  input_k, D + (i - trains) * input_k , type) / float(input_k);
+            minf = std::min(minf, query_error);
+            error_per_query.push_back(query_error);
         }
+
+        float sum = 0.;
+        int count = 0;
+        for (int i = trains; i < tests + trains; i++) {
+            sum += inter_sec(k, &gt_D[i * 100], 
+                            input_k, D + (i - trains) * input_k , type) / float(input_k);
+            count++;
+        }
+        float avg = sum / count;
+        printf("[%.3f s] Got average error %.6f\n", elapsed() - t0, avg);
 
         // NOTE(sonia): commented out because the original Auncel code checks for maximum error, but 
         // Faiss does average, so this fails.
@@ -444,13 +452,13 @@ int main(int argc,char **argv) {
 
         // Output the latency to file
         std::stringstream fn;
-        fn<<"Faiss_Latency" << "_" << p1 << "_" << input_k << "_" << int(error_bound*100) <<".log";
+        fn<<"Faiss_Latency_Error" << "_" << p1 << "_" << input_k << "_" << int(error_bound*100) <<".log";
         std::string filename = fn.str();
 
         std::ofstream outfile;
         outfile.open(filename);
         for(int i = 0;i < tests; i++){
-            outfile << perf[i] << std::endl;
+            outfile << perf[i] << "\t" << error_per_query[i] << std::endl;
         }
         outfile.close();
 

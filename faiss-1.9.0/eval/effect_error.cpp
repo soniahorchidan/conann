@@ -94,7 +94,13 @@ int main(int argc, char **argv) {
         query = "../data/sift10k/siftsmall_query.fvecs";
         gtI = "../data/sift10k/sift10k_gt_indices_k100.ivecs";
         gtD = "../data/sift10k/sift10k_gt_distances_k100.fvecs";
-    }  
+    }
+    else if (param1 == "bert") {
+        db = "../data/bert/db.fvecs";
+        query = "../data/bert/queries.fvecs";
+        gtI = "../data/bert/indices.fvecs";
+        gtD = "../data/bert/distances.fvecs";
+    }    
     else if(param1 == "sift1M"){
         db = "/workspace/data/sift/sift1M.fvecs";
         query = "/workspace/data/sift/1M_query.fvecs";
@@ -163,7 +169,7 @@ int main(int argc, char **argv) {
         float* xt = fvecs_read(db.c_str(), &d, &nt);
 
         // TODO(sonia): increase
-        nt = 40000;
+        nt = 20000;
 
         printf("[%.3f s] Preparing index \"%s\" d=%ld\n",
                elapsed() - t0,
