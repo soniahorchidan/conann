@@ -17,7 +17,7 @@ double computeAverage(const std::vector<int>& numbers) {
 
 int main(void) {
     // dimension of the vectors to index
-    int d = 3;
+    int d = 128;
     int K = 100;
     int nlist = 100;
 
@@ -145,29 +145,29 @@ int main(void) {
     // }
 
 
-    // Test Mondrian
-    float alpha = 0.1;
-    auto lamhats = index.calibrate_mondrian(alpha, K);
-    for (const auto& pair : lamhats) {
-        std::cout << "Group: " << pair.first << ", lamhat: " << pair.second << std::endl;
-    }
-    std::cout << "\n";
-    auto [fnr, cls] = index.evaluate_test_mondrian(lamhats);
-    std::cout << " avg test fnr=" << fnr
-              << ", avg cls searched=" << computeAverage(cls) << std::endl;
-    std::cout << "\n";
+    // // Test Mondrian
+    // float alpha = 0.1;
+    // auto lamhats = index.calibrate_mondrian(alpha, K);
+    // for (const auto& pair : lamhats) {
+    //     std::cout << "Group: " << pair.first << ", lamhat: " << pair.second << std::endl;
+    // }
+    // std::cout << "\n";
+    // auto [fnr, cls] = index.evaluate_test_mondrian(lamhats);
+    // std::cout << " avg test fnr=" << fnr
+    //           << ", avg cls searched=" << computeAverage(cls) << std::endl;
+    // std::cout << "\n";
 
-    alpha = 0.2;
-    lamhats = index.calibrate_mondrian(alpha, K);
-    for (const auto& pair : lamhats) {
-        std::cout << "Group: " << pair.first << ", lamhat: " << pair.second << std::endl;
-    }
-    std::cout << "\n";
-    auto res = index.evaluate_test_mondrian(lamhats);
-    fnr = res.first;
-    cls = res.second;
-    std::cout << " avg test fnr=" << fnr
-              << ", avg cls searched=" << computeAverage(cls) << std::endl;
+    // alpha = 0.2;
+    // lamhats = index.calibrate_mondrian(alpha, K);
+    // for (const auto& pair : lamhats) {
+    //     std::cout << "Group: " << pair.first << ", lamhat: " << pair.second << std::endl;
+    // }
+    // std::cout << "\n";
+    // auto res = index.evaluate_test_mondrian(lamhats);
+    // fnr = res.first;
+    // cls = res.second;
+    // std::cout << " avg test fnr=" << fnr
+    //           << ", avg cls searched=" << computeAverage(cls) << std::endl;
         
     return 0;
 }

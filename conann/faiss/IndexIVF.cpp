@@ -1492,6 +1492,42 @@ IndexIVF::compute_predictions(
     return {test_preds, cl_searched};
 }
 
+std::vector<float> IndexIVF::false_negative_rate_per_q(
+    const std::vector<std::vector<faiss::idx_t>>& prediction_set,
+    const std::vector<std::vector<faiss::idx_t>>& gt_labels) {
+    std::vector<float> fnr_per_query;
+    int total_overlap = 0;
+    int total_gt_size = 0;
+
+    for (size_t i = 0; i < prediction_set.size(); ++i) {
+        const std::set<int> pred_set(prediction_set[i].begin(),
+                                     prediction_set[i].end());
+        const std::set<int> gt_set(gt_labels[i].begin(), gt_labels[i].end());
+
+        // Calculate intersection size
+        int intersection_size = 0;
+        for (int pred : pred_set) {
+            if (gt_set.count(pred) > 0) {
+                ++intersection_size;
+            }
+        }
+
+        int gt_size = gt_set.size();
+        total_overlap += intersection_size;
+        total_gt_size += gt_size;
+
+        // Calculate FNR for this query
+        if (gt_size > 0) {
+            fnr_per_query.push_back(1.0f - static_cast<float>(intersection_size) / gt_size);
+        } else {
+            fnr_per_query.push_back(0.0f); // No ground truth, FNR is 0 for this case
+        }
+    }
+
+    return fnr_per_query;
+}
+
+
 float IndexIVF::false_negative_rate(
     const std::vector<std::vector<faiss::idx_t>>& prediction_set,
     const std::vector<std::vector<faiss::idx_t>>& gt_labels) {
@@ -1523,16 +1559,15 @@ float IndexIVF::false_negative_rate(
     }
 }
 
-std::pair<float, std::vector<int>> IndexIVF::evaluate_test(float lamhat) {
+std::pair<std::vector<float>, std::vector<int>> IndexIVF::evaluate_test(float lamhat) {
     return evaluate(lamhat, test_cx, test_labels);
 }
 
-std::pair<float, std::vector<int>> IndexIVF::evaluate_test_mondrian(std::unordered_map<int, float> lamhats) {
-    std::pair<float, std::vector<int>> all;
-    all.first = 0;
+std::pair<std::vector<float>, std::vector<int>> IndexIVF::evaluate_test_mondrian(std::unordered_map<int, float> lamhats) {
+    std::pair<std::vector<float>, std::vector<int>> all;
 
     auto test_diffs = compute_difficulty_scores(test_cx);
-    // TODO(sonia): use boundaries found during calib
+    // TODO: use boundaries found during calibration
     auto test_groups = partition_by_difficulty(test_diffs, NUM_MONDRIAN_BINS);
 
     for (const auto& group_pair : test_groups) {
@@ -1542,29 +1577,20 @@ std::pair<float, std::vector<int>> IndexIVF::evaluate_test_mondrian(std::unorder
 
         std::vector<std::vector<float>> group_queries;
         std::vector<std::vector<faiss::idx_t>> group_labels;
-        std::vector<float> group_diffs;
-        std::vector<std::vector<float>> group_nonconf;
-        std::vector<std::vector<std::vector<faiss::idx_t>>> group_preds;
 
         for (int idx : group_indices) {
             group_queries.push_back(test_cx[idx]);
             group_labels.push_back(test_labels[idx]);
         }
-        std::pair<float, std::vector<int>> eval_res = evaluate(lamhat, group_queries, group_labels);
-
-        // add fnr
-        all.first += eval_res.first;
-
-        // append clusters searched
+        auto eval_res = evaluate(lamhat, group_queries, group_labels);
+        all.first.insert(all.first.end(), eval_res.first.begin(), eval_res.first.end());
         all.second.insert(all.second.end(), eval_res.second.begin(), eval_res.second.end());
     }
-
-    all.first /= NUM_MONDRIAN_BINS;
-
     return all;
 }
 
-std::pair<float, std::vector<int>> IndexIVF::evaluate(
+
+std::pair<std::vector<float>, std::vector<int>> IndexIVF::evaluate(
     float lamhat, const std::vector<std::vector<float>>& queries,
     const std::vector<std::vector<faiss::idx_t>>& labels) {
     std::vector<float> diff_scores = compute_difficulty_scores(queries);
@@ -1575,7 +1601,7 @@ std::pair<float, std::vector<int>> IndexIVF::evaluate(
 
     auto [test_preds, cl_searched] = compute_predictions(
         lamhat, queries, diff_scores, nonconf, all_preds_per_nprobe);
-    float fnr = false_negative_rate(test_preds, labels);
+    auto fnr = false_negative_rate_per_q(test_preds, labels);
     return {fnr, cl_searched};
 }
 
@@ -1979,7 +2005,7 @@ void IndexIVF::search_preassigned_with_error_quantification(
                         all_preds_list[i].push_back(idxi_copy);
                     } else {
                         score_k = score_k /
-                                  MAX_DISTANCE; // * (1.0f - diff_scores[i]);
+                                  MAX_DISTANCE * (1.0f - diff_scores[i]);
                         nonconf_list[i].push_back(score_k);
                         all_preds_list[i].push_back(idxi_copy);
 

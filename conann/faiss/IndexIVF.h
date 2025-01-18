@@ -393,7 +393,7 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     // ConANN block
     faiss::IndexFlatL2* index_flat;
-    float MAX_DISTANCE = 3;  // maybe redundant
+    float MAX_DISTANCE = 10000;  // maybe redundant
     int n_list;                // redundant
     std::vector<std::vector<float>> centroids;
 
@@ -425,7 +425,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     void prep_calib();
 
     std::vector<std::vector<faiss::idx_t>> get_one_hot_gt(
-        const std::vector<std::vector<float>>& queries, int batch_size = 1000);
+        const std::vector<std::vector<float>>& queries, int batch_size = 10000);
 
     float compute_l2_distance(const std::vector<float>& a,
                               const std::vector<float>& b);
@@ -494,6 +494,10 @@ struct IndexIVF : Index, IndexIVFInterface {
         const std::vector<std::vector<faiss::idx_t>>& prediction_set,
         const std::vector<std::vector<faiss::idx_t>>& gt_labels);
 
+    std::vector<float> false_negative_rate_per_q(
+        const std::vector<std::vector<faiss::idx_t>>& prediction_set,
+        const std::vector<std::vector<faiss::idx_t>>& gt_labels);
+
     float lamhat_threshold(float lambda, float target_fnr,
         const std::vector<std::vector<float>>& calib_cx,
         const std::vector<std::vector<faiss::idx_t>>& calib_labels,
@@ -501,11 +505,11 @@ struct IndexIVF : Index, IndexIVFInterface {
         const std::vector<std::vector<float>>& calib_nonconf,
         const std::vector<std::vector<std::vector<faiss::idx_t>>>& calib_preds);
 
-    std::pair<float, std::vector<int>> evaluate_test(float lamhat);
+    std::pair<std::vector<float>, std::vector<int>> evaluate_test(float lamhat);
 
-    std::pair<float, std::vector<int>> evaluate_test_mondrian(std::unordered_map<int, float> lamhats);
+    std::pair<std::vector<float>, std::vector<int>> evaluate_test_mondrian(std::unordered_map<int, float> lamhats);
 
-    std::pair<float, std::vector<int>> evaluate(
+    std::pair<std::vector<float>, std::vector<int>> evaluate(
         float lamhat, const std::vector<std::vector<float>>& queries,
         const std::vector<std::vector<faiss::idx_t>>& labels);
     // ----------------------------
