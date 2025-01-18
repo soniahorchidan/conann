@@ -424,9 +424,6 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     void prep_calib(float* xq, size_t nq, faiss::idx_t* gt);
 
-    std::vector<std::vector<faiss::idx_t>> get_one_hot_gt(
-        const std::vector<std::vector<float>>& queries, int batch_size = 10000);
-
     float compute_l2_distance(const std::vector<float>& a,
                               const std::vector<float>& b);
 
