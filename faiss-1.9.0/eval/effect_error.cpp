@@ -84,10 +84,10 @@ int main(int argc, char **argv) {
     int ts = std::stoi(p3);
     int ses = std::stoi(p4);
     int figureid = -1;
-    if(input_k>100 || input_k <0){
-        printf("Input topk must be lower than or equal to 100 and greater than 0\n");
-        return 0;
-    }
+    // if(input_k>100 || input_k <0){
+    //     printf("Input topk must be lower than or equal to 100 and greater than 0\n");
+    //     return 0;
+    // }
     std::string db, query, gtI, gtD;
     if(param1 == "sift10k"){
         db = "../data/sift10k/siftsmall_base.fvecs";

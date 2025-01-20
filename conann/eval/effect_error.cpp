@@ -87,11 +87,11 @@ void write_to_file(const std::vector<T>& data, const std::string& filename) {
     file.close();
 }
 
-std::string generate_filename(const std::string& dataset_name, float lamhat_value, const std::string& suffix) {
+std::string generate_filename(const std::string& dataset_name, float lamhat_value, int k, const std::string& suffix) {
     std::ostringstream filename;
     filename << "./results/" << dataset_name << "_" 
              << std::fixed << std::setprecision(2) << lamhat_value 
-             << "_" << suffix << ".txt";
+             << "_" << k << "_" << suffix << ".txt";
     return filename.str();
 }
 
@@ -113,10 +113,10 @@ int main(int argc, char **argv) {
     int ses = std::stoi(p4);
     float alpha = std::stof(p5);
 
-    if(input_k>100 || input_k <0){
-        printf("Input topk must be lower than or equal to 100 and greater than 0\n");
-        return 0;
-    }
+    // if(input_k>100 || input_k <0){
+    //     printf("Input topk must be lower than or equal to 100 and greater than 0\n");
+    //     return 0;
+    // }
     std::string db, query, gtI, gtD;
     if(param1 == "sift10k"){
         db = "../data/sift10k/siftsmall_base.fvecs";
@@ -176,7 +176,7 @@ int main(int argc, char **argv) {
         float* xt = fvecs_read(db.c_str(), &d, &nt);
 
         // TODO(sonia): training dataset size. increase if needed. 
-        nt = 20000;
+        // nt = 20000;
 
         printf("[%.3f s] Preparing index \"%s\" d=%ld\n",
                elapsed() - t0,
@@ -286,8 +286,8 @@ int main(int argc, char **argv) {
     //           << ", test fnr=" << computeAverage(fnr3)
     //           << ", avg cls searched=" << computeAverage(cls3) << std::endl;
 
-    std::string fnr_filename = generate_filename(param1, alpha, "fnr");
-    std::string cls_filename = generate_filename(param1, alpha, "cls");
+    std::string fnr_filename = generate_filename(param1, alpha, input_k, "fnr");
+    std::string cls_filename = generate_filename(param1, alpha, input_k, "cls");
 
     write_to_file(fnr, fnr_filename);
     write_to_file(cls, cls_filename);

@@ -1256,38 +1256,38 @@ float IndexIVF::calibrate(float alpha, int k, float* xq, size_t nq, faiss::idx_t
 }
 
 // TODO(sonia): might delete; not useful in high dimensional spaces (yet?)
-std::unordered_map<int, float> IndexIVF::calibrate_mondrian(float alpha, int k) {
-    // K = k;
-    // prep_calib();
-    // auto lamhat = optimization_mondrian(alpha);
-    // return lamhat;
+std::unordered_map<int, float> IndexIVF::calibrate_mondrian(float alpha, int k, float* xq, size_t nq, faiss::idx_t* gt) {
+    K = k;
+    prep_calib(xq, nq, gt);
+    auto lamhats = optimization_mondrian(alpha);
+    return lamhats;
 }
 
 std::unordered_map<int, float> IndexIVF::optimization_mondrian(float alpha) {
-    // std::unordered_map<int, float> thresholds;
-    // for (const auto& group_pair : calib_groups) {
-    //     int group = group_pair.first;
-    //     const std::vector<int>& group_indices = group_pair.second;
-    //     int gsz = group_indices.size();
+    std::unordered_map<int, float> thresholds;
+    for (const auto& group_pair : calib_groups) {
+        int group = group_pair.first;
+        const std::vector<int>& group_indices = group_pair.second;
+        int gsz = group_indices.size();
 
-    //     // Extract group-specific data
-    //     std::vector<std::vector<float>> group_queries;
-    //     std::vector<std::vector<faiss::idx_t>> group_labels;
-    //     std::vector<float> group_diffs;
-    //     std::vector<std::vector<float>> group_nonconf;
-    //     std::vector<std::vector<std::vector<faiss::idx_t>>> group_preds;
+        // Extract group-specific data
+        std::vector<std::vector<float>> group_queries;
+        std::vector<std::vector<faiss::idx_t>> group_labels;
+        std::vector<float> group_diffs;
+        std::vector<std::vector<float>> group_nonconf;
+        std::vector<std::vector<std::vector<faiss::idx_t>>> group_preds;
 
-    //     // Populate group-specific vectors based on group_indices
-    //     for (int idx : group_indices) {
-    //         group_queries.push_back(calib_cx[idx]);
-    //         group_labels.push_back(calib_labels[idx]);
-    //         group_diffs.push_back(calib_diffs[idx]);
-    //         group_nonconf.push_back(calib_nonconf[idx]);
-    //         group_preds.push_back(calib_preds[idx]);
-    //     }
-    //     thresholds[group] = optimization(alpha, group_queries, group_labels, group_diffs, group_nonconf, group_preds);
-    // }
-    // return thresholds;
+        // Populate group-specific vectors based on group_indices
+        for (int idx : group_indices) {
+            group_queries.push_back(calib_cx[idx]);
+            group_labels.push_back(calib_labels[idx]);
+            group_diffs.push_back(calib_diffs[idx]);
+            group_nonconf.push_back(calib_nonconf[idx]);
+            group_preds.push_back(calib_preds[idx]);
+        }
+        thresholds[group] = optimization(alpha, group_queries, group_labels, group_diffs, group_nonconf, group_preds);
+    }
+    return thresholds;
 }
 
 float IndexIVF::optimization(float alpha, 
@@ -1913,7 +1913,7 @@ void IndexIVF::search_preassigned_with_error_quantification(
                         all_preds_list[i].push_back(idxi_copy);
                     } else {
                         score_k = score_k /
-                                  MAX_DISTANCE; // * (1.0f - diff_scores[i]);
+                                  MAX_DISTANCE * (1.0f - diff_scores[i]);
                         nonconf_list[i].push_back(score_k);
                         all_preds_list[i].push_back(idxi_copy);
 

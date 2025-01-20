@@ -12,6 +12,8 @@
 #include <cstring>
 #include <iostream>
 #include<fstream>
+#include <random>
+#include <algorithm>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -159,6 +161,26 @@ size_t inter_sec(size_t max_topk, const float *gt, size_t topk, const float *I, 
     return res;
 }
 
+float calculate_fnr(const faiss::idx_t* query_indices, const faiss::idx_t* ground_truth, size_t nq_sampled, size_t k) {
+    int false_negatives = 0;
+    for (size_t i = 0; i < nq_sampled; i++) {
+
+        // Create sets for the current query and ground truth
+        std::unordered_set<faiss::idx_t> query_set(query_indices + i * k, query_indices + (i + 1) * k);
+        std::unordered_set<faiss::idx_t> gt_set(ground_truth + i * k, ground_truth + (i + 1) * k);
+
+        int local_fn = 0;
+        // Measure the intersection between query set and ground truth set
+        for (auto& gt_idx : gt_set) {
+            if (query_set.find(gt_idx) == query_set.end()) {
+                false_negatives++;
+            }
+        }
+    }
+    return (float) false_negatives / (nq_sampled * k);
+}
+
+
 int main(int argc,char **argv) {
     if(argc - 1 != 5){
         printf("You should at least input 5 params: the dataset name, train size, query size, topk and error bound\n");
@@ -245,9 +267,10 @@ int main(int argc,char **argv) {
     // const char *index_key = "IMI2x8,PQ8+16";
     // const char *index_key = "OPQ16_64,IMI2x8,PQ8+16";
 
-    faiss::Index* index;
+    faiss::IndexIVFFlat* index;
 
     size_t d;
+    int nlist = 100;   // as per index_key
 
     {
         printf("[%.3f s] Loading train set\n", elapsed() - t0);
@@ -265,7 +288,6 @@ int main(int argc,char **argv) {
         // else
         //    index = faiss::index_factory(d, index_key);
 
-        int nlist = 100;   // as per index_key
         printf("WARNING[ConANN]: hardcoded nlist to %d for testing purposes.\n", nlist);
         faiss::IndexFlatL2* flat_index = new faiss::IndexFlatL2(d);
         index = new faiss::IndexIVFFlat(flat_index, d, nlist, faiss::METRIC_L2);
@@ -341,129 +363,204 @@ int main(int argc,char **argv) {
     std::string selected_params;
     FAISS_ASSERT(nq == trains + tests);
 
-    { // run auto-tuning
+    // { // run auto-tuning
 
-        printf("[%.3f s] Preparing auto-tune with k=%ld nq=%ld\n",
-               elapsed() - t0,
-               k,
-               trains);
+    //     printf("[%.3f s] Preparing auto-tune with k=%ld nq=%ld\n",
+    //            elapsed() - t0,
+    //            k,
+    //            trains);
 
-        faiss::IntersectionCriterion crit(trains, input_k);
-        crit.set_groundtruth(k, nullptr, gt);
-        crit.nnn = k; // by default, the criterion will request only 1 NN
+    //     faiss::IntersectionCriterion crit(trains, input_k);
+    //     crit.set_groundtruth(k, nullptr, gt);
+    //     crit.nnn = k; // by default, the criterion will request only 1 NN
 
-        printf("[%.3f s] Preparing auto-tune parameters\n", elapsed() - t0);
+    //     printf("[%.3f s] Preparing auto-tune parameters\n", elapsed() - t0);
 
-        faiss::ParameterSpace params;
-        params.initialize(index);
+    //     faiss::ParameterSpace params;
+    //     params.initialize(index);
 
-        printf("[%.3f s] Auto-tuning over %ld parameters (%ld combinations)\n",
-               elapsed() - t0,
-               params.parameter_ranges.size(),
-               params.n_combinations());
+    //     printf("[%.3f s] Auto-tuning over %ld parameters (%ld combinations)\n",
+    //            elapsed() - t0,
+    //            params.parameter_ranges.size(),
+    //            params.n_combinations());
 
-        faiss::OperatingPoints ops;
-        params.explore(index, trains, xq, crit, &ops);
+    //     faiss::OperatingPoints ops;
+    //     params.explore(index, trains, xq, crit, &ops);
 
-        printf("[%.3f s] Found the following operating points: \n",
-               elapsed() - t0);
+    //     printf("[%.3f s] Found the following operating points: \n",
+    //            elapsed() - t0);
 
-        // ops.display(); //
+    //     // ops.display(); //
 
-        // keep the first parameter that obtains > 0.5 1-recall@1
-        int ind = 0;
-        for (; ind < ops.optimal_pts.size(); ind++) {
-            if (ops.optimal_pts[ind].perf >= (1 - error_bound)) {
-                selected_params = ops.optimal_pts[ind].key;
-                printf("[%.3f s] Optimal found: ",elapsed() - t0);
-                std::cout << ops.optimal_pts[ind].key << "\n";
-                break;
-            }
-        }
-        assert(selected_params.size() >= 0 ||
-               !"could not find good enough op point");
-    }
+    //     // keep the first parameter that obtains > 0.5 1-recall@1
+    //     int ind = 0;
+    //     for (; ind < ops.optimal_pts.size(); ind++) {
+    //         if (ops.optimal_pts[ind].perf >= (1 - error_bound)) {
+    //             selected_params = ops.optimal_pts[ind].key;
+    //             printf("[%.3f s] Optimal found: ",elapsed() - t0);
+    //             std::cout << ops.optimal_pts[ind].key << "\n";
+    //             break;
+    //         }
+    //     }
+    //     assert(selected_params.size() >= 0 ||
+    //            !"could not find good enough op point");
+    // }
 
-    { // Use the found configuration to perform a search
+    // { // Use the found configuration to perform a search
 
-        faiss::ParameterSpace params;
+    //     faiss::ParameterSpace params;
 
-        params.set_index_parameters(index, selected_params.c_str());
+    //     params.set_index_parameters(index, selected_params.c_str());
 
-        printf("[%.3f s] Perform a search on %ld queries\n",
+    //     printf("[%.3f s] Perform parameter search on %ld queries according to Auncel\n",
+    //            elapsed() - t0,
+    //            tests);
+
+    //     // output buffers
+    //     omp_set_num_threads(1);
+
+    //     faiss::idx_t* I = new faiss::idx_t[tests * input_k];
+    //     float* D = new float[tests * input_k];
+
+    //     // if(DC(faiss::IndexIVF)){
+    //     //     // ix->nprobe = ix->nlist / 2;
+    //     //     ix -> nprobe = 300;
+    //     // }
+
+    //     std::vector<double> perf;
+    //     for (int i = 0; i < tests; i++) {
+    //         auto tt0 = elapsed();
+    //         index->search(1, xq + d * trains + d * i, input_k, D + i * input_k, I + i * input_k);
+    //         auto tt1 = elapsed();
+    //         perf.push_back(tt1 - tt0);
+    //     }
+
+    //     printf("[%.3f s] Compute Bound Error\n", elapsed() - t0);
+
+    //     int type = 0;
+    //     if (p1 == "text")
+    //         type = 1;
+
+    //     float minf = 1.;
+    //     std::vector<float> error_per_query;
+
+    //     for (int i = trains; i < tests + trains; i++) {
+    //         float query_error = inter_sec(k, &gt_D[i * 100], 
+    //                               input_k, D + (i - trains) * input_k , type) / float(input_k);
+    //         minf = std::min(minf, query_error);
+    //         error_per_query.push_back(query_error);
+    //     }
+
+    //     float sum = 0.;
+    //     int count = 0;
+    //     for (int i = trains; i < tests + trains; i++) {
+    //         sum += inter_sec(k, &gt_D[i * 100], 
+    //                         input_k, D + (i - trains) * input_k , type) / float(input_k);
+    //         count++;
+    //     }
+    //     float avg = sum / count;
+    //     printf("[%.3f s] Got average error %.6f\n", elapsed() - t0, avg);
+
+
+    //     // Output the latency to file
+    //     std::stringstream fn;
+    //     fn<<"Faiss_Latency_Error" << "_" << p1 << "_" << input_k << "_" << int(error_bound*100) <<".log";
+    //     std::string filename = fn.str();
+
+    //     std::ofstream outfile;
+    //     outfile.open(filename);
+    //     for(int i = 0;i < tests; i++){
+    //         outfile << perf[i] << "\t" << error_per_query[i] << std::endl;
+    //     }
+    //     outfile.close();
+
+    //     delete[] I;
+    //     delete[] D;
+    // }
+
+    {
+        printf("[%.3f s] Perform parameter search on %ld queries according to ConANN\n",
                elapsed() - t0,
                tests);
 
-        // output buffers
-        omp_set_num_threads(1);
+        int optimal_nprobe = 0;
 
-        faiss::idx_t* I = new faiss::idx_t[tests * input_k];
-        float* D = new float[tests * input_k];
+        // Sample 50% of queries
+        size_t nq_sampled = tests;
+        std::vector<size_t> sampled_indices(nq_sampled);
+        std::iota(sampled_indices.begin(), sampled_indices.end(), 0);
+        std::shuffle(sampled_indices.begin(), sampled_indices.end(), std::mt19937{std::random_device{}()});
 
-        // if(DC(faiss::IndexIVF)){
-        //     // ix->nprobe = ix->nlist / 2;
-        //     ix -> nprobe = 300;
-        // }
-
-        std::vector<double> perf;
-        for (int i = 0; i < tests; i++) {
-            auto tt0 = elapsed();
-            index->search(1, xq + d * trains + d * i, input_k, D + i * input_k, I + i * input_k);
-            auto tt1 = elapsed();
-            perf.push_back(tt1 - tt0);
+        float* sampled_queries = new float[nq_sampled * d];
+        for (size_t i = 0; i < nq_sampled; i++) {
+            std::memcpy(sampled_queries + i * d, xq + sampled_indices[i] * d, d * sizeof(float));
         }
 
-        printf("[%.3f s] Compute Bound Error\n", elapsed() - t0);
-
-        int type = 0;
-        if (p1 == "text")
-            type = 1;
-
-        float minf = 1.;
-        std::vector<float> error_per_query;
-
-        for (int i = trains; i < tests + trains; i++) {
-            float query_error = inter_sec(k, &gt_D[i * 100], 
-                                  input_k, D + (i - trains) * input_k , type) / float(input_k);
-            minf = std::min(minf, query_error);
-            error_per_query.push_back(query_error);
+        faiss::idx_t* sampled_gt = new faiss::idx_t[nq_sampled * k];
+        float* sampled_gt_D = new float[nq_sampled * k];
+        for (size_t i = 0; i < nq_sampled; i++) {
+            size_t query_idx = sampled_indices[i];
+            std::memcpy(sampled_gt + i * k, gt + query_idx * k, k * sizeof(faiss::idx_t));
+            std::memcpy(sampled_gt_D + i * k, gt_D + query_idx * k, k * sizeof(float));
         }
 
-        float sum = 0.;
-        int count = 0;
-        for (int i = trains; i < tests + trains; i++) {
-            sum += inter_sec(k, &gt_D[i * 100], 
-                            input_k, D + (i - trains) * input_k , type) / float(input_k);
-            count++;
+        // Iterate over nprobe values
+        for (size_t nprobe = 1; nprobe <= nlist; nprobe++) {
+            index->nprobe = nprobe;
+            printf("[%.3f s] Testing nprobe = %ld\n", elapsed() - t0, nprobe);
+
+            // Perform knn search
+            std::vector<faiss::idx_t> I(nq_sampled * k);
+            std::vector<float> D(nq_sampled * k);
+            index->search(nq_sampled, sampled_queries, k, D.data(), I.data());
+
+            // Calculate average FNR
+            float avg_fnr = calculate_fnr(I.data(), sampled_gt, nq_sampled, k);
+            printf("Average FNR = %.5f\n", avg_fnr);
+
+            if (avg_fnr <= error_bound) {
+                printf("Stopping search at nprobe = %ld with FNR = %.5f\n", nprobe, avg_fnr);
+                optimal_nprobe = nprobe;
+                break;
+            }
         }
-        float avg = sum / count;
-        printf("[%.3f s] Got average error %.6f\n", elapsed() - t0, avg);
 
-        // NOTE(sonia): commented out because the original Auncel code checks for maximum error, but 
-        // Faiss does average, so this fails.
-        // if (minf >= (1 - error_bound))
-        //     printf("Error bound is guaranteed\n\n\n");
-        // else{
-        //     printf("NO NO NO !!! Error bound is not guaranteed,\
-        //     please enlarge top-n (i,e, find the next n in th map) \n");
-        //     return 0;
-        // }
+        delete[] sampled_queries;
 
+        printf("[%.3f s] Evalauting on %ld queries according to ConANN\n",
+               elapsed() - t0,
+               tests);
+        size_t nq_remaining = tests - nq_sampled;
+        std::vector<size_t> remaining_indices(nq_remaining);
+        std::iota(remaining_indices.begin(), remaining_indices.end(), nq_sampled);
+        std::shuffle(remaining_indices.begin(), remaining_indices.end(), std::mt19937{std::random_device{}()});
 
-        // Output the latency to file
-        std::stringstream fn;
-        fn<<"Faiss_Latency_Error" << "_" << p1 << "_" << input_k << "_" << int(error_bound*100) <<".log";
-        std::string filename = fn.str();
-
-        std::ofstream outfile;
-        outfile.open(filename);
-        for(int i = 0;i < tests; i++){
-            outfile << perf[i] << "\t" << error_per_query[i] << std::endl;
+        float* remaining_queries = new float[nq_remaining * d];
+        for (size_t i = 0; i < nq_remaining; i++) {
+            std::memcpy(remaining_queries + i * d, xq + remaining_indices[i] * d, d * sizeof(float));
         }
-        outfile.close();
 
-        delete[] I;
-        delete[] D;
+        faiss::idx_t* remaining_gt = new faiss::idx_t[nq_remaining * k];
+        float* remaining_gt_D = new float[nq_remaining * k];
+        for (size_t i = 0; i < nq_remaining; i++) {
+            size_t query_idx = remaining_indices[i];
+            std::memcpy(remaining_gt + i * k, gt + query_idx * k, k * sizeof(faiss::idx_t));
+            std::memcpy(remaining_gt_D + i * k, gt_D + query_idx * k, k * sizeof(float));
+        }
+
+        // Perform knn search with optimal nprobe on the remaining queries
+        index->nprobe = optimal_nprobe;
+        std::vector<faiss::idx_t> I_remaining(nq_remaining * k);
+        std::vector<float> D_remaining(nq_remaining * k);
+        index->search(nq_remaining, remaining_queries, k, D_remaining.data(), I_remaining.data());
+
+        // Calculate and print FNR for remaining queries
+        float avg_fnr_remaining = calculate_fnr(I_remaining.data(), remaining_gt, nq_remaining, k);
+        printf("Average FNR for remaining queries = %.5f\n", avg_fnr_remaining);
+
+        delete[] remaining_queries;
+        delete[] remaining_gt;
+        delete[] remaining_gt_D;
     }
 
     delete[] xq;

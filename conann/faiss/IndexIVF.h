@@ -392,7 +392,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     IndexIVF();
 
     // ConANN block
-    float MAX_DISTANCE = 1000;  // maybe redundant
+    float MAX_DISTANCE = 200;  // maybe redundant
     int n_list;                // redundant
     std::vector<std::vector<float>> centroids;
 
@@ -462,7 +462,7 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     float calibrate(float alpha, int k, float* xq, size_t nq, faiss::idx_t* gt);
 
-    std::unordered_map<int, float> calibrate_mondrian(float alpha, int k);
+    std::unordered_map<int, float> calibrate_mondrian(float alpha, int k, float* xq, size_t nq, faiss::idx_t* gt);
 
     float optimization(float alpha, const std::vector<std::vector<float>>& calib_cx,
         const std::vector<std::vector<faiss::idx_t>>& calib_labels,
