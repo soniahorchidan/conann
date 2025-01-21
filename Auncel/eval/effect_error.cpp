@@ -89,7 +89,14 @@ int main(int argc, char **argv) {
         return 0;
     }
     std::string db, query, gtI, gtD;
-    if(param1 == "sift10k"){
+    if(param1 == "bert"){
+        db = "../../data/bert/db.fvecs";
+        query = "../../data/bert/queries.fvecs";
+        gtI = "../../data/bert/indices.fvecs";
+        gtD = "../../data/bert/distances.fvecs";
+        figureid = 9;
+    }
+    else if(param1 == "sift10k"){
         db = "../../data/sift10k/siftsmall_base.fvecs";
         query = "../../data/sift10k/siftsmall_query.fvecs";
         gtI = "../../data/sift10k/sift10k_gt_indices_k10.ivecs";
@@ -201,7 +208,7 @@ int main(int argc, char **argv) {
                elapsed() - t0,
                index_key,
                d);
-        if(param1 == "sift10k" || param1 == "sift1M" || param1 == "sift10M" || param1 == "deep10M" || param1 == "gist" || param1 == "spacev")
+        if(param1 == "bert" || param1 == "sift10k" || param1 == "sift1M" || param1 == "sift10M" || param1 == "deep10M" || param1 == "gist" || param1 == "spacev")
             index = faiss::index_factory(d, index_key);
         else
             index = faiss::index_factory(d, index_key
