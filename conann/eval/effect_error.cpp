@@ -3,6 +3,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <numeric>
+#include <fstream>
+#include <iomanip>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -68,22 +71,48 @@ double elapsed() {
     return tv.tv_sec + tv.tv_usec * 1e-6;
 }
 
-/// Command like this: ./knn_script sift1M 100 2000 8000
+template <typename T>
+double computeAverage(const std::vector<T>& numbers) {
+    if (numbers.empty()) return 0.0;
+    double sum = std::accumulate(numbers.begin(), numbers.end(), 0.0);
+    return sum / numbers.size();
+}
+
+template <typename T>
+void write_to_file(const std::vector<T>& data, const std::string& filename) {
+    std::ofstream file(filename);
+    for (const auto& value : data) {
+        file << value << '\n';
+    }
+    file.close();
+}
+
+std::string generate_filename(const std::string& dataset_name, float lamhat_value, int k, const std::string& suffix) {
+    std::ostringstream filename;
+    filename << "./results/" << dataset_name << "_" 
+             << std::fixed << std::setprecision(2) << lamhat_value 
+             << "_" << k << "_" << suffix << ".txt";
+    return filename.str();
+}
+
+/// Command like this: ./knn_script sift1M 100 2000 8000 0.1
 int main(int argc, char **argv) {
     std::cout << argc << " arguments" <<std::endl;
-    if(argc - 1 != 4){
-        printf("You should at least input 4 params: the dataset name, topk, train size, query size\n");
+    if(argc - 1 != 5){
+        printf("You should at least input 5 params: the dataset name, topk, train size, query size, alpha\n");
         return 0;
     }
     std::string param1 = argv[1];
     std::string param2 = argv[2];
     std::string p3 = argv[3];
     std::string p4 = argv[4];
+    std::string p5 = argv[5];
 
     int input_k = std::stoi(param2);
     int ts = std::stoi(p3);
     int ses = std::stoi(p4);
-    int figureid = -1;
+    float alpha = std::stof(p5);
+
     // if(input_k>100 || input_k <0){
     //     printf("Input topk must be lower than or equal to 100 and greater than 0\n");
     //     return 0;
@@ -100,52 +129,30 @@ int main(int argc, char **argv) {
         query = "../data/bert/queries.fvecs";
         gtI = "../data/bert/indices.fvecs";
         gtD = "../data/bert/distances.fvecs";
-    }    
+    }  
     else if(param1 == "sift1M"){
-        db = "/workspace/data/sift/sift1M.fvecs";
-        query = "/workspace/data/sift/1M_query.fvecs";
-        gtI = "/workspace/data/sift/idx_1M.ivecs";
-        gtD = "/workspace/data/sift/dis_1M.fvecs";
+        db = "../data/sift1M/sift1M.fvecs";
+        query = "../data/sift1M/1M_query.fvecs";
+        gtI = "../data/sift1M/idx_1M.ivecs";
+        gtD = "../data/sift1M/dis_1M.fvecs";
     }
     else if(param1 == "sift10M"){
-        figureid = 9;
         db = "/workspace/data/sift/sift10M/sift10M.fvecs";
         query = "/workspace/data/sift/sift10M/query.fvecs";
         gtI = "/workspace/data/sift/sift10M/idx.ivecs";
         gtD = "/workspace/data/sift/sift10M/dis.fvecs";
     }
     else if(param1 == "deep10M"){
-        figureid = 10;
         db = "/workspace/data/deep/deep10M.fvecs";
         query = "/workspace/data/deep/query.fvecs";
         gtI = "/workspace/data/deep/idx.ivecs";
         gtD = "/workspace/data/deep/dis.fvecs";
     }
     else if(param1 == "gist"){
-        figureid = 11;
         db = "../data/gist/gist_base.fvecs";
         query = "../data/gist/gist_query.fvecs";
         gtI = "../data/gist/idx.ivecs";
         gtD = "../data/gist/dis.fvecs";
-    }
-    else if(param1 == "spacev"){
-        db = "/workspace/data/spacev/spacev10M.fvecs";
-        query = "/workspace/data/spacev/query.fvecs";
-        gtI = "/workspace/data/spacev/idx.ivecs";
-        gtD = "/workspace/data/spacev/dis.fvecs";
-    }
-    else if(param1 == "glove"){
-        db = "/workspace/data/glove/glove.fvecs";
-        query = "/workspace/data/glove/query.fvecs";
-        gtI = "/workspace/data/glove/idx.ivecs";
-        gtD = "/workspace/data/glove/dis.fvecs";
-    }
-    else if(param1 == "text"){
-        figureid = 12;
-        db = "/workspace/data/text/text10M.fvecs";
-        query = "/workspace/data/text/query.fvecs";
-        gtI = "/workspace/data/text/idx.ivecs";
-        gtD = "/workspace/data/text/dis.fvecs";
     }
     else{
         printf("Your dataset name is illegal\n");
@@ -158,7 +165,7 @@ int main(int argc, char **argv) {
     // this is typically the fastest one.
     const char* index_key = "IVF1024,Flat";
 
-    faiss::Index* index;
+    faiss::IndexIVFFlat* index;
 
     size_t d;
 
@@ -168,41 +175,25 @@ int main(int argc, char **argv) {
         size_t nt;
         float* xt = fvecs_read(db.c_str(), &d, &nt);
 
-        // TODO(sonia): increase
-        nt = 20000;
+        // TODO(sonia): training dataset size. increase if needed. 
+        // nt = 20000;
 
         printf("[%.3f s] Preparing index \"%s\" d=%ld\n",
                elapsed() - t0,
                index_key,
                d);
 
-        
-        // if(param1 == "sift1M" || param1 == "sift10M" || param1 == "deep10M" || param1 == "gist" || param1 == "spacev")
-        //     index = faiss::index_factory(d, index_key);
-        // else
-        //     index = faiss::index_factory(d, index_key
-        //     ,faiss::METRIC_INNER_PRODUCT
-        //     );
 
-        // index->set_tune_mode();
-        // if(DC(faiss::IndexIVF)){
-        //     printf("Output tune type: %d %d\n", index->tune, ix->quantizer->tune);
-        // }
-
-        int nlist = 1024;   // 1024 as per index_key
+        int nlist = 100;   // 1024 as per index_key
         // printf("WARNING[ConANN]: hardcoded nlist to %d for testing purposes.\n", nlist);
         faiss::IndexFlatL2* flat_index = new faiss::IndexFlatL2(d);
         index = new faiss::IndexIVFFlat(flat_index, d, nlist, faiss::METRIC_L2);
-        
-        // printf("Output index type: %d\n", index->type);
 
+        index->nprobe = nlist;
+        
         printf("[%.3f s] Training on %ld vectors\n", elapsed() - t0, nt);
 
-        // nt = 500000;
-
-        // index->set_tune_mode();
         index->train(nt, xt);
-        // index->set_tune_off();
         delete[] xt;
         std::string filenameIn = "./eval/trained_index/";
         filenameIn += param1;
@@ -263,79 +254,47 @@ int main(int argc, char **argv) {
 
     {
         printf("[%.3f s] Loading groud truth vector\n", elapsed() - t0);
-        printf("WARNING[ConANN]: need to compute GT distances\n");
-
         size_t nq3;
         gt_v = fvecs_read(gtD.c_str(), &kk, &nq3);
-        assert(kk == k || !"gt disatance does not have same dimension as gt IDs");
+        assert(kk == k || !"gt distances does not have same dimension as gt IDs");
         assert(nq3 == nq || !"incorrect nb of ground truth entries");
     }
 
-    size_t topk = k;
-    size_t max_topk = k;
-    // TODO(sonia)
-    // // Run error profile system
-    // {
-    //     printf("[%.3f s] Preparing error profile system criterion 100-recall at 100 "
-    //            "criterion, with k=%ld nq=%ld\n",
-    //            elapsed() - t0,
-    //            k,
-    //            nq);
-    //     faiss::Error_sys err_sys(index, nq , k);
+    printf("[%.3f s] ConANN Calibration\n", elapsed() - t0);
+    auto lamhat = index->calibrate(alpha, k, xq, nq, gt);
+    printf("[%.3f s] ConANN Evaluation\n", elapsed() - t0);
+    auto [fnr, cls] = index->evaluate_test(lamhat);
+    std::cout << "alpha=" << alpha << ": lamhat= " << lamhat
+              << ", test fnr=" << computeAverage(fnr)
+              << ", avg cls searched=" << computeAverage(cls) << std::endl;
 
-    //     err_sys.set_gt(gt_v, gt);
-    //     printf("[%.3f s] Start error profile system training\n",
-    //            elapsed() - t0);
-    //     err_sys.sys_train(ts, xq);
-    //     printf("[%.3f s] Finish error profile system training\n",
-    //            elapsed() - t0);
+    // alpha = 0.1;
+    // printf("[%.3f s] ConANN Calibration\n", elapsed() - t0);
+    // lamhat = index->calibrate(alpha, k, xq, nq, gt);
+    // printf("[%.3f s] ConANN Evaluation\n", elapsed() - t0);
+    // auto [fnr2, cls2] = index->evaluate_test(lamhat);
+    // std::cout << "alpha=" << alpha << ": lamhat= " << lamhat
+    //           << ", test fnr=" << computeAverage(fnr2)
+    //           << ", avg cls searched=" << computeAverage(cls2) << std::endl;
 
-    //     std::vector<float> D;
-    //     std::vector<int64_t> I;
-    //     std::vector<float> acc;
-    //     size_t demo_size = ses;
-    //     topk = input_k;
-    //     // Set query topk val
-    //     err_sys.set_topk(topk);
-    //     D.resize(demo_size * k);
-    //     I.resize(demo_size * k);
-    //     // Set required recalls
-    //     std::vector<float> accs = {0.9, 0.8, 0.7, 0.6, 0.5, 0.4,0.3};
-    //     for(int i = 0; i<demo_size+ts;i++){
-    //         int index = i%accs.size();
-    //         acc.push_back(accs[index]);
-    //     }
-        
-    //     err_sys.set_queries(demo_size, xq, acc.data(), ts+ses);
-    //     printf("[%.3f s] Start error profile system search\n",
-    //            elapsed() - t0);
-    //     t0 = elapsed();
-    //     if(DC(faiss::IndexIVF)){
-    //         assert(figureid >= 1 && figureid <= 12);
-    //         ix->t->setparam(figureid);
-    //         ix->t->profile = true;
-    //     }
-    //     err_sys.search(D.data(), I.data(), ts);
-    //     printf("Finish error profile system search: %.3f\n",
-    //            elapsed() - t0);
+    // alpha = 0.2;
+    // printf("[%.3f s] ConANN Calibration\n", elapsed() - t0);
+    // lamhat = index->calibrate(alpha, k, xq, nq, gt);
+    // printf("[%.3f s] ConANN Evaluation\n", elapsed() - t0);
+    // auto [fnr3, cls3] = index->evaluate_test(lamhat);
+    // std::cout << "alpha=" << alpha << ": lamhat= " << lamhat
+    //           << ", test fnr=" << computeAverage(fnr3)
+    //           << ", avg cls searched=" << computeAverage(cls3) << std::endl;
 
-    //     if(DC(faiss::IndexIVF)){
-    //         /// Store the recalls and true recalls in logs
-    //         std::stringstream ss;
-    //         ss<<"Effective_error_"<< param1 <<".log";
-    //         std::string filename = ss.str();
-    //         std::ofstream outfile;
-    //         outfile.open(filename);
-    //         for(int i = ts;i < (ts+ses); i++){
-    //             outfile << acc[i] << " ";
-    //             outfile << ix->t->t_recalls[i];
-    //             outfile << std::endl;
-    //         }
-    //     }
-    // }
+    std::string fnr_filename = generate_filename(param1, alpha, input_k, "fnr");
+    std::string cls_filename = generate_filename(param1, alpha, input_k, "cls");
+
+    write_to_file(fnr, fnr_filename);
+    write_to_file(cls, cls_filename);
+
     delete[] xq;
     delete[] gt;
-    // delete[] gt_v;
+    delete[] gt_v;
     delete index;
     return 0;
 }
