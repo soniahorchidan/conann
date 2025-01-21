@@ -1125,17 +1125,7 @@ void IndexIVF::prep_calib(float* xq, size_t nq, faiss::idx_t* gt) {
     calib_nonconf = cn;
     calib_preds = c_clus;
 
-    // std::cout << "DEBUG:: calib_nonconf=\n";
-    // for (int i = 0; i < calib_nonconf.size(); i ++) {
-    //     auto ncf = calib_nonconf[i];
-    //     for (auto x: ncf) {
-    //         std::cout << x << " ";
-    //     }
-    //     std::cout << "\n";
-    // }
-
-    // // TODO(sonia): store min/max in calib.
-    // calib_groups = partition_by_difficulty(calib_diffs, NUM_MONDRIAN_BINS);
+    calib_groups = partition_by_difficulty(calib_diffs, NUM_MONDRIAN_BINS);
 }
 
 // Compute the L2 distance between two vectors
@@ -1149,31 +1139,40 @@ float IndexIVF::compute_l2_distance(const std::vector<float>& a,
     return std::sqrt(distance);
 }
 
-// Compute the difficulty scores for a set of queries
 std::vector<float> IndexIVF::compute_difficulty_scores(
     const std::vector<std::vector<float>>& queries) {
     std::vector<float> diff_scores;
     for (const auto& query : queries) {
-        std::vector<float> distances;
+        std::vector<float> similarities;
         for (const auto& centroid : centroids) {
-            distances.push_back(compute_l2_distance(centroid, query));
+            // Compute the cosine similarity between the query and centroid
+            float similarity = cosine_similarity(query, centroid);
+            similarities.push_back(similarity);
         }
+        // Find the two highest cosine similarities (closest vectors)
+        std::nth_element(similarities.begin(), similarities.begin() + 1, similarities.end(), std::greater<float>());
+        float closest_similarity = similarities[0];
+        float second_closest_similarity = similarities[1];
+        float score = (closest_similarity - second_closest_similarity) / closest_similarity;
 
-        // Find the 2nd smallest distances
-        std::nth_element(distances.begin(), distances.begin() + 2, distances.end());
-        
-        // Collect the 2nd closest distances
-        std::vector<float> closest_distances(distances.begin(), distances.begin() + 2);
-        
-        // Compute the score based on the spread of the 2nd closest distances
-        float mean_distance = std::accumulate(closest_distances.begin(), closest_distances.end(), 0.0f) / 2;
-        float max_distance = *std::max_element(closest_distances.begin(), closest_distances.end());
-        float score = std::abs(mean_distance - max_distance) / std::max(mean_distance, max_distance);
-        
+        // Apply sigmoid to exaggerate differences
+        // score = 1.0f / (1.0f + std::exp(-score));
         diff_scores.push_back(score);
     }
 
     return diff_scores;
+}
+
+float IndexIVF::cosine_similarity(const std::vector<float>& vec1, const std::vector<float>& vec2) {
+    float dot_product = 0.0f;
+    float norm1 = 0.0f;
+    float norm2 = 0.0f;
+    for (size_t i = 0; i < vec1.size(); ++i) {
+        dot_product += vec1[i] * vec2[i];
+        norm1 += vec1[i] * vec1[i];
+        norm2 += vec2[i] * vec2[i];
+    }
+    return dot_product / (std::sqrt(norm1) * std::sqrt(norm2));
 }
 
 
@@ -1217,34 +1216,37 @@ IndexIVF::compute_scores(float lamhat,
 
 std::map<int, std::vector<int>> IndexIVF::partition_by_difficulty(const std::vector<float>& diff_scores, int n_groups) {
     std::map<int, std::vector<int>> groups;
-    
-    std::vector<std::pair<float, int>> indexed_scores(diff_scores.size());
-    for (int i = 0; i < diff_scores.size(); ++i) {
-        indexed_scores[i] = {diff_scores[i], i};
-    }
 
-    std::sort(indexed_scores.begin(), indexed_scores.end(), [](const std::pair<float, int>& a, const std::pair<float, int>& b) {
-        return a.first < b.first; 
-    });
+    // If boundaries are not provided, compute them
+    if (groups_boundaries.empty()) {
+        std::vector<std::pair<float, int>> indexed_scores;
+        for (size_t i = 0; i < diff_scores.size(); ++i) {
+            indexed_scores.push_back({diff_scores[i], i});
+        }
+        std::sort(indexed_scores.begin(), indexed_scores.end());
+        int bin_size = diff_scores.size() / n_groups;
 
-    std::map<int, std::vector<int>> grouped_indices;
-    int group_size = diff_scores.size() / n_groups;
+        for (int group = 1; group < n_groups; ++group) {
+            int boundary_idx = group * bin_size - 1;
+            groups_boundaries.push_back(indexed_scores[boundary_idx].first);
+        }
+    } 
 
-    int remainder = diff_scores.size() % n_groups;
-    int current_group = 0;
-    int count = 0;
-
-    for (size_t i = 0; i < indexed_scores.size(); ++i) {
-        if (count == group_size + (current_group < remainder ? 1 : 0)) {
-            current_group++;
-            count = 0;
+    for (size_t i = 0; i < diff_scores.size(); ++i) {
+        float score = diff_scores[i];
+        int group = 0;
+        for (int j = 0; j < n_groups - 1; ++j) {
+            if (score <= groups_boundaries[j]) {
+                group = j;
+                break;
+            }
+            group = j + 1;
         }
 
-        grouped_indices[current_group].push_back(indexed_scores[i].second);
-        count++;
+        groups[group].push_back(i); 
     }
 
-    return grouped_indices;
+    return groups;
 }
 
 
@@ -1255,7 +1257,6 @@ float IndexIVF::calibrate(float alpha, int k, float* xq, size_t nq, faiss::idx_t
     return lamhat;
 }
 
-// TODO(sonia): might delete; not useful in high dimensional spaces (yet?)
 std::unordered_map<int, float> IndexIVF::calibrate_mondrian(float alpha, int k, float* xq, size_t nq, faiss::idx_t* gt) {
     K = k;
     prep_calib(xq, nq, gt);
@@ -1360,7 +1361,7 @@ float IndexIVF::lamhat_threshold(float lambda, float target_fnr,
     const std::vector<float>& calib_diffs,
     const std::vector<std::vector<float>>& calib_nonconf,
     const std::vector<std::vector<std::vector<faiss::idx_t>>>& calib_preds) {
-    auto [preds, _] = compute_predictions(lambda, calib_cx, calib_diffs,
+    auto [preds, _] = compute_predictions(lambda, calib_cx,
                                           calib_nonconf, calib_preds);
     float fnr = false_negative_rate(preds, calib_labels);
     return fnr - target_fnr;
@@ -1369,7 +1370,6 @@ float IndexIVF::lamhat_threshold(float lambda, float target_fnr,
 std::pair<std::vector<std::vector<faiss::idx_t>>, std::vector<int>>
 IndexIVF::compute_predictions(
     float lambda, const std::vector<std::vector<float>>& queries,
-    const std::vector<float>& diffs,
     const std::vector<std::vector<float>>& nonconf,
     const std::vector<std::vector<std::vector<faiss::idx_t>>>& preds) {
 
@@ -1392,13 +1392,8 @@ IndexIVF::compute_predictions(
             if (index > 1 && index < sc.size()) {
                 // take smalles number of clusters searches which achieves this, 
                 // if multiple scores are equal to the optimal one.
-                int old = index;
                 while (sc[index] == sc[index - 1]) {
                     index--;
-                }
-                int nw = index;
-                if (nw != index) {
-                    std::cout << "DEBUG:: decreased from "  << old << " to " << nw << "\n";
                 }
             }
 
@@ -1511,13 +1506,10 @@ std::pair<std::vector<float>, std::vector<int>> IndexIVF::evaluate(
     float lamhat, const std::vector<std::vector<float>>& queries,
     const std::vector<std::vector<faiss::idx_t>>& labels) {
     std::vector<float> diff_scores = compute_difficulty_scores(queries);
-    auto [tn, t_clus] = compute_scores(lamhat, queries, diff_scores);
-    std::vector<std::vector<float>> nonconf = tn;
-    std::vector<std::vector<std::vector<faiss::idx_t>>> all_preds_per_nprobe =
-        t_clus;
+    auto [nonconf, all_preds_per_nprobe] = compute_scores(lamhat, queries, diff_scores);
 
     auto [test_preds, cl_searched] = compute_predictions(
-        lamhat, queries, diff_scores, nonconf, all_preds_per_nprobe);
+        lamhat, queries, nonconf, all_preds_per_nprobe);
     auto fnr = false_negative_rate_per_q(test_preds, labels);
     return {fnr, cl_searched};
 }
@@ -1532,13 +1524,10 @@ void IndexIVF::search_conann(idx_t n, const float* x, float lamhat,
         }
     }
     std::vector<float> diff_scores = compute_difficulty_scores(queries);
-    auto [tn, t_clus] = compute_scores(lamhat, queries, diff_scores);
-    std::vector<std::vector<float>> nonconf = tn;
-    std::vector<std::vector<std::vector<faiss::idx_t>>> all_preds_per_nprobe =
-        t_clus;
+    auto [nonconf, all_preds_per_nprobe] = compute_scores(lamhat, queries, diff_scores);
 
     auto [test_preds, cl_searched] = compute_predictions(
-        lamhat, queries, diff_scores, nonconf, all_preds_per_nprobe);
+        lamhat, queries, nonconf, all_preds_per_nprobe);
 
     // Move results
     // TODO: optimize
@@ -1912,8 +1901,7 @@ void IndexIVF::search_preassigned_with_error_quantification(
                         nonconf_list[i].push_back(1.0);
                         all_preds_list[i].push_back(idxi_copy);
                     } else {
-                        score_k = score_k /
-                                  MAX_DISTANCE * (1.0f - diff_scores[i]);
+                        score_k = score_k / MAX_DISTANCE * diff_scores[i];
                         nonconf_list[i].push_back(score_k);
                         all_preds_list[i].push_back(idxi_copy);
 

@@ -260,13 +260,13 @@ int main(int argc, char **argv) {
         assert(nq3 == nq || !"incorrect nb of ground truth entries");
     }
 
-    printf("[%.3f s] ConANN Calibration\n", elapsed() - t0);
-    auto lamhat = index->calibrate(alpha, k, xq, nq, gt);
-    printf("[%.3f s] ConANN Evaluation\n", elapsed() - t0);
-    auto [fnr, cls] = index->evaluate_test(lamhat);
-    std::cout << "alpha=" << alpha << ": lamhat= " << lamhat
-              << ", test fnr=" << computeAverage(fnr)
-              << ", avg cls searched=" << computeAverage(cls) << std::endl;
+    // printf("[%.3f s] ConANN Calibration\n", elapsed() - t0);
+    // auto lamhat = index->calibrate(alpha, k, xq, nq, gt);
+    // printf("[%.3f s] ConANN Evaluation\n", elapsed() - t0);
+    // auto [fnr, cls] = index->evaluate_test(lamhat);
+    // std::cout << "alpha=" << alpha << ": lamhat= " << lamhat
+    //           << ", test fnr=" << computeAverage(fnr)
+    //           << ", avg cls searched=" << computeAverage(cls) << std::endl;
 
     // alpha = 0.1;
     // printf("[%.3f s] ConANN Calibration\n", elapsed() - t0);
@@ -286,8 +286,16 @@ int main(int argc, char **argv) {
     //           << ", test fnr=" << computeAverage(fnr3)
     //           << ", avg cls searched=" << computeAverage(cls3) << std::endl;
 
-    std::string fnr_filename = generate_filename(param1, alpha, input_k, "fnr");
-    std::string cls_filename = generate_filename(param1, alpha, input_k, "cls");
+
+    printf("[%.3f s] ConANN Mondrian Calibration\n", elapsed() - t0);
+    auto lamhat = index->calibrate_mondrian(alpha, k, xq, nq, gt);
+    printf("[%.3f s] ConANN Mondrian Evaluation\n", elapsed() - t0);
+    auto [fnr, cls] = index->evaluate_test_mondrian(lamhat);
+    std::cout << "alpha=" << alpha
+              << ", test fnr=" << computeAverage(fnr)
+              << ", avg cls searched=" << computeAverage(cls) << std::endl;
+    std::string fnr_filename = generate_filename(param1, alpha, input_k, "fnr_mon");
+    std::string cls_filename = generate_filename(param1, alpha, input_k, "cls_mon");
 
     write_to_file(fnr, fnr_filename);
     write_to_file(cls, cls_filename);

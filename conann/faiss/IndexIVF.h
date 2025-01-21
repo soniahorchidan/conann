@@ -398,7 +398,7 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     // TODO(sonia): do not hardcode
     int K;
-    int NUM_MONDRIAN_BINS = 5;
+    int NUM_MONDRIAN_BINS = 2;
 
     std::vector<std::vector<float>> calib_cx;
     std::vector<std::vector<float>> test_cx;
@@ -408,6 +408,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::vector<std::vector<float>> calib_nonconf;
     std::vector<std::vector<std::vector<faiss::idx_t>>> calib_preds;
     std::map<int, std::vector<int>> calib_groups;
+    std::vector<float> groups_boundaries;
 
     std::vector<std::vector<faiss::idx_t>> test_labels;
 
@@ -420,18 +421,19 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::vector<float> compute_difficulty_scores(
         const std::vector<std::vector<float>>& queries);
 
+    float cosine_similarity(const std::vector<float>& vec1, const std::vector<float>& vec2);
+
     std::pair<std::vector<std::vector<float>>,
               std::vector<std::vector<std::vector<faiss::idx_t>>>>
     compute_scores(float lamhat, const std::vector<std::vector<float>>& queries,
                    const std::vector<float>& diff_scores);
 
     std::map<int, std::vector<int>> partition_by_difficulty(
-        const std::vector<float>& diff_scores, int n_groups = 5);
+        const std::vector<float>& diff_scores, int n_groups);
 
     std::pair<std::vector<std::vector<faiss::idx_t>>, std::vector<int>>
     compute_predictions(
         float lambda, const std::vector<std::vector<float>>& queries,
-        const std::vector<float>& diffs,
         const std::vector<std::vector<float>>& nonconf,
         const std::vector<std::vector<std::vector<faiss::idx_t>>>& preds);
 
