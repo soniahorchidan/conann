@@ -3,10 +3,13 @@
 Originaly developed for faiss 1.5.2 here: [pkusys/Auncel](https://github.com/pkusys/Auncel/tree/main)
 Ported manually into faiss 1.9.2.
 
-Main changes in:
-Index
-IndexIVF
-eval/*
+### Status:
+broken
+
+### Main changes in:
+- Index
+- IndexIVF
+- eval/*
 
 # Faiss 1.9.2 README
 

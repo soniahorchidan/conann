@@ -906,16 +906,16 @@ void IndexIVF::search_preassigned(
                         size_t stops = t->require_acc[id_q]*12;
 
                         // NOTE(fabi): debug print
-                        std::cout << "simi vector: ";
-                        for (size_t index = 0; index < k; index++) {
-                            std::cout << simi[index] << " ";
-                        }
-                        std::cout << std::endl;
-                        std::cout << "idxi vector:";
-                        for (size_t index = 0; index < k; index++) {
-                            std::cout << idxi[index] << " ";
-                        }
-                        std::cout << std::endl;
+                        // std::cout << "simi vector: ";
+                        // for (size_t index = 0; index < k; index++) {
+                        //     std::cout << simi[index] << " ";
+                        // }
+                        // std::cout << std::endl;
+                        // std::cout << "idxi vector:";
+                        // for (size_t index = 0; index < k; index++) {
+                        //     std::cout << idxi[index] << " ";
+                        // }
+                        // std::cout << std::endl;
                         
                         if(metric_type == METRIC_L2){
                             for (size_t index = 0; index < k; index++){
@@ -974,13 +974,14 @@ void IndexIVF::search_preassigned(
                             for (size_t jk = 0; jk < k; jk++) {
                                 idx_t res_index = idxi[jk];
                                 if (idxi[jk] == t->train_I[j]) {
-                                    num_true_res = num_true_res + 1;
+                                    num_true_res++;
                                     break;
                                 }
                             }
                         }
-                        float hello = static_cast<float>(num_true_res) / static_cast<float>(k);
-                        float fnr = 1 - hello;
+                        float inter = static_cast<float>(num_true_res) / static_cast<float>(k);
+                        float fnr = 1 - inter;
+                        t->t_fnrs[id_q] = fnr;
 
 
                         float require_recall = t->require_acc[id_q];

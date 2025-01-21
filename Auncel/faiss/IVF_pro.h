@@ -103,6 +103,7 @@ public:
 
     float* t_recalls = nullptr;
 
+    float* t_fnrs = nullptr;
 
     float cur_rc;
 

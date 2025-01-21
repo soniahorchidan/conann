@@ -99,8 +99,8 @@ int main(int argc, char **argv) {
     else if(param1 == "sift1M"){
         db = "../../data/sift1M/sift_base.fvecs";
         query = "../../data/sift1M/sift_query.fvecs";
-        gtI = "../../data/sift1M/sift1M_gt_indices_k100.ivecs";
-        gtD = "../../data/sift1M/sift1M_gt_distances_k100.fvecs";
+        gtI = "../../data/sift1M/sift_gt_index.ivecs";
+        gtD = "../../data/sift1M/sift_gt_dis.fvecs";
         figureid = 9;
     }
     else if(param1 == "sift10M"){
@@ -112,17 +112,17 @@ int main(int argc, char **argv) {
     }
     else if(param1 == "deep10M"){
         figureid = 10;
-        db = "/workspace/data/deep/deep10M.fvecs";
-        query = "/workspace/data/deep/query.fvecs";
-        gtI = "/workspace/data/deep/idx.ivecs";
-        gtD = "/workspace/data/deep/dis.fvecs";
+        db = "../../data/deep/deep10M.fvecs";
+        query = "../../data/deep/query.fvecs";
+        gtI = "../../data/deep/idx.ivecs";
+        gtD = "../../data/deep/dis.fvecs";
     }
     else if(param1 == "gist"){
         figureid = 11;
-        db = "/workspace/data/gist/gist1M.fvecs";
-        query = "/workspace/data/gist/query.fvecs";
-        gtI = "/workspace/data/gist/idx.ivecs";
-        gtD = "/workspace/data/gist/dis.fvecs";
+        db = "../../data/gist/gist1M.fvecs";
+        query = "../../data/gist/query.fvecs";
+        gtI = "../../data/gist/gist_gt_indices_k100.ivecs";
+        gtD = "../../data/gist/gist_gt_distances_k100.fvecs";
     }
     else if(param1 == "spacev"){
         db = "/workspace/data/spacev/spacev10M.fvecs";
@@ -150,7 +150,40 @@ int main(int argc, char **argv) {
 
 	omp_set_num_threads(16);
     double t0 = elapsed();
-    
+
+
+    // {
+    //     // FOR DEBUG
+    //     printf("[%.3f s] Loading ground truth queries for debug\n");
+    //     size_t k;                // nb of results per query in the GT
+    //     faiss::idx_t* gt; // nq * k matrix of ground-truth nearest-neighbors
+    //     // CHANGED TO
+    //     // faiss::idx_t* gt; // nq * k matrix of ground-truth nearest-neighbors
+    //     //        elapsed() - t0,
+    //     //        nq);
+
+    //     // load ground-truth and convert int to long
+    //     size_t nq2;
+    //     int* gt_int = ivecs_read(gtI.c_str(), &k, &nq2);
+    //     // assert(nq2 == nq || !"incorrect nb of ground truth entries");
+
+    //     // gt = new faiss::Index::idx_t[k * nq];
+    //     // CHANGED TO
+    //     gt = new faiss::idx_t[k * nq2];
+    //     for (int i = 0; i < k * nq2; i++) {
+    //         gt[i] = gt_int[i];
+    //     }
+    //     delete[] gt_int;
+
+    //     // Print the first 20 elements of the gt_int array
+    //     std::cout << "First 20 elements of gt_int array: ";
+    //     for (int i = 0; i < 20 && i < k * nq2; i++) {
+    //         std::cout << gt_int[i] << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
+    // exit(0);
+
     // this is typically the fastest one.
     const char* index_key = "IVF1024,Flat";
 
@@ -321,7 +354,8 @@ int main(int argc, char **argv) {
             outfile.open(filename);
             for(int i = ts;i < (ts+ses); i++){
                 outfile << acc[i] << " ";
-                outfile << ix->t->t_recalls[i];
+                outfile << ix->t->t_recalls[i] << " ";
+                outfile << ix->t->t_fnrs[i] << " ";
                 outfile << std::endl;
             }
         }
