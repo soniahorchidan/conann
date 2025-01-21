@@ -1,3 +1,4 @@
+#
 # Ignore build artifacts from any directory level
 
 # Object files
@@ -48,3 +49,6 @@ data/*
 
 # results
 *.log
+
+# do not ignore logs in result file
+!results/**/*.log
