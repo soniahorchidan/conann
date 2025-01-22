@@ -148,6 +148,12 @@ int main(int argc, char **argv) {
         gtI = "../data/gist/idx.ivecs";
         gtD = "../data/gist/dis.fvecs";
     }
+    else if(param1 == "glove"){
+        db = "../data/glove/db.fvecs";
+        query = "../data/glove/queries.fvecs";
+        gtI = "../data/glove/indices-100.fvecs";
+        gtD = "../data/glove/distances-100.fvecs";
+    }
     else{
         printf("Your dataset name is illegal\n");
         return 0;
@@ -169,17 +175,16 @@ int main(int argc, char **argv) {
         size_t nt;
         float* xt = fvecs_read(db.c_str(), &d, &nt);
 
-        // TODO(sonia): training dataset size. increase if needed. 
-        // nt = 20000;
-
         printf("[%.3f s] Preparing index \"%s\" d=%ld\n",
                elapsed() - t0,
                index_key,
                d);
 
+        int nlist = 1024;   // 1024 as per index_key
+        if (param1 == "bert") {
+            nlist = 128;
+        }
 
-        int nlist = 100;   // 1024 as per index_key
-        // printf("WARNING[ConANN]: hardcoded nlist to %d for testing purposes.\n", nlist);
         faiss::IndexFlatL2* flat_index = new faiss::IndexFlatL2(d);
         index = new faiss::IndexIVFFlat(flat_index, d, nlist, faiss::METRIC_L2);
 
@@ -253,33 +258,6 @@ int main(int argc, char **argv) {
         assert(kk == k || !"gt distances does not have same dimension as gt IDs");
         assert(nq3 == nq || !"incorrect nb of ground truth entries");
     }
-
-    // printf("[%.3f s] ConANN Calibration\n", elapsed() - t0);
-    // auto lamhat = index->calibrate(alpha, k, xq, nq, gt);
-    // printf("[%.3f s] ConANN Evaluation\n", elapsed() - t0);
-    // auto [fnr, cls] = index->evaluate_test(lamhat);
-    // std::cout << "alpha=" << alpha << ": lamhat= " << lamhat
-    //           << ", test fnr=" << computeAverage(fnr)
-    //           << ", avg cls searched=" << computeAverage(cls) << std::endl;
-
-    // alpha = 0.1;
-    // printf("[%.3f s] ConANN Calibration\n", elapsed() - t0);
-    // lamhat = index->calibrate(alpha, k, xq, nq, gt);
-    // printf("[%.3f s] ConANN Evaluation\n", elapsed() - t0);
-    // auto [fnr2, cls2] = index->evaluate_test(lamhat);
-    // std::cout << "alpha=" << alpha << ": lamhat= " << lamhat
-    //           << ", test fnr=" << computeAverage(fnr2)
-    //           << ", avg cls searched=" << computeAverage(cls2) << std::endl;
-
-    // alpha = 0.2;
-    // printf("[%.3f s] ConANN Calibration\n", elapsed() - t0);
-    // lamhat = index->calibrate(alpha, k, xq, nq, gt);
-    // printf("[%.3f s] ConANN Evaluation\n", elapsed() - t0);
-    // auto [fnr3, cls3] = index->evaluate_test(lamhat);
-    // std::cout << "alpha=" << alpha << ": lamhat= " << lamhat
-    //           << ", test fnr=" << computeAverage(fnr3)
-    //           << ", avg cls searched=" << computeAverage(cls3) << std::endl;
-
 
     printf("[%.3f s] ConANN Mondrian Calibration\n", elapsed() - t0);
     auto lamhat = index->calibrate_mondrian(alpha, k, xq, nq, gt);

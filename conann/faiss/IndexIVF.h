@@ -398,7 +398,7 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     // TODO(sonia): do not hardcode
     int K;
-    int NUM_MONDRIAN_BINS = 2;
+    int NUM_MONDRIAN_BINS = 5;
 
     std::vector<std::vector<float>> calib_cx;
     std::vector<std::vector<float>> test_cx;
