@@ -48,3 +48,6 @@ data/*
 
 # results
 *.log
+
+# indexes
+conann/eval/trained_index/

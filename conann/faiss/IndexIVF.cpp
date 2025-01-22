@@ -1901,7 +1901,9 @@ void IndexIVF::search_preassigned_with_error_quantification(
                         nonconf_list[i].push_back(1.0);
                         all_preds_list[i].push_back(idxi_copy);
                     } else {
-                        score_k = score_k / MAX_DISTANCE * diff_scores[i];
+                        score_k = score_k / MAX_DISTANCE * diff_scores[i]; // GOOD: avg nprobe=15.31 for GIST
+                        // int w = 0.2;
+                        // score_k = (1 - w) * (score_k / MAX_DISTANCE) + w * diff_scores[i];
                         nonconf_list[i].push_back(score_k);
                         all_preds_list[i].push_back(idxi_copy);
 

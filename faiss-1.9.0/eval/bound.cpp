@@ -161,24 +161,35 @@ size_t inter_sec(size_t max_topk, const float *gt, size_t topk, const float *I, 
     return res;
 }
 
-float calculate_fnr(const faiss::idx_t* query_indices, const faiss::idx_t* ground_truth, size_t nq_sampled, size_t k) {
-    int false_negatives = 0;
-    for (size_t i = 0; i < nq_sampled; i++) {
+std::pair<float, std::vector<float>> calculate_fnr(
+    const faiss::idx_t* query_indices, 
+    const faiss::idx_t* ground_truth, 
+    size_t nq_sampled, 
+    size_t k) {
+    int total_false_negatives = 0;
+    std::vector<float> fnrs_per_query(nq_sampled);
 
+    for (size_t i = 0; i < nq_sampled; i++) {
         // Create sets for the current query and ground truth
         std::unordered_set<faiss::idx_t> query_set(query_indices + i * k, query_indices + (i + 1) * k);
         std::unordered_set<faiss::idx_t> gt_set(ground_truth + i * k, ground_truth + (i + 1) * k);
 
         int local_fn = 0;
         // Measure the intersection between query set and ground truth set
-        for (auto& gt_idx : gt_set) {
+        for (const auto& gt_idx : gt_set) {
             if (query_set.find(gt_idx) == query_set.end()) {
-                false_negatives++;
+                local_fn++;
             }
         }
+
+        fnrs_per_query[i] = static_cast<float>(local_fn) / k;
+        total_false_negatives += local_fn;
     }
-    return (float) false_negatives / (nq_sampled * k);
+
+    float overall_fnr = static_cast<float>(total_false_negatives) / (nq_sampled * k);
+    return {overall_fnr, fnrs_per_query};
 }
+
 
 
 int main(int argc,char **argv) {
@@ -200,10 +211,10 @@ int main(int argc,char **argv) {
     std::string db, query, gtI, gtD;
 
     if(p1 == "sift1M"){
-        db = "/workspace/data/sift/sift1M.fvecs";
-        query = "/workspace/data/sift/1M_query.fvecs";
-        gtI = "/workspace/data/sift/idx_1M.ivecs";
-        gtD = "/workspace/data/sift/dis_1M.fvecs";
+        db = "../data/sift1M/sift1M.fvecs";
+        query = "../data/sift1M/1M_query.fvecs";
+        gtI = "../data/sift1M/idx_1M.ivecs";
+        gtD = "../data/sift1M/dis_1M.fvecs";
     } else if (p1 == "bert") {
         db = "../data/bert/db.fvecs";
         query = "../data/bert/queries.fvecs";
@@ -257,17 +268,9 @@ int main(int argc,char **argv) {
     // this is typically the fastest one.
     const char* index_key = "IVF1024,Flat";
 
-    // these ones have better memory usage
-    // const char *index_key = "Flat";
-    // const char *index_key = "PQ32";
-    // const char *index_key = "PCA80,Flat";
-    // const char *index_key = "IVF4096,PQ8+16";
-    // const char *index_key = "IVF4096,PQ32";
-    // const char *index_key = "IMI2x8,PQ32";
-    // const char *index_key = "IMI2x8,PQ8+16";
-    // const char *index_key = "OPQ16_64,IMI2x8,PQ8+16";
-
     faiss::IndexIVFFlat* index;
+
+    std::cout << "[[[WARNING]]] INPUT K NOT USED; DEFAULTS TO 100!\n\n";
 
     size_t d;
     int nlist = 100;   // as per index_key
@@ -282,11 +285,6 @@ int main(int argc,char **argv) {
                elapsed() - t0,
                index_key,
                d);
-        // TODO(sonia): text
-        // if (p1 == "text")
-        //     index = faiss::index_factory(d, index_key, faiss::METRIC_INNER_PRODUCT);
-        // else
-        //    index = faiss::index_factory(d, index_key);
 
         printf("WARNING[ConANN]: hardcoded nlist to %d for testing purposes.\n", nlist);
         faiss::IndexFlatL2* flat_index = new faiss::IndexFlatL2(d);
@@ -363,121 +361,6 @@ int main(int argc,char **argv) {
     std::string selected_params;
     FAISS_ASSERT(nq == trains + tests);
 
-    // { // run auto-tuning
-
-    //     printf("[%.3f s] Preparing auto-tune with k=%ld nq=%ld\n",
-    //            elapsed() - t0,
-    //            k,
-    //            trains);
-
-    //     faiss::IntersectionCriterion crit(trains, input_k);
-    //     crit.set_groundtruth(k, nullptr, gt);
-    //     crit.nnn = k; // by default, the criterion will request only 1 NN
-
-    //     printf("[%.3f s] Preparing auto-tune parameters\n", elapsed() - t0);
-
-    //     faiss::ParameterSpace params;
-    //     params.initialize(index);
-
-    //     printf("[%.3f s] Auto-tuning over %ld parameters (%ld combinations)\n",
-    //            elapsed() - t0,
-    //            params.parameter_ranges.size(),
-    //            params.n_combinations());
-
-    //     faiss::OperatingPoints ops;
-    //     params.explore(index, trains, xq, crit, &ops);
-
-    //     printf("[%.3f s] Found the following operating points: \n",
-    //            elapsed() - t0);
-
-    //     // ops.display(); //
-
-    //     // keep the first parameter that obtains > 0.5 1-recall@1
-    //     int ind = 0;
-    //     for (; ind < ops.optimal_pts.size(); ind++) {
-    //         if (ops.optimal_pts[ind].perf >= (1 - error_bound)) {
-    //             selected_params = ops.optimal_pts[ind].key;
-    //             printf("[%.3f s] Optimal found: ",elapsed() - t0);
-    //             std::cout << ops.optimal_pts[ind].key << "\n";
-    //             break;
-    //         }
-    //     }
-    //     assert(selected_params.size() >= 0 ||
-    //            !"could not find good enough op point");
-    // }
-
-    // { // Use the found configuration to perform a search
-
-    //     faiss::ParameterSpace params;
-
-    //     params.set_index_parameters(index, selected_params.c_str());
-
-    //     printf("[%.3f s] Perform parameter search on %ld queries according to Auncel\n",
-    //            elapsed() - t0,
-    //            tests);
-
-    //     // output buffers
-    //     omp_set_num_threads(1);
-
-    //     faiss::idx_t* I = new faiss::idx_t[tests * input_k];
-    //     float* D = new float[tests * input_k];
-
-    //     // if(DC(faiss::IndexIVF)){
-    //     //     // ix->nprobe = ix->nlist / 2;
-    //     //     ix -> nprobe = 300;
-    //     // }
-
-    //     std::vector<double> perf;
-    //     for (int i = 0; i < tests; i++) {
-    //         auto tt0 = elapsed();
-    //         index->search(1, xq + d * trains + d * i, input_k, D + i * input_k, I + i * input_k);
-    //         auto tt1 = elapsed();
-    //         perf.push_back(tt1 - tt0);
-    //     }
-
-    //     printf("[%.3f s] Compute Bound Error\n", elapsed() - t0);
-
-    //     int type = 0;
-    //     if (p1 == "text")
-    //         type = 1;
-
-    //     float minf = 1.;
-    //     std::vector<float> error_per_query;
-
-    //     for (int i = trains; i < tests + trains; i++) {
-    //         float query_error = inter_sec(k, &gt_D[i * 100], 
-    //                               input_k, D + (i - trains) * input_k , type) / float(input_k);
-    //         minf = std::min(minf, query_error);
-    //         error_per_query.push_back(query_error);
-    //     }
-
-    //     float sum = 0.;
-    //     int count = 0;
-    //     for (int i = trains; i < tests + trains; i++) {
-    //         sum += inter_sec(k, &gt_D[i * 100], 
-    //                         input_k, D + (i - trains) * input_k , type) / float(input_k);
-    //         count++;
-    //     }
-    //     float avg = sum / count;
-    //     printf("[%.3f s] Got average error %.6f\n", elapsed() - t0, avg);
-
-
-    //     // Output the latency to file
-    //     std::stringstream fn;
-    //     fn<<"Faiss_Latency_Error" << "_" << p1 << "_" << input_k << "_" << int(error_bound*100) <<".log";
-    //     std::string filename = fn.str();
-
-    //     std::ofstream outfile;
-    //     outfile.open(filename);
-    //     for(int i = 0;i < tests; i++){
-    //         outfile << perf[i] << "\t" << error_per_query[i] << std::endl;
-    //     }
-    //     outfile.close();
-
-    //     delete[] I;
-    //     delete[] D;
-    // }
-
     {
         printf("[%.3f s] Perform parameter search on %ld queries according to ConANN\n",
                elapsed() - t0,
@@ -515,11 +398,11 @@ int main(int argc,char **argv) {
             index->search(nq_sampled, sampled_queries, k, D.data(), I.data());
 
             // Calculate average FNR
-            float avg_fnr = calculate_fnr(I.data(), sampled_gt, nq_sampled, k);
-            printf("Average FNR = %.5f\n", avg_fnr);
+            auto [avg_fnr, all_fnrs] = calculate_fnr(I.data(), sampled_gt, nq_sampled, k);
+            printf("[%.3f s] Average FNR = %.5f\n", elapsed() - t0, avg_fnr);
 
             if (avg_fnr <= error_bound) {
-                printf("Stopping search at nprobe = %ld with FNR = %.5f\n", nprobe, avg_fnr);
+                printf("[%.3f s] Stopping search at nprobe = %ld with FNR = %.5f\n", elapsed() - t0, nprobe, avg_fnr);
                 optimal_nprobe = nprobe;
                 break;
             }
@@ -527,10 +410,10 @@ int main(int argc,char **argv) {
 
         delete[] sampled_queries;
 
-        printf("[%.3f s] Evalauting on %ld queries according to ConANN\n",
+        printf("[%.3f s] Evaluating on %ld queries according to ConANN\n",
                elapsed() - t0,
                tests);
-        size_t nq_remaining = tests - nq_sampled;
+        size_t nq_remaining = nq - nq_sampled;
         std::vector<size_t> remaining_indices(nq_remaining);
         std::iota(remaining_indices.begin(), remaining_indices.end(), nq_sampled);
         std::shuffle(remaining_indices.begin(), remaining_indices.end(), std::mt19937{std::random_device{}()});
@@ -555,12 +438,25 @@ int main(int argc,char **argv) {
         index->search(nq_remaining, remaining_queries, k, D_remaining.data(), I_remaining.data());
 
         // Calculate and print FNR for remaining queries
-        float avg_fnr_remaining = calculate_fnr(I_remaining.data(), remaining_gt, nq_remaining, k);
-        printf("Average FNR for remaining queries = %.5f\n", avg_fnr_remaining);
+        auto [avg_fnr, all_fnrs] = calculate_fnr(I_remaining.data(), remaining_gt, nq_remaining, k);
+        printf("Average FNR for remaining queries = %.5f\n", avg_fnr);
 
         delete[] remaining_queries;
         delete[] remaining_gt;
         delete[] remaining_gt_D;
+
+        std::ostringstream file_name;
+        file_name << "../Faiss_effective_error_" << p1 << "_" << input_k << "_" << error_bound << ".log";
+        std::ofstream log_file(file_name.str());
+        if (!log_file.is_open()) {
+            throw std::ios_base::failure("Failed to open log file.");
+        }
+
+        for (const auto& fnr : all_fnrs) {
+            log_file << fnr << "\n";
+        }
+
+        log_file.close();
     }
 
     delete[] xq;

@@ -118,13 +118,7 @@ int main(int argc, char **argv) {
     //     return 0;
     // }
     std::string db, query, gtI, gtD;
-    if(param1 == "sift10k"){
-        db = "../data/sift10k/siftsmall_base.fvecs";
-        query = "../data/sift10k/siftsmall_query.fvecs";
-        gtI = "../data/sift10k/sift10k_gt_indices_k100.ivecs";
-        gtD = "../data/sift10k/sift10k_gt_distances_k100.fvecs";
-    }
-    else if (param1 == "bert") {
+    if (param1 == "bert") {
         db = "../data/bert/db.fvecs";
         query = "../data/bert/queries.fvecs";
         gtI = "../data/bert/indices.fvecs";
@@ -143,10 +137,10 @@ int main(int argc, char **argv) {
         gtD = "/workspace/data/sift/sift10M/dis.fvecs";
     }
     else if(param1 == "deep10M"){
-        db = "/workspace/data/deep/deep10M.fvecs";
-        query = "/workspace/data/deep/query.fvecs";
-        gtI = "/workspace/data/deep/idx.ivecs";
-        gtD = "/workspace/data/deep/dis.fvecs";
+        db = "../data/deep/deep10M.fvecs";
+        query = "../data/deep/query.fvecs";
+        gtI = "../data/deep/idx.ivecs";
+        gtD = "../data/deep/dis.fvecs";
     }
     else if(param1 == "gist"){
         db = "../data/gist/gist_base.fvecs";

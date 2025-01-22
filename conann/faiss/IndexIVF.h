@@ -392,7 +392,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     IndexIVF();
 
     // ConANN block
-    float MAX_DISTANCE = 200;  // maybe redundant
+    float MAX_DISTANCE = 100000;  // maybe redundant
     int n_list;                // redundant
     std::vector<std::vector<float>> centroids;
 
