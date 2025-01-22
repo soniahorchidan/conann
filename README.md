@@ -1,12 +1,12 @@
-# Structure:
+# Roadmap:
 
-./conann <- ConANN integrated into faiss1.9
+- [ ] run current Mondrian implementation on DEEP1M dataset to test larger calibration size
+- [ ] generate ground truths for GLOVE
+- [ ] [optional] extend GTs for GIST
+- [ ] generate GTs for k=1000 for all datasets
+- [ ] think about variable k - can optimization for larger k subsume smaller k?
+- [ ] setup scripts to run all experiments
 
-./faiss <- faiss1.9
-
-./LAET // optional
-
-./Auncel <- ported to faiss 1.9
 
 
 # How to build without GPU
