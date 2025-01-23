@@ -1,5 +1,5 @@
 #!/bin/sh
 
-# ./build/eval/bound gist 500 500 100 0.1
+# ./build/eval/error bert_10 0.6 0.05 5
 
-./build/eval/bound bert 500 500 100 0.1
+./build/eval/latency bert_10 0.05 0.1 5
