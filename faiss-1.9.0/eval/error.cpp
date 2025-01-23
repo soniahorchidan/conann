@@ -70,12 +70,6 @@ double elapsed() {
     return tv.tv_sec + tv.tv_usec * 1e-6;
 }
 
-template <typename T> double computeAverage(const std::vector<T> &numbers) {
-    if (numbers.empty())
-        return 0.0;
-    double sum = std::accumulate(numbers.begin(), numbers.end(), 0.0);
-    return sum / numbers.size();
-}
 
 template <typename T>
 void write_to_file(const std::vector<T> &data, const std::string &filename) {
@@ -86,26 +80,48 @@ void write_to_file(const std::vector<T> &data, const std::string &filename) {
     file.close();
 }
 
-/// Command like this: ./error sift1M 0.5 0.1 5
+std::pair<float, std::vector<float>> calculate_fnr(
+    const faiss::idx_t* query_indices, 
+    const faiss::idx_t* ground_truth, 
+    size_t nq_sampled, 
+    size_t k) {
+    int total_false_negatives = 0;
+    std::vector<float> fnrs_per_query(nq_sampled);
+
+    for (size_t i = 0; i < nq_sampled; i++) {
+        // Create sets for the current query and ground truth
+        std::unordered_set<faiss::idx_t> query_set(query_indices + i * k, query_indices + (i + 1) * k);
+        std::unordered_set<faiss::idx_t> gt_set(ground_truth + i * k, ground_truth + (i + 1) * k);
+
+        int local_fn = 0;
+        // Measure the intersection between query set and ground truth set
+        for (const auto& gt_idx : gt_set) {
+            if (query_set.find(gt_idx) == query_set.end()) {
+                local_fn++;
+            }
+        }
+
+        fnrs_per_query[i] = static_cast<float>(local_fn) / k;
+        total_false_negatives += local_fn;
+    }
+
+    float overall_fnr = static_cast<float>(total_false_negatives) / (nq_sampled * k);
+    return {overall_fnr, fnrs_per_query};
+}
+
+/// Command like this: ./error sift1M 0.5 0.1
 int main(int argc, char **argv) {
     std::cout << argc << " arguments" << std::endl;
-    if (argc - 1 != 4) {
+    if (argc - 1 != 3) {
         printf("You should at least input 4 params: the dataset name, calib "
-               "size percentage, alpha, num mondrian bins\n");
+               "size percentage, alpha\n");
         return 0;
     }
     std::string param1 = argv[1];
     std::string param2 = argv[2];
     std::string param3 = argv[3];
-    std::string param4 = argv[4];
     float calib_sz = std::stof(param2);
     float alpha = std::stof(param3);
-    int num_bins = std::stoi(param4);
-
-    float max_distance;
-
-    float bert_max_dist = 200;
-    float sift_max_dist = 100000;
 
     std::string db, query, gtI, gtD;
     if (param1 == "bert_10") {
@@ -113,25 +129,21 @@ int main(int argc, char **argv) {
         query = "../data/bert/queries.fvecs";
         gtI = "../data/bert/indices-10.fvecs";
         gtD = "../data/bert/distances-10.fvecs";
-        max_distance = bert_max_dist;
     } else if (param1 == "bert_100") {
         db = "../data/bert/db.fvecs";
         query = "../data/bert/queries.fvecs";
         gtI = "../data/bert/indices-100.fvecs";
         gtD = "../data/bert/distances-100.fvecs";
-        max_distance = bert_max_dist;
     } else if (param1 == "bert_1000") {
         db = "../data/bert/db.fvecs";
         query = "../data/bert/queries.fvecs";
         gtI = "../data/bert/indices-1000.fvecs";
         gtD = "../data/bert/distances-1000.fvecs";
-        max_distance = bert_max_dist;
     } else if (param1 == "sift1M") {
         db = "../data/sift1M/sift1M.fvecs";
         query = "../data/sift1M/1M_query.fvecs";
         gtI = "../data/sift1M/idx_1M.ivecs";
         gtD = "../data/sift1M/dis_1M.fvecs";
-        max_distance = sift_max_dist;
     } else if (param1 == "sift10M") {
         db = "/workspace/data/sift/sift10M/sift10M.fvecs";
         query = "/workspace/data/sift/sift10M/query.fvecs";
@@ -167,6 +179,11 @@ int main(int argc, char **argv) {
 
     size_t d;
 
+    int nlist = 1024; // 1024 as per index_key
+    if (param1.find("bert") != std::string::npos) {
+        nlist = 128;
+    }
+
     {
         printf("[%.3f s] Loading train set\n", elapsed() - t0);
 
@@ -175,11 +192,6 @@ int main(int argc, char **argv) {
 
         printf("[%.3f s] Preparing index \"%s\" d=%ld\n", elapsed() - t0,
                index_key, d);
-
-        int nlist = 1024; // 1024 as per index_key
-        if (param1.find("bert") != std::string::npos) {
-            nlist = 128;
-        }
 
         faiss::IndexFlatL2 *flat_index = new faiss::IndexFlatL2(d);
         index = new faiss::IndexIVFFlat(flat_index, d, nlist, faiss::METRIC_L2);
@@ -251,32 +263,88 @@ int main(int argc, char **argv) {
         assert(nq3 == nq || !"incorrect nb of ground truth entries");
     }
 
-    printf("[%.3f s] ConANN Mondrian Calibration\n", elapsed() - t0);
-    auto lamhat = index->calibrate_mondrian(alpha, k, calib_sz, xq, nq, gt,
-                                            max_distance, num_bins);
-    printf("[%.3f s] ConANN Mondrian Evaluation\n", elapsed() - t0);
-    auto [fnr, cls] = index->evaluate_test_mondrian(lamhat);
-    std::cout << "alpha=" << alpha << ", test fnr=" << computeAverage(fnr)
-              << ", avg cls searched=" << computeAverage(cls) << std::endl;
 
-    std::ostringstream fnr_filename;
-    fnr_filename << "../ConANN_effective_error_ds==" << param1 << "_k=" << k 
-                << "_alpha=" << alpha << "_numbins=" << num_bins << ".log"; 
+    float* gt_D;
 
-    write_to_file(fnr, fnr_filename.str());
+    {
+        printf("[%.3f s] Loading ground truth distance for %ld queries\n",
+               elapsed() - t0,
+               nq);
 
-    std::ostringstream cls_filename;
+        // load ground-truth and convert int to long
+        size_t nq2;
+        gt_D = fvecs_read(gtD.c_str(), &k, &nq2);
+        assert(nq2 == nq || !"incorrect nb of ground truth entries");
+    }
 
-    cls_filename << "../ConANN_cls_ds=" << param1 << "_k=" << k << "_alpha=" 
-                 << alpha << "_numbins=" << num_bins << ".log"; 
+        auto calib_nq = size_t((1 - calib_sz) * nq);
+                int optimal_nprobe = 0;
+
+    {
+
+        printf("[%.3f s] Perform parameter search on %ld queries\n",
+               elapsed() - t0, calib_nq);
 
 
+        // Iterate over nprobe values
+        for (size_t nprobe = 1; nprobe <= nlist; nprobe++) {
+            index->nprobe = nprobe;
+            printf("[%.3f s] Testing nprobe = %ld\n", elapsed() - t0, nprobe);
 
-    write_to_file(cls, cls_filename.str());
+            // Perform knn search
+            std::vector<faiss::idx_t> I(nq * k);
+            std::vector<float> D(nq * k);
+            index->search(calib_nq, xq, k, D.data(), I.data());
+
+            // Calculate average FNR
+            auto [avg_fnr, all_fnrs] = calculate_fnr(I.data(), gt, calib_nq, k);
+            printf("[%.3f s] Average FNR = %.5f\n", elapsed() - t0, avg_fnr);
+
+            if (avg_fnr <= alpha) {
+                printf("[%.3f s] Stopping search at nprobe = %ld with FNR = %.5f\n", elapsed() - t0, nprobe, avg_fnr);
+                optimal_nprobe = nprobe;
+                break;
+            }
+        }
+    }
+
+    {
+        size_t nq_remaining = nq - calib_nq;
+
+             printf("[%.3f s] Evaluating on %ld queries according to ConANN\n",
+               elapsed() - t0,
+               nq_remaining);
+
+        // Perform knn search with optimal nprobe on the remaining queries
+        index->nprobe = optimal_nprobe;
+        std::vector<faiss::idx_t> I_remaining(nq_remaining * k);
+        std::vector<float> D_remaining(nq_remaining * k);
+
+        index->search(nq_remaining, xq + calib_nq * d, k, D_remaining.data(), I_remaining.data());
+
+        // Calculate and print FNR for remaining queries
+        auto [avg_fnr, all_fnrs] = calculate_fnr(I_remaining.data(), gt + calib_nq * k, nq_remaining, k);
+        printf("Average FNR for remaining queries = %.5f\n", avg_fnr);
+
+        std::ostringstream file_name;
+        file_name << "../Faiss_effective_error_ds=" << param1 << "_k=" << k << "_alpha=" << alpha << ".log";
+        std::ofstream log_file(file_name.str());
+        if (!log_file.is_open()) {
+            throw std::ios_base::failure("Failed to open log file.");
+        }
+
+        for (const auto& fnr : all_fnrs) {
+            log_file << fnr << "\n";
+        }
+
+        log_file.close();
+
+    }
+
 
     delete[] xq;
     delete[] gt;
-    delete[] gt_v;
+    delete[] gt_D;
     delete index;
     return 0;
 }
