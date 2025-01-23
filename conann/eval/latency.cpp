@@ -87,48 +87,56 @@ void write_to_file(const std::vector<T>& data, const std::string& filename) {
     file.close();
 }
 
-std::string generate_filename(const std::string& dataset_name, float lamhat_value, int k, const std::string& suffix) {
-    std::ostringstream filename;
-    filename << "./results/" << dataset_name << "_" 
-             << std::fixed << std::setprecision(2) << lamhat_value 
-             << "_" << k << "_" << suffix << ".txt";
-    return filename.str();
-}
 
-/// Command like this: ./knn_script sift1M 100 2000 8000 0.1
+/// Command like this: ./error sift1M 0.5 0.1 5
 int main(int argc, char **argv) {
     std::cout << argc << " arguments" <<std::endl;
-    if(argc - 1 != 5){
-        printf("You should at least input 5 params: the dataset name, topk, train size, query size, alpha\n");
+    if(argc - 1 != 4){
+        printf("You should at least input 4 params: the dataset name, calib size percentage, alpha, num mondrian bins\n");
         return 0;
     }
     std::string param1 = argv[1];
     std::string param2 = argv[2];
-    std::string p3 = argv[3];
-    std::string p4 = argv[4];
-    std::string p5 = argv[5];
-
+    std::string param3 = argv[3];
+    std::string param4 = argv[4];
     int input_k = std::stoi(param2);
-    int ts = std::stoi(p3);
-    int ses = std::stoi(p4);
-    float alpha = std::stof(p5);
+    float calib_sz = std::stof(param2);
+    float alpha = std::stof(param3);
+    int num_bins = std::stoi(param4);
 
-    // if(input_k>100 || input_k <0){
-    //     printf("Input topk must be lower than or equal to 100 and greater than 0\n");
-    //     return 0;
-    // }
+    float max_distance; 
+
+    float bert_max_dist = 200;
+    float sift_max_dist = 100000;
+
     std::string db, query, gtI, gtD;
-    if (param1 == "bert") {
+    if (param1 == "bert_10") {
         db = "../data/bert/db.fvecs";
         query = "../data/bert/queries.fvecs";
-        gtI = "../data/bert/indices.fvecs";
-        gtD = "../data/bert/distances.fvecs";
-    }  
+        gtI = "../data/bert/indices-10.fvecs";
+        gtD = "../data/bert/distances-10.fvecs";
+        max_distance = bert_max_dist;
+    }
+    else if (param1 == "bert_100") {
+        db = "../data/bert/db.fvecs";
+        query = "../data/bert/queries.fvecs";
+        gtI = "../data/bert/indices-100.fvecs";
+        gtD = "../data/bert/distances-100.fvecs";
+        max_distance = bert_max_dist;
+    }
+    else if (param1 == "bert_1000") {
+        db = "../data/bert/db.fvecs";
+        query = "../data/bert/queries.fvecs";
+        gtI = "../data/bert/indices-1000.fvecs";
+        gtD = "../data/bert/distances-1000.fvecs";
+        max_distance = bert_max_dist;
+    }   
     else if(param1 == "sift1M"){
         db = "../data/sift1M/sift1M.fvecs";
         query = "../data/sift1M/1M_query.fvecs";
         gtI = "../data/sift1M/idx_1M.ivecs";
         gtD = "../data/sift1M/dis_1M.fvecs";
+        max_distance = sift_max_dist;
     }
     else if(param1 == "sift10M"){
         db = "/workspace/data/sift/sift10M/sift10M.fvecs";
@@ -149,17 +157,17 @@ int main(int argc, char **argv) {
         gtD = "../data/gist/dis.fvecs";
     }
     else if(param1 == "glove"){
-        db = "../data/glove/glove_base.fvecs";
-        query = "../data/glove/glove_query.fvecs";
-        gtI = "../data/glove/idx.ivecs";
-        gtD = "../data/glove/dis.fvecs";
+        db = "../data/glove/db.fvecs";
+        query = "../data/glove/queries.fvecs";
+        gtI = "../data/glove/indices-100.fvecs";
+        gtD = "../data/glove/distances-100.fvecs";
     }
     else{
         printf("Your dataset name is illegal\n");
         return 0;
     }
 
-	omp_set_num_threads(16);
+	omp_set_num_threads(12);
     double t0 = elapsed();
     
     // this is typically the fastest one.
@@ -181,7 +189,7 @@ int main(int argc, char **argv) {
                d);
 
         int nlist = 1024;   // 1024 as per index_key
-        if (param1 == "bert") {
+        if (param1.find("bert") != std::string::npos) {
             nlist = 128;
         }
 
@@ -190,14 +198,11 @@ int main(int argc, char **argv) {
 
         index->nprobe = nlist;
         
-        printf("[%.3f s] Training on %ld vectors\n", elapsed() - t0, nt);
+        auto ntt = size_t(0.5 * nt);
+        printf("[%.3f s] Training on %ld vectors\n", elapsed() - t0, ntt);
 
-        index->train(nt, xt);
+        index->train(ntt, xt);
         delete[] xt;
-        std::string filenameIn = "./eval/trained_index/";
-        filenameIn += param1;
-        filenameIn += "_IVF1024,Flat_trained.index";
-        faiss::write_index(index, filenameIn.c_str());
     }
 
     {
@@ -260,17 +265,20 @@ int main(int argc, char **argv) {
     }
 
     printf("[%.3f s] ConANN Mondrian Calibration\n", elapsed() - t0);
-    auto lamhat = index->calibrate_mondrian(alpha, k, xq, nq, gt);
+    auto lamhat = index->calibrate_mondrian(alpha, k, calib_sz, xq, nq, gt, max_distance, num_bins);
     printf("[%.3f s] ConANN Mondrian Evaluation\n", elapsed() - t0);
     auto [fnr, cls] = index->evaluate_test_mondrian(lamhat);
     std::cout << "alpha=" << alpha
               << ", test fnr=" << computeAverage(fnr)
               << ", avg cls searched=" << computeAverage(cls) << std::endl;
-    std::string fnr_filename = generate_filename(param1, alpha, input_k, "fnr_mon");
-    std::string cls_filename = generate_filename(param1, alpha, input_k, "cls_mon");
 
-    write_to_file(fnr, fnr_filename);
-    write_to_file(cls, cls_filename);
+    std::ostringstream fnr_filename;
+    fnr_filename << "../ConANN_effective_error_" << param1 << "_" << k << "_" << alpha << "_" << num_bins << ".log";
+    write_to_file(fnr, fnr_filename.str());
+
+    std::ostringstream cls_filename;
+    cls_filename << "../ConANN_cls_" << param1 << "_" << k << "_" << alpha << "_" << num_bins << ".log";
+    write_to_file(cls, cls_filename.str());
 
     delete[] xq;
     delete[] gt;

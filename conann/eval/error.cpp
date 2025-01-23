@@ -198,14 +198,12 @@ int main(int argc, char **argv) {
 
         index->nprobe = nlist;
         
-        printf("[%.3f s] Training on %ld vectors\n", elapsed() - t0, nt);
+        // train on half the dataset
+        auto ntt = size_t(0.5 * nt);
+        printf("[%.3f s] Training on %ld vectors\n", elapsed() - t0, ntt);
 
-        index->train(nt, xt);
+        index->train(ntt, xt);
         delete[] xt;
-        std::string filenameIn = "./eval/trained_index/";
-        filenameIn += param1;
-        filenameIn += "_IVF1024,Flat_trained.index";
-        faiss::write_index(index, filenameIn.c_str());
     }
 
     {
