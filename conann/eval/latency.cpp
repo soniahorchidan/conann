@@ -254,18 +254,13 @@ int main(int argc, char **argv) {
     printf("[%.3f s] ConANN Mondrian Calibration\n", elapsed() - t0);
     auto lamhat = index->calibrate_mondrian(alpha, k, calib_sz, xq, nq, gt,
                                             max_distance, num_bins);
-    printf("[%.3f s] ConANN Mondrian Evaluation\n", elapsed() - t0);
-
-    // auto [fnr, cls] = index->evaluate_test_mondrian(lamhat);
-
-    int MAX_TEST = 500;
-    int test_start_idx = size_t(calib_sz * nq) + 1;
+    int test_start_idx = size_t(calib_sz * nq);
+    
+    printf("[%.3f s] ConANN Mondrian Evaluation on %ld queries\n", elapsed() - t0, nq - test_start_idx);
     std::vector<double> latencies;
-    for (int i = test_start_idx; i < test_start_idx + MAX_TEST; ++i) {
+    for (int i = test_start_idx; i < nq; ++i) {
         // iterate one query at a time
-        int offset = i * k; 
-        const float* xi = xq + i * index->d; 
-
+        const float *xi = xq + i * index->d;
         std::vector<faiss::idx_t> nns(k);
         std::vector<float> dis(k);
 
@@ -275,9 +270,9 @@ int main(int argc, char **argv) {
     }
 
     std::ostringstream filename;
-    filename << "../ConANN_latency_ds=" << param1 << "_k=" << k << "_alpha=" << alpha << "_numbins=" << num_bins << ".log"; 
+    filename << "../ConANN-latency-" << param1 << "-" << k << "-" << alpha
+             << "-" << num_bins << ".log";
     write_to_file(latencies, filename.str());
-
 
     delete[] xq;
     delete[] gt;

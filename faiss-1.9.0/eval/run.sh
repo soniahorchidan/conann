@@ -6,6 +6,8 @@
 
 # ./build/eval/error bert_10 0.8 0.6
 
+# ./build/eval/error bert_10 0.5 0.8
+
 ./build/eval/latency bert_10 0.5 0.1
 
 # ./build/eval/bound bert 500 500 100 0.1

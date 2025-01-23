@@ -70,7 +70,6 @@ double elapsed() {
     return tv.tv_sec + tv.tv_usec * 1e-6;
 }
 
-
 template <typename T>
 void write_to_file(const std::vector<T> &data, const std::string &filename) {
     std::ofstream file(filename);
@@ -80,22 +79,22 @@ void write_to_file(const std::vector<T> &data, const std::string &filename) {
     file.close();
 }
 
-std::pair<float, std::vector<float>> calculate_fnr(
-    const faiss::idx_t* query_indices, 
-    const faiss::idx_t* ground_truth, 
-    size_t nq_sampled, 
-    size_t k) {
+std::pair<float, std::vector<float>>
+calculate_fnr(const faiss::idx_t *query_indices,
+              const faiss::idx_t *ground_truth, size_t nq_sampled, size_t k) {
     int total_false_negatives = 0;
     std::vector<float> fnrs_per_query(nq_sampled);
 
     for (size_t i = 0; i < nq_sampled; i++) {
         // Create sets for the current query and ground truth
-        std::unordered_set<faiss::idx_t> query_set(query_indices + i * k, query_indices + (i + 1) * k);
-        std::unordered_set<faiss::idx_t> gt_set(ground_truth + i * k, ground_truth + (i + 1) * k);
+        std::unordered_set<faiss::idx_t> query_set(query_indices + i * k,
+                                                   query_indices + (i + 1) * k);
+        std::unordered_set<faiss::idx_t> gt_set(ground_truth + i * k,
+                                                ground_truth + (i + 1) * k);
 
         int local_fn = 0;
         // Measure the intersection between query set and ground truth set
-        for (const auto& gt_idx : gt_set) {
+        for (const auto &gt_idx : gt_set) {
             if (query_set.find(gt_idx) == query_set.end()) {
                 local_fn++;
             }
@@ -105,7 +104,8 @@ std::pair<float, std::vector<float>> calculate_fnr(
         total_false_negatives += local_fn;
     }
 
-    float overall_fnr = static_cast<float>(total_false_negatives) / (nq_sampled * k);
+    float overall_fnr =
+        static_cast<float>(total_false_negatives) / (nq_sampled * k);
     return {overall_fnr, fnrs_per_query};
 }
 
@@ -263,13 +263,11 @@ int main(int argc, char **argv) {
         assert(nq3 == nq || !"incorrect nb of ground truth entries");
     }
 
-
-    float* gt_D;
+    float *gt_D;
 
     {
         printf("[%.3f s] Loading ground truth distance for %ld queries\n",
-               elapsed() - t0,
-               nq);
+               elapsed() - t0, nq);
 
         // load ground-truth and convert int to long
         size_t nq2;
@@ -277,14 +275,13 @@ int main(int argc, char **argv) {
         assert(nq2 == nq || !"incorrect nb of ground truth entries");
     }
 
-        auto calib_nq = size_t((1 - calib_sz) * nq);
-                int optimal_nprobe = 0;
+    auto calib_nq = size_t((1 - calib_sz) * nq);
+    int optimal_nprobe = 0;
 
     {
 
         printf("[%.3f s] Perform parameter search on %ld queries\n",
                elapsed() - t0, calib_nq);
-
 
         // Iterate over nprobe values
         for (size_t nprobe = 1; nprobe <= nlist; nprobe++) {
@@ -301,7 +298,9 @@ int main(int argc, char **argv) {
             printf("[%.3f s] Average FNR = %.5f\n", elapsed() - t0, avg_fnr);
 
             if (avg_fnr <= alpha) {
-                printf("[%.3f s] Stopping search at nprobe = %ld with FNR = %.5f\n", elapsed() - t0, nprobe, avg_fnr);
+                printf("[%.3f s] Stopping search at nprobe = %ld with FNR = "
+                       "%.5f\n",
+                       elapsed() - t0, nprobe, avg_fnr);
                 optimal_nprobe = nprobe;
                 break;
             }
@@ -311,36 +310,35 @@ int main(int argc, char **argv) {
     {
         size_t nq_remaining = nq - calib_nq;
 
-             printf("[%.3f s] Evaluating on %ld queries according to ConANN\n",
-               elapsed() - t0,
-               nq_remaining);
+        printf("[%.3f s] Evaluating on %ld queries\n", elapsed() - t0, nq_remaining);
 
         // Perform knn search with optimal nprobe on the remaining queries
         index->nprobe = optimal_nprobe;
         std::vector<faiss::idx_t> I_remaining(nq_remaining * k);
         std::vector<float> D_remaining(nq_remaining * k);
 
-        index->search(nq_remaining, xq + calib_nq * d, k, D_remaining.data(), I_remaining.data());
+        index->search(nq_remaining, xq + calib_nq * d, k, D_remaining.data(),
+                      I_remaining.data());
 
         // Calculate and print FNR for remaining queries
-        auto [avg_fnr, all_fnrs] = calculate_fnr(I_remaining.data(), gt + calib_nq * k, nq_remaining, k);
+        auto [avg_fnr, all_fnrs] = calculate_fnr(
+            I_remaining.data(), gt + calib_nq * k, nq_remaining, k);
         printf("Average FNR for remaining queries = %.5f\n", avg_fnr);
 
         std::ostringstream file_name;
-        file_name << "../Faiss_effective_error_ds=" << param1 << "_k=" << k << "_alpha=" << alpha << ".log";
+        file_name << "../Faiss-error-" << param1 << "-" << k << "-" << alpha
+                  << ".log";
         std::ofstream log_file(file_name.str());
         if (!log_file.is_open()) {
             throw std::ios_base::failure("Failed to open log file.");
         }
 
-        for (const auto& fnr : all_fnrs) {
+        for (const auto &fnr : all_fnrs) {
             log_file << fnr << "\n";
         }
 
         log_file.close();
-
     }
-
 
     delete[] xq;
     delete[] gt;
