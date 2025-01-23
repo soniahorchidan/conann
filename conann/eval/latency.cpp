@@ -187,6 +187,7 @@ int main(int argc, char **argv) {
 
         index->nprobe = nlist;
 
+         // train on half the dataset
         auto ntt = size_t(0.5 * nt);
         printf("[%.3f s] Training on %ld vectors\n", elapsed() - t0, ntt);
 
