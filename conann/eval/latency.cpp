@@ -258,19 +258,26 @@ int main(int argc, char **argv) {
 
     // auto [fnr, cls] = index->evaluate_test_mondrian(lamhat);
 
-    std::vector<faiss::idx_t> nns(k * nq);
-    std::vector<float> dis(k * nq);
+    int MAX_TEST = 500;
+    int test_start_idx = size_t(calib_sz * nq) + 1;
+    std::vector<double> latencies;
+    for (int i = test_start_idx; i < test_start_idx + MAX_TEST; ++i) {
+        // iterate one query at a time
+        int offset = i * k; 
+        const float* xi = xq + i * index->d; 
 
-    index->search_conann_mondrian(nq, xq, lamhat, dis.data(), nns.data());
+        std::vector<faiss::idx_t> nns(k);
+        std::vector<float> dis(k);
 
-    // std::ostringstream fnr_filename;
-    // fnr_filename << "../ConANN_effective_error_" << param1 << "_" << k << "_"
-    // << alpha << "_" << num_bins << ".log"; write_to_file(fnr,
-    // fnr_filename.str());
+        double t1 = elapsed();
+        index->search_conann_mondrian(1, xi, lamhat, dis.data(), nns.data());
+        latencies.push_back((elapsed() - t1) * 1000);
+    }
 
-    // std::ostringstream cls_filename;
-    // cls_filename << "../ConANN_cls_" << param1 << "_" << k << "_" << alpha <<
-    // "_" << num_bins << ".log"; write_to_file(cls, cls_filename.str());
+    std::ostringstream filename;
+    filename << "../ConANN_latency_ds=" << param1 << "_k=" << k << "_alpha=" << alpha << "_numbins=" << num_bins << ".log"; 
+    write_to_file(latencies, filename.str());
+
 
     delete[] xq;
     delete[] gt;

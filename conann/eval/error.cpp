@@ -261,13 +261,18 @@ int main(int argc, char **argv) {
               << ", avg cls searched=" << computeAverage(cls) << std::endl;
 
     std::ostringstream fnr_filename;
-    fnr_filename << "../ConANN_effective_error_" << param1 << "_" << k << "_"
-                 << alpha << "_" << num_bins << ".log";
+    fnr_filename << "../ConANN_effective_error_ds==" << param1 << "_k=" << k 
+                << "_alpha=" << alpha << "_numbins=" << num_bins << ".log"; 
+
     write_to_file(fnr, fnr_filename.str());
 
     std::ostringstream cls_filename;
-    cls_filename << "../ConANN_cls_" << param1 << "_" << k << "_" << alpha
-                 << "_" << num_bins << ".log";
+
+    cls_filename << "../ConANN_cls_ds=" << param1 << "_k=" << k << "_alpha=" 
+                 << alpha << "_numbins=" << num_bins << ".log"; 
+
+
+
     write_to_file(cls, cls_filename.str());
 
     delete[] xq;
