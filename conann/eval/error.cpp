@@ -268,7 +268,7 @@ int main(int argc, char **argv) {
     std::ostringstream cls_filename;
 
     cls_filename << "../ConANN-efficiency-" << param1 << "-" << k << "-"
-                 << alpha << "-" << num_bins < "-" << std::time(nullptr) << ".log";
+                 << alpha << "-" << num_bins << "-" << std::time(nullptr) << ".log";
 
     write_to_file(cls, cls_filename.str());
 

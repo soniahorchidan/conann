@@ -272,7 +272,7 @@ int main(int argc, char **argv) {
 
     std::ostringstream filename;
     filename << "../ConANN-latency-" << param1 << "-" << k << "-" << alpha
-             << "-" << num_bins < "-" << std::time(nullptr) << ".log";
+             << "-" << num_bins << "-" << std::time(nullptr) << ".log";
     write_to_file(latencies, filename.str());
 
     delete[] xq;

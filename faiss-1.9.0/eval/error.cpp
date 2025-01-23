@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <ctime>
 
 #include <omp.h>
 #include <sys/time.h>
@@ -327,7 +328,7 @@ int main(int argc, char **argv) {
 
         std::ostringstream file_name;
         file_name << "../Faiss-error-" << param1 << "-" << k << "-" << alpha
-                  < "-" << std::time(nullptr) << ".log";
+                  << "-" << std::time(nullptr) << ".log";
         std::ofstream log_file(file_name.str());
         if (!log_file.is_open()) {
             throw std::ios_base::failure("Failed to open log file.");
