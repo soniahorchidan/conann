@@ -160,7 +160,7 @@ int main(int argc, char **argv) {
         query = "../data/gist/gist_query.fvecs";
         gtI = "../data/gist/idx.ivecs";
         gtD = "../data/gist/dis.fvecs";
-    } else if (param1 == "glove") {
+    } else if (param1 == "glove_100") {
         db = "../data/glove/db.fvecs";
         query = "../data/glove/queries.fvecs";
         gtI = "../data/glove/indices-100.fvecs";
@@ -326,19 +326,16 @@ int main(int argc, char **argv) {
             I_remaining.data(), gt + calib_nq * k, nq_remaining, k);
         printf("Average FNR for remaining queries = %.5f\n", avg_fnr);
 
-        std::ostringstream file_name;
-        file_name << "../Faiss-error-" << param1 << "-" << k << "-" << alpha
-                  << "-" << std::time(nullptr) << ".log";
-        std::ofstream log_file(file_name.str());
-        if (!log_file.is_open()) {
-            throw std::ios_base::failure("Failed to open log file.");
-        }
+        std::ostringstream filename;
+        filename << "../Faiss-error-" << param1 << "-" << k << "-" << alpha
+                  << "-" << std::time(nullptr) << ".log";           
+        write_to_file(all_fnrs, filename.str());
 
-        for (const auto &fnr : all_fnrs) {
-            log_file << fnr << "\n";
-        }
 
-        log_file.close();
+        std::ostringstream filename2;
+        filename2 << "../Faiss-cls-" << param1 << "-" << k << "-" << alpha
+                 << "-" << std::time(nullptr) << ".log";
+        write_to_file(std::vector<int>{optimal_nprobe}, filename2.str());
     }
 
     delete[] xq;

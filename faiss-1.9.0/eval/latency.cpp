@@ -330,11 +330,6 @@ int main(int argc, char **argv) {
         filename << "../Faiss-latency-" << param1 << "-" << k << "-" << alpha
                  << "-" << std::time(nullptr) << ".log";
         write_to_file(latencies, filename.str());
-
-        std::ostringstream filename2;
-        filename2 << "../Faiss-cls-" << param1 << "-" << k << "-" << alpha
-                 << "-" << std::time(nullptr) << ".log";
-        write_to_file(std::vector<int>{optimal_nprobe}, filename2.str());
     }
 
     delete[] xq;
