@@ -279,7 +279,6 @@ int main(int argc, char **argv) {
     int optimal_nprobe = 0;
 
     {
-
         printf("[%.3f s] Perform parameter search on %ld queries\n",
                elapsed() - t0, calib_nq);
 
@@ -331,6 +330,11 @@ int main(int argc, char **argv) {
         filename << "../Faiss-latency-" << param1 << "-" << k << "-" << alpha
                  << ".log";
         write_to_file(latencies, filename.str());
+
+        std::ostringstream filename2;
+        filename2 << "../Faiss-cls-" << param1 << "-" << k << "-" << alpha
+                 << ".log";
+        write_to_file(std::vector<int>{optimal_nprobe}, filename2.str());
     }
 
     delete[] xq;
