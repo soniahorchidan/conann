@@ -1,5 +1,52 @@
 #!/bin/sh
 
-# ./build/eval/error bert_10 0.6 0.05 5
+# Error validity + efficiency
+./build/eval/error bert_100 0.5 0.05 5
+./build/eval/error bert_100 0.5 0.1 5
+./build/eval/error bert_100 0.5 0.2 5
 
-./build/eval/latency bert_10 0.7 0.1 5
+./build/eval/error glove_100 0.5 0.05 5
+./build/eval/error glove_100 0.5 0.1 5
+./build/eval/error glove_100 0.5 0.2 5
+
+./build/eval/error gist 0.5 0.05 5
+./build/eval/error gist 0.5 0.1 5
+./build/eval/error gist 0.5 0.2 5
+
+./build/eval/error deep10M 0.5 0.05 5
+./build/eval/error deep10M 0.5 0.1 5
+./build/eval/error deep10M 0.5 0.2 5
+
+# ./build/eval/error sift10M 0.5 0.05 5
+# ./build/eval/error sift10M 0.5 0.1 5
+# ./build/eval/error sift10M 0.5 0.2 5
+
+# Variable k
+./build/eval/error bert_10 0.5 0.1 5
+./build/eval/error bert_100 0.5 0.1 5
+
+./build/eval/error glove_10 0.5 0.1 5
+./build/eval/error glove_1000 0.5 0.1 5
+
+# ./build/eval/error gist_10 0.5 0.1 5
+# ./build/eval/error gist_1000 0.5 0.1 5
+
+# Latency
+./build/eval/latency bert_100 0.5 0.05 5
+./build/eval/latency bert_100 0.5 0.1 5
+./build/eval/latency bert_100 0.5 0.2
+
+./build/eval/latency glove_100 0.5 0.05 5
+./build/eval/latency glove_100 0.5 0.1 5
+./build/eval/latency glove_100 0.5 0.2 5
+
+./build/eval/latency deep10M 0.5 0.05 5
+./build/eval/latency deep10M 0.5 0.1 5
+./build/eval/latency deep10M 0.5 0.2 5
+
+# Mondrian Comparison
+./build/eval/error bert_100 0.5 0.1 1
+./build/eval/error bert_100 0.5 0.1 10
+
+./build/eval/error deep10M 0.5 0.1 1
+./build/eval/error deep10M 0.5 0.1 10

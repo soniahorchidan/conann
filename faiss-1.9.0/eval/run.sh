@@ -1,21 +1,45 @@
 #!/bin/sh
 
-# ./build/eval/bound gist 500 500 100 0.1
+# Error validity + efficiency
+./build/eval/error bert_100 0.5 0.05
+./build/eval/error bert_100 0.5 0.1
+./build/eval/error bert_100 0.5 0.2
 
-# ./build/eval/error bert 500 500 100 0.4 > "../Faiss_efficiency_bert_100_0.4.log"
+./build/eval/error glove_100 0.5 0.05
+./build/eval/error glove_100 0.5 0.1
+./build/eval/error glove_100 0.5 0.2
 
-# ./build/eval/error bert_10 0.8 0.6
+./build/eval/error gist 0.5 0.05
+./build/eval/error gist 0.5 0.1
+./build/eval/error gist 0.5 0.2
 
-# ./build/eval/error bert_10 0.5 0.8
+./build/eval/error deep10M 0.5 0.05
+./build/eval/error deep10M 0.5 0.1
+./build/eval/error deep10M 0.5 0.2
 
-./build/eval/latency bert_10 0.5 0.1
+# ./build/eval/error sift10M 0.5 0.05
+# ./build/eval/error sift10M 0.5 0.1
+# ./build/eval/error sift10M 0.5 0.2
 
-# ./build/eval/bound bert 500 500 100 0.1
+# Variable k
+./build/eval/error bert_10 0.5 0.1
+./build/eval/error bert_100 0.5 0.1
 
-# ./build/eval/bound bert 500 500 100 0.2
+./build/eval/error glove_10 0.5 0.1
+./build/eval/error glove_1000 0.5 0.1
 
-# ./build/eval/bound bert 500 500 100 0.3
+# ./build/eval/error gist_10 0.5 0.1
+# ./build/eval/error gist_1000 0.5 0.1
 
-# ./build/eval/bound bert 500 500 100 0.4
+# Latency
+./build/eval/latency bert_100 0.5 0.05
+./build/eval/latency bert_100 0.5 0.1
+./build/eval/latency bert_100 0.5 0.2
 
-# ./build/eval/bound sift1M 5000 5000 100 0.1
+./build/eval/latency glove_100 0.5 0.05
+./build/eval/latency glove_100 0.5 0.1
+./build/eval/latency glove_100 0.5 0.2
+
+./build/eval/latency deep10M 0.5 0.05
+./build/eval/latency deep10M 0.5 0.1
+./build/eval/latency deep10M 0.5 0.2

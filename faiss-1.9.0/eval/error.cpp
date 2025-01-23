@@ -169,7 +169,7 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    omp_set_num_threads(12);
+    omp_set_num_threads(16);
     double t0 = elapsed();
 
     // this is typically the fastest one.
@@ -327,7 +327,7 @@ int main(int argc, char **argv) {
 
         std::ostringstream file_name;
         file_name << "../Faiss-error-" << param1 << "-" << k << "-" << alpha
-                  << ".log";
+                  < "-" << std::time(nullptr) << ".log";
         std::ofstream log_file(file_name.str());
         if (!log_file.is_open()) {
             throw std::ios_base::failure("Failed to open log file.");

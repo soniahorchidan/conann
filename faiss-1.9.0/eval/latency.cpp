@@ -159,7 +159,7 @@ int main(int argc, char **argv) {
         query = "../data/gist/gist_query.fvecs";
         gtI = "../data/gist/idx.ivecs";
         gtD = "../data/gist/dis.fvecs";
-    } else if (param1 == "glove") {
+    } else if (param1 == "glove_100") {
         db = "../data/glove/db.fvecs";
         query = "../data/glove/queries.fvecs";
         gtI = "../data/glove/indices-100.fvecs";
@@ -169,7 +169,7 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    omp_set_num_threads(12);
+    omp_set_num_threads(16);
     double t0 = elapsed();
 
     // this is typically the fastest one.
@@ -328,12 +328,12 @@ int main(int argc, char **argv) {
 
         std::ostringstream filename;
         filename << "../Faiss-latency-" << param1 << "-" << k << "-" << alpha
-                 << ".log";
+                 << "-" << std::time(nullptr) << ".log";
         write_to_file(latencies, filename.str());
 
         std::ostringstream filename2;
         filename2 << "../Faiss-cls-" << param1 << "-" << k << "-" << alpha
-                 << ".log";
+                 << "-" << std::time(nullptr) << ".log";
         write_to_file(std::vector<int>{optimal_nprobe}, filename2.str());
     }
 

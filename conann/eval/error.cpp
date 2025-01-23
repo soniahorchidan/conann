@@ -157,7 +157,7 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    omp_set_num_threads(12);
+    omp_set_num_threads(16);
     double t0 = elapsed();
 
     // this is typically the fastest one.
@@ -261,14 +261,14 @@ int main(int argc, char **argv) {
 
     std::ostringstream fnr_filename;
     fnr_filename << "../ConANN-error-" << param1 << "-" << k << "-" << alpha
-                 << "-" << num_bins << ".log";
+                 << "-" << num_bins << "-" << std::time(nullptr) <<".log";
 
     write_to_file(fnr, fnr_filename.str());
 
     std::ostringstream cls_filename;
 
     cls_filename << "../ConANN-efficiency-" << param1 << "-" << k << "-"
-                 << alpha << "-" << num_bins << ".log";
+                 << alpha << "-" << num_bins < "-" << std::time(nullptr) << ".log";
 
     write_to_file(cls, cls_filename.str());
 
