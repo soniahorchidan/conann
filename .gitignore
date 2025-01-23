@@ -55,3 +55,9 @@ conann/eval/trained_index/
 
 # do not ignore logs in result file
 !results/**/*.log
+
+.DS_Store
+
+conann/_deps
+
+.ipynb_checkpoints

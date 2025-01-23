@@ -95,28 +95,21 @@ std::string generate_filename(const std::string& dataset_name, float lamhat_valu
     return filename.str();
 }
 
-/// Command like this: ./knn_script sift1M 100 2000 8000 0.1
+/// Command like this: ./error sift1M 100 0.5 0.1
 int main(int argc, char **argv) {
     std::cout << argc << " arguments" <<std::endl;
-    if(argc - 1 != 5){
-        printf("You should at least input 5 params: the dataset name, topk, train size, query size, alpha\n");
+    if(argc - 1 != 4){
+        printf("You should at least input 4 params: the dataset name, topk, calib size percentage, alpha\n");
         return 0;
     }
     std::string param1 = argv[1];
     std::string param2 = argv[2];
-    std::string p3 = argv[3];
-    std::string p4 = argv[4];
-    std::string p5 = argv[5];
-
+    std::string param3 = argv[3];
+    std::string param4 = argv[4];
     int input_k = std::stoi(param2);
-    int ts = std::stoi(p3);
-    int ses = std::stoi(p4);
-    float alpha = std::stof(p5);
+    float calib_sz = std::stof(param3);
+    float alpha = std::stof(param4);
 
-    // if(input_k>100 || input_k <0){
-    //     printf("Input topk must be lower than or equal to 100 and greater than 0\n");
-    //     return 0;
-    // }
     std::string db, query, gtI, gtD;
     if (param1 == "bert") {
         db = "../data/bert/db.fvecs";
@@ -159,7 +152,7 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-	omp_set_num_threads(16);
+	omp_set_num_threads(12);
     double t0 = elapsed();
     
     // this is typically the fastest one.
@@ -260,7 +253,7 @@ int main(int argc, char **argv) {
     }
 
     printf("[%.3f s] ConANN Mondrian Calibration\n", elapsed() - t0);
-    auto lamhat = index->calibrate_mondrian(alpha, k, xq, nq, gt);
+    auto lamhat = index->calibrate_mondrian(alpha, k, calib_sz, xq, nq, gt);
     printf("[%.3f s] ConANN Mondrian Evaluation\n", elapsed() - t0);
     auto [fnr, cls] = index->evaluate_test_mondrian(lamhat);
     std::cout << "alpha=" << alpha

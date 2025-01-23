@@ -413,7 +413,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::vector<std::vector<faiss::idx_t>> test_labels;
 
 
-    void prep_calib(float* xq, size_t nq, faiss::idx_t* gt);
+    void prep_calib(float calib_sz, float* xq, size_t nq, faiss::idx_t* gt);
 
     float compute_l2_distance(const std::vector<float>& a,
                               const std::vector<float>& b);
@@ -464,7 +464,7 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     float calibrate(float alpha, int k, float* xq, size_t nq, faiss::idx_t* gt);
 
-    std::unordered_map<int, float> calibrate_mondrian(float alpha, int k, float* xq, size_t nq, faiss::idx_t* gt);
+    std::unordered_map<int, float> calibrate_mondrian(float alpha, int k, float calib_sz, float* xq, size_t nq, faiss::idx_t* gt);
 
     float optimization(float alpha, const std::vector<std::vector<float>>& calib_cx,
         const std::vector<std::vector<faiss::idx_t>>& calib_labels,

@@ -1097,9 +1097,8 @@ void IndexIVF::train(idx_t n, const float* x) {
     is_trained = true;
 }
 
-void IndexIVF::prep_calib(float* xq, size_t nq, faiss::idx_t* gt) {
-
-    size_t half_nq = nq / 2;
+void IndexIVF::prep_calib(float calib_sz, float* xq, size_t nq, faiss::idx_t* gt) {
+    size_t half_nq = size_t(calib_sz * nq);
     calib_cx.resize(half_nq);
     calib_labels.resize(half_nq);
     test_cx.resize(nq - half_nq);
@@ -1252,14 +1251,14 @@ std::map<int, std::vector<int>> IndexIVF::partition_by_difficulty(const std::vec
 
 float IndexIVF::calibrate(float alpha, int k, float* xq, size_t nq, faiss::idx_t* gt) {
     K = k;
-    prep_calib(xq, nq, gt);
+    prep_calib(0.5, xq, nq, gt);
     auto lamhat = optimization(alpha, calib_cx, calib_labels, calib_diffs, calib_nonconf, calib_preds);
     return lamhat;
 }
 
-std::unordered_map<int, float> IndexIVF::calibrate_mondrian(float alpha, int k, float* xq, size_t nq, faiss::idx_t* gt) {
+std::unordered_map<int, float> IndexIVF::calibrate_mondrian(float alpha, int k, float calib_sz, float* xq, size_t nq, faiss::idx_t* gt) {
     K = k;
-    prep_calib(xq, nq, gt);
+    prep_calib(calib_sz, xq, nq, gt);
     auto lamhats = optimization_mondrian(alpha);
     return lamhats;
 }
