@@ -95,28 +95,39 @@ std::string generate_filename(const std::string& dataset_name, float lamhat_valu
     return filename.str();
 }
 
-/// Command like this: ./error sift1M 100 0.5 0.1
+/// Command like this: ./error sift1M 0.5 0.1
 int main(int argc, char **argv) {
     std::cout << argc << " arguments" <<std::endl;
-    if(argc - 1 != 4){
-        printf("You should at least input 4 params: the dataset name, topk, calib size percentage, alpha\n");
+    if(argc - 1 != 3){
+        printf("You should at least input 3 params: the dataset name, calib size percentage, alpha\n");
         return 0;
     }
     std::string param1 = argv[1];
     std::string param2 = argv[2];
     std::string param3 = argv[3];
-    std::string param4 = argv[4];
     int input_k = std::stoi(param2);
-    float calib_sz = std::stof(param3);
-    float alpha = std::stof(param4);
+    float calib_sz = std::stof(param2);
+    float alpha = std::stof(param3);
 
     std::string db, query, gtI, gtD;
-    if (param1 == "bert") {
+    if (param1 == "bert_10") {
         db = "../data/bert/db.fvecs";
         query = "../data/bert/queries.fvecs";
-        gtI = "../data/bert/indices.fvecs";
-        gtD = "../data/bert/distances.fvecs";
-    }  
+        gtI = "../data/bert/indices-10.fvecs";
+        gtD = "../data/bert/distances-10.fvecs";
+    }
+    else if (param1 == "bert_100") {
+        db = "../data/bert/db.fvecs";
+        query = "../data/bert/queries.fvecs";
+        gtI = "../data/bert/indices-100.fvecs";
+        gtD = "../data/bert/distances-100.fvecs";
+    }
+    else if (param1 == "bert_1000") {
+        db = "../data/bert/db.fvecs";
+        query = "../data/bert/queries.fvecs";
+        gtI = "../data/bert/indices-1000.fvecs";
+        gtD = "../data/bert/distances-1000.fvecs";
+    }   
     else if(param1 == "sift1M"){
         db = "../data/sift1M/sift1M.fvecs";
         query = "../data/sift1M/1M_query.fvecs";
@@ -174,7 +185,7 @@ int main(int argc, char **argv) {
                d);
 
         int nlist = 1024;   // 1024 as per index_key
-        if (param1 == "bert") {
+        if (param1.find("bert") != std::string::npos) {
             nlist = 128;
         }
 
