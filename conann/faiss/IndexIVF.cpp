@@ -1256,8 +1256,10 @@ float IndexIVF::calibrate(float alpha, int k, float* xq, size_t nq, faiss::idx_t
     return lamhat;
 }
 
-std::unordered_map<int, float> IndexIVF::calibrate_mondrian(float alpha, int k, float calib_sz, float* xq, size_t nq, faiss::idx_t* gt) {
+std::unordered_map<int, float> IndexIVF::calibrate_mondrian(float alpha, int k, float calib_sz, float* xq, size_t nq, faiss::idx_t* gt, float max_distance, int num_bins) {
     K = k;
+    MAX_DISTANCE = max_distance;
+    NUM_MONDRIAN_BINS = num_bins;
     prep_calib(calib_sz, xq, nq, gt);
     auto lamhats = optimization_mondrian(alpha);
     return lamhats;
