@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iomanip>
 #include <numeric>
+#include <algorithm>
 
 #include <sys/stat.h>
 #include <sys/types.h>
