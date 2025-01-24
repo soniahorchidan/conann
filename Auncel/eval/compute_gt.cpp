@@ -143,6 +143,9 @@ int main(int argc, char **argv) {
     } else if (param1 == "bert") {
         db = "../data/bert/db.fvecs";
         query = "../data/bert/queries.fvecs";
+    } else if (param1 == "gist") {
+        db = "../data/gist/gist_base.fvecs";
+        query = "../data/gist/queries.fvecs";
     } else {
         printf("Your dataset name is illegal\n");
         return 0;
@@ -215,10 +218,12 @@ int main(int argc, char **argv) {
     std::cout << "number of queries: " << nq << std::endl;
 
     char filename1[100]; 
-    snprintf(filename1, sizeof(filename1), "%s_gt_indices_k%d.ivecs", param1.data(), input_k);
+    snprintf(filename1, sizeof(filename1), "%s_gt_indices_k%d.fvecs", param1.data(), input_k);
     char filename2[100]; 
     snprintf(filename2, sizeof(filename2), "%s_gt_distances_k%d.fvecs", param1.data(), input_k);
 
     write_gt_indices(filename1, gt_indices, nq, input_k, &d);
     write_gt_distances(filename2, gt_distances, nq, input_k, &d);
+
+    delete[] xq;
 }

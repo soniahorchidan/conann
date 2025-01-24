@@ -124,12 +124,26 @@ int main(int argc, char **argv) {
         gtI = "../../data/deep/idx.ivecs";
         gtD = "../../data/deep/dis.fvecs";
     }
-    else if(param1 == "gist"){
+    else if(param1 == "gist10"){
         figureid = 11;
-        db = "../../data/gist/gist1M.fvecs";
-        query = "../../data/gist/query.fvecs";
-        gtI = "../../data/gist/gist_gt_indices_k100.ivecs";
+        db = "../../data/gist/gist_base.fvecs";
+        query = "../../data/gist/queries.fvecs";
+        gtI = "../../data/gist/gist_gt_indices_k10.fvecs";
+        gtD = "../../data/gist/gist_gt_distances_k10.fvecs";
+    }
+    else if(param1 == "gist100"){
+        figureid = 11;
+        db = "../../data/gist/gist_base.fvecs";
+        query = "../../data/gist/queries.fvecs";
+        gtI = "../../data/gist/gist_gt_indices_k100.fvecs";
         gtD = "../../data/gist/gist_gt_distances_k100.fvecs";
+    }
+    else if(param1 == "gist1000"){
+        figureid = 11;
+        db = "../../data/gist/gist_base.fvecs";
+        query = "../../data/gist/queries.fvecs";
+        gtI = "../../data/gist/gist_gt_indices_k1000.fvecs";
+        gtD = "../../data/gist/gist_gt_distances_k1000.fvecs";
     }
     else if(param1 == "spacev"){
         db = "/workspace/data/spacev/spacev10M.fvecs";
@@ -193,7 +207,12 @@ int main(int argc, char **argv) {
     // exit(0);
 
     // this is typically the fastest one.
-    const char* index_key = "IVF1024,Flat";
+    const char* index_key;
+    if (param1.find("bert") != std::string::npos) {
+        index_key = "IVF128,Flat";
+    } else {
+        index_key = "IVF1024,Flat";
+    }
 
     faiss::Index* index;
 
@@ -209,12 +228,12 @@ int main(int argc, char **argv) {
                elapsed() - t0,
                index_key,
                d);
-        if(param1 == "bert" || param1 == "sift10k" || param1 == "glove" || param1 == "sift1M" || param1 == "sift10M" || param1 == "deep10M" || param1 == "gist" || param1 == "spacev")
+        // if(param1 == "bert" || param1 == "sift10k" || param1 == "glove" || param1 == "sift1M" || param1 == "sift10M" || param1 == "deep10M" || param1 == "gist" || param1 == "spacev")
             index = faiss::index_factory(d, index_key);
-        else
-            index = faiss::index_factory(d, index_key
-            ,faiss::METRIC_INNER_PRODUCT
-            );
+        // else
+            // index = faiss::index_factory(d, index_key
+            // ,faiss::METRIC_INNER_PRODUCT
+            // );
 
         // index->set_tune_mode();
         // if(DC(faiss::IndexIVF)){
@@ -225,10 +244,12 @@ int main(int argc, char **argv) {
 
         printf("[%.3f s] Training on %ld vectors\n", elapsed() - t0, nt);
 
-        // nt = 500000;
+        // train on half the dataset
+        auto ntt = size_t(0.5 * nt);
+        printf("[%.3f s] Training on %ld vectors\n", elapsed() - t0, ntt);
 
         index->set_tune_mode();
-        index->train(nt, xt);
+        index->train(ntt, xt);
         index->set_tune_off();
         delete[] xt;
         std::string filenameIn = "./trained_index/";
@@ -334,7 +355,8 @@ int main(int argc, char **argv) {
         D.resize(demo_size * k);
         I.resize(demo_size * k);
         // Set required recalls
-        std::vector<float> accs = {0.9, 0.8, 0.7, 0.6, 0.5, 0.4,0.3};
+        // std::vector<float> accs = {0.95, 0.9, 0.8};
+        std::vector<float> accs = {0.8};
         for(int i = 0; i<demo_size+ts;i++){
             int index = i%accs.size();
             acc.push_back(accs[index]);
