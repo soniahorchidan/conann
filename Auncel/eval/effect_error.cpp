@@ -124,12 +124,26 @@ int main(int argc, char **argv) {
         gtI = "../../data/deep/idx.ivecs";
         gtD = "../../data/deep/dis.fvecs";
     }
-    else if(param1 == "gist"){
+    else if(param1 == "gist10"){
         figureid = 11;
-        db = "../../data/gist/gist1M.fvecs";
-        query = "../../data/gist/query.fvecs";
-        gtI = "../../data/gist/gist_gt_indices_k100.ivecs";
+        db = "../../data/gist/gist-base.fvecs";
+        query = "../../data/gist/queries.fvecs";
+        gtI = "../../data/gist/gist_gt_indices_k10.fvecs";
+        gtD = "../../data/gist/gist_gt_distances_k10.fvecs";
+    }
+    else if(param1 == "gist100"){
+        figureid = 11;
+        db = "../../data/gist/gist-base.fvecs";
+        query = "../../data/gist/queries.fvecs";
+        gtI = "../../data/gist/gist_gt_indices_k100.fvecs";
         gtD = "../../data/gist/gist_gt_distances_k100.fvecs";
+    }
+    else if(param1 == "gist1000"){
+        figureid = 11;
+        db = "../../data/gist/gist-base.fvecs";
+        query = "../../data/gist/queries.fvecs";
+        gtI = "../../data/gist/gist_gt_indices_k1000.fvecs";
+        gtD = "../../data/gist/gist_gt_distances_k1000.fvecs";
     }
     else if(param1 == "spacev"){
         db = "/workspace/data/spacev/spacev10M.fvecs";
@@ -341,7 +355,8 @@ int main(int argc, char **argv) {
         D.resize(demo_size * k);
         I.resize(demo_size * k);
         // Set required recalls
-        std::vector<float> accs = {0.95, 0.9, 0.8};
+        // std::vector<float> accs = {0.95, 0.9, 0.8};
+        std::vector<float> accs = {0.8};
         for(int i = 0; i<demo_size+ts;i++){
             int index = i%accs.size();
             acc.push_back(accs[index]);
