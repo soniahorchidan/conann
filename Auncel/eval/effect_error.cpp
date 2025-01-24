@@ -193,7 +193,12 @@ int main(int argc, char **argv) {
     // exit(0);
 
     // this is typically the fastest one.
-    const char* index_key = "IVF1024,Flat";
+    const char* index_key;
+    if (param1.find("bert") != std::string::npos) {
+        index_key = "IVF128,Flat";
+    } else {
+        index_key = "IVF1024,Flat";
+    }
 
     faiss::Index* index;
 
@@ -225,10 +230,12 @@ int main(int argc, char **argv) {
 
         printf("[%.3f s] Training on %ld vectors\n", elapsed() - t0, nt);
 
-        // nt = 500000;
+        // train on half the dataset
+        auto ntt = size_t(0.5 * nt);
+        printf("[%.3f s] Training on %ld vectors\n", elapsed() - t0, ntt);
 
         index->set_tune_mode();
-        index->train(nt, xt);
+        index->train(ntt, xt);
         index->set_tune_off();
         delete[] xt;
         std::string filenameIn = "./trained_index/";
