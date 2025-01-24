@@ -84,10 +84,10 @@ int main(int argc, char **argv) {
     int ts = std::stoi(p3);
     int ses = std::stoi(p4);
     int figureid = -1;
-    if(input_k>100 || input_k <0){
-        printf("Input topk must be lower than or equal to 100 and greater than 0\n");
-        return 0;
-    }
+    // if(input_k>100 || input_k <0){
+    //     printf("Input topk must be lower than or equal to 100 and greater than 0\n");
+    //     return 0;
+    // }
     std::string db, query, gtI, gtD;
     if(param1 == "bert"){
         db = "../../data/bert/db.fvecs";
@@ -138,10 +138,11 @@ int main(int argc, char **argv) {
         gtD = "/workspace/data/spacev/dis.fvecs";
     }
     else if(param1 == "glove"){
-        db = "/workspace/data/glove/glove.fvecs";
-        query = "/workspace/data/glove/query.fvecs";
-        gtI = "/workspace/data/glove/idx.ivecs";
-        gtD = "/workspace/data/glove/dis.fvecs";
+        figureid = 9;
+        db = "../../data/glove/db.fvecs";
+        query = "../../data/glove/queries.fvecs";
+        gtI = "../../data/glove/indices.ivecs";
+        gtD = "../../data/glove/distances.fvecs";
     }
     else if(param1 == "text"){
         figureid = 12;
@@ -208,7 +209,7 @@ int main(int argc, char **argv) {
                elapsed() - t0,
                index_key,
                d);
-        if(param1 == "bert" || param1 == "sift10k" || param1 == "sift1M" || param1 == "sift10M" || param1 == "deep10M" || param1 == "gist" || param1 == "spacev")
+        if(param1 == "bert" || param1 == "sift10k" || param1 == "glove" || param1 == "sift1M" || param1 == "sift10M" || param1 == "deep10M" || param1 == "gist" || param1 == "spacev")
             index = faiss::index_factory(d, index_key);
         else
             index = faiss::index_factory(d, index_key
