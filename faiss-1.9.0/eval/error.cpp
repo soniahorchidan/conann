@@ -322,7 +322,7 @@ int main(int argc, char **argv) {
         write_to_file(all_fnrs, filename.str());
 
         std::ostringstream filename2;
-        filename2 << "../Faiss-cls-" << param1 << "-" << k << "-" << alpha
+        filename2 << "../Faiss-efficiency-" << param1 << "-" << k << "-" << alpha
                   << "-" << std::time(nullptr) << ".log";
         write_to_file(std::vector<int>{optimal_nprobe}, filename2.str());
     }
