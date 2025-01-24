@@ -148,11 +148,21 @@ int main(int argc, char **argv) {
         query = "../data/gist/gist_query.fvecs";
         gtI = "../data/gist/idx.ivecs";
         gtD = "../data/gist/dis.fvecs";
-    } else if (param1 == "glove") {
+    } else if (param1 == "glove-100") {
         db = "../data/glove/db.fvecs";
         query = "../data/glove/queries.fvecs";
         gtI = "../data/glove/indices-100.fvecs";
         gtD = "../data/glove/distances-100.fvecs";
+    } else if (param1 == "glove_100") {
+        db = "../data/glove/db.fvecs";
+        query = "../data/glove/queries.fvecs";
+        gtI = "../data/glove/indices-100.fvecs";
+        gtD = "../data/glove/distances-100.fvecs";
+    } else if (param1 == "glove_1000") {
+        db = "../data/glove/db.fvecs";
+        query = "../data/glove/queries.fvecs";
+        gtI = "../data/glove/indices-1000.fvecs";
+        gtD = "../data/glove/distances-1000.fvecs";
     } else {
         printf("Your dataset name is illegal\n");
         return 0;

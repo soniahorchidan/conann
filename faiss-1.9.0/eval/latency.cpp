@@ -169,6 +169,11 @@ int main(int argc, char **argv) {
         query = "../data/glove/queries.fvecs";
         gtI = "../data/glove/indices-100.fvecs";
         gtD = "../data/glove/distances-100.fvecs";
+    } else if (param1 == "glove_1000") {
+        db = "../data/glove/db.fvecs";
+        query = "../data/glove/queries.fvecs";
+        gtI = "../data/glove/indices-1000.fvecs";
+        gtD = "../data/glove/distances-1000.fvecs";
     } else {
         printf("Your dataset name is illegal\n");
         return 0;
