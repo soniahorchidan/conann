@@ -126,21 +126,21 @@ int main(int argc, char **argv) {
     }
     else if(param1 == "gist10"){
         figureid = 11;
-        db = "../../data/gist/gist-base.fvecs";
+        db = "../../data/gist/gist_base.fvecs";
         query = "../../data/gist/queries.fvecs";
         gtI = "../../data/gist/gist_gt_indices_k10.fvecs";
         gtD = "../../data/gist/gist_gt_distances_k10.fvecs";
     }
     else if(param1 == "gist100"){
         figureid = 11;
-        db = "../../data/gist/gist-base.fvecs";
+        db = "../../data/gist/gist_base.fvecs";
         query = "../../data/gist/queries.fvecs";
         gtI = "../../data/gist/gist_gt_indices_k100.fvecs";
         gtD = "../../data/gist/gist_gt_distances_k100.fvecs";
     }
     else if(param1 == "gist1000"){
         figureid = 11;
-        db = "../../data/gist/gist-base.fvecs";
+        db = "../../data/gist/gist_base.fvecs";
         query = "../../data/gist/queries.fvecs";
         gtI = "../../data/gist/gist_gt_indices_k1000.fvecs";
         gtD = "../../data/gist/gist_gt_distances_k1000.fvecs";
