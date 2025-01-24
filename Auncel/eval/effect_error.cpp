@@ -159,37 +159,37 @@ int main(int argc, char **argv) {
     double t0 = elapsed();
 
 
-    {
-        // FOR DEBUG
-        printf("[%.3f s] Loading ground truth queries for debug\n");
-        size_t k;                // nb of results per query in the GT
-        faiss::idx_t* gt; // nq * k matrix of ground-truth nearest-neighbors
-        // CHANGED TO
-        // faiss::idx_t* gt; // nq * k matrix of ground-truth nearest-neighbors
-        //        elapsed() - t0,
-        //        nq);
+    // {
+    //     // FOR DEBUG
+    //     printf("[%.3f s] Loading ground truth queries for debug\n");
+    //     size_t k;                // nb of results per query in the GT
+    //     faiss::idx_t* gt; // nq * k matrix of ground-truth nearest-neighbors
+    //     // CHANGED TO
+    //     // faiss::idx_t* gt; // nq * k matrix of ground-truth nearest-neighbors
+    //     //        elapsed() - t0,
+    //     //        nq);
 
-        // load ground-truth and convert int to long
-        size_t nq2;
-        int* gt_int = ivecs_read(gtI.c_str(), &k, &nq2);
-        // assert(nq2 == nq || !"incorrect nb of ground truth entries");
+    //     // load ground-truth and convert int to long
+    //     size_t nq2;
+    //     int* gt_int = ivecs_read(gtI.c_str(), &k, &nq2);
+    //     // assert(nq2 == nq || !"incorrect nb of ground truth entries");
 
-        // gt = new faiss::Index::idx_t[k * nq];
-        // CHANGED TO
-        gt = new faiss::idx_t[k * nq2];
-        for (int i = 0; i < k * nq2; i++) {
-            gt[i] = gt_int[i];
-        }
-        delete[] gt_int;
+    //     // gt = new faiss::Index::idx_t[k * nq];
+    //     // CHANGED TO
+    //     gt = new faiss::idx_t[k * nq2];
+    //     for (int i = 0; i < k * nq2; i++) {
+    //         gt[i] = gt_int[i];
+    //     }
+    //     delete[] gt_int;
 
-        // Print the first 20 elements of the gt_int array
-        std::cout << "First 20 elements of gt_int array: ";
-        for (int i = 0; i < 20 && i < k * nq2; i++) {
-            std::cout << gt[i] << " ";
-        }
-        std::cout << std::endl;
-    }
-    exit(0);
+    //     // Print the first 20 elements of the gt_int array
+    //     std::cout << "First 20 elements of gt_int array: ";
+    //     for (int i = 0; i < 20 && i < k * nq2; i++) {
+    //         std::cout << gt[i] << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
+    // exit(0);
 
     // this is typically the fastest one.
     const char* index_key = "IVF1024,Flat";

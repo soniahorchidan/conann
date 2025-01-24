@@ -793,7 +793,7 @@ void IndexIVF::search_preassigned(
             // There is a possible issue with thread safety here.
             double overh = 0;
 // END AUNCEL BLOCK
-#pragma omp for
+// #pragma omp for
             for (idx_t i = 0; i < n; i++) {
                 if (interrupt) {
                     continue;

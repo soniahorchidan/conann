@@ -1,8 +1,8 @@
 #!/bin/sh
 
-./../build/eval/effect_error sift10k 10 50 50
+# ./../build/eval/effect_error sift10k 10 50 50
 
-# ./../build/eval/effect_error sift1M 100 5000 5000
+./../build/eval/effect_error sift1M 100 5000 5000
 
 # ./../build/eval/effect_error bert 100 500 500
 

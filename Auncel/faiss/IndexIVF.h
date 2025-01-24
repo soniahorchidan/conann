@@ -102,6 +102,13 @@ struct IndexIVFInterface : Level1Quantizer {
     size_t nprobe = 1;    ///< number of probes at query time
     size_t max_codes = 0; ///< max nb of codes to visit to do a query
 
+// BEGIN AUNCEL BLOCK
+    // Set training to false
+    bool training = false;
+    // Auncel Error Profile
+    error_pro *t;
+// END AUNCEL BLOCK
+
     explicit IndexIVFInterface(Index* quantizer = nullptr, size_t nlist = 0)
             : Level1Quantizer(quantizer, nlist) {}
 
@@ -191,11 +198,12 @@ struct IndexIVF : Index, IndexIVFInterface {
     InvertedLists* invlists = nullptr;
     bool own_invlists = false;
 
+// Moved into Interface
 // BEGIN AUNCEL BLOCK
-    // Set training to false
-    bool training = false;
-    // Auncel Error Profile
-    error_pro *t;
+//     // Set training to false
+//     bool training = false;
+//     // Auncel Error Profile
+//     error_pro *t;
 
     double time() const; 
 // END AUNCEL BLOCK
