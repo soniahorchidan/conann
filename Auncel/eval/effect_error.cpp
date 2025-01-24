@@ -228,12 +228,12 @@ int main(int argc, char **argv) {
                elapsed() - t0,
                index_key,
                d);
-        if(param1 == "bert" || param1 == "sift10k" || param1 == "glove" || param1 == "sift1M" || param1 == "sift10M" || param1 == "deep10M" || param1 == "gist" || param1 == "spacev")
+        // if(param1 == "bert" || param1 == "sift10k" || param1 == "glove" || param1 == "sift1M" || param1 == "sift10M" || param1 == "deep10M" || param1 == "gist" || param1 == "spacev")
             index = faiss::index_factory(d, index_key);
-        else
-            index = faiss::index_factory(d, index_key
-            ,faiss::METRIC_INNER_PRODUCT
-            );
+        // else
+            // index = faiss::index_factory(d, index_key
+            // ,faiss::METRIC_INNER_PRODUCT
+            // );
 
         // index->set_tune_mode();
         // if(DC(faiss::IndexIVF)){
