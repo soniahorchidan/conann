@@ -94,7 +94,7 @@ int main(int argc, char **argv) {
         query = "../../data/bert/queries.fvecs";
         gtI = "../../data/bert/indices.fvecs";
         gtD = "../../data/bert/distances.fvecs";
-        figureid = 9;
+        figureid = 11;
     }
     else if(param1 == "sift10k"){
         db = "../../data/sift10k/siftsmall_base.fvecs";

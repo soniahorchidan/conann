@@ -109,19 +109,23 @@ calculate_fnr(const faiss::idx_t *query_indices,
     return {overall_fnr, fnrs_per_query};
 }
 
-/// Command like this: ./error sift1M 0.5 0.1
+
+// Updated main function
 int main(int argc, char **argv) {
-    std::cout << argc << " arguments" << std::endl;
-    if (argc - 1 != 3) {
-        printf("You should at least input 4 params: the dataset name, calib "
-               "size percentage, alpha\n");
+    if (argc < 4) {
+        printf("You should input at least 3 params: dataset name, calib size percentage, and one or more alpha values\n");
         return 0;
     }
+
     std::string param1 = argv[1];
     std::string param2 = argv[2];
-    std::string param3 = argv[3];
+    std::vector<float> alphas;
+    for (int i = 3; i < argc; i++) {
+        alphas.push_back(std::stof(argv[i]));
+    }
+
+    std::sort(alphas.begin(), alphas.end(), std::greater<>()); // Sort in descending order
     float calib_sz = std::stof(param2);
-    float alpha = std::stof(param3);
 
     std::string db, query, gtI, gtD;
     if (param1 == "bert_10") {
@@ -276,37 +280,27 @@ int main(int argc, char **argv) {
     }
 
     auto calib_nq = size_t(calib_sz* nq);
-    int optimal_nprobe = 0;
 
-    {
-        printf("[%.3f s] Perform parameter search on %ld queries\n",
-               elapsed() - t0, calib_nq);
+    int optimal_nprobe = 1;
+    for (float alpha : alphas) {
+        printf("[%.3f s] Processing alpha = %.5f. Starting from nprobe = %d\n", elapsed() - t0, alpha, optimal_nprobe);
 
-        // Iterate over nprobe values
-        for (size_t nprobe = 1; nprobe <= nlist; nprobe++) {
+        // Search for optimal nprobe
+        for (size_t nprobe = optimal_nprobe; nprobe <= nlist; nprobe++) {
             index->nprobe = nprobe;
-            printf("[%.3f s] Testing nprobe = %ld\n", elapsed() - t0, nprobe);
-
-            // Perform knn search
-            std::vector<faiss::idx_t> I(nq * k);
-            std::vector<float> D(nq * k);
+            std::vector<faiss::idx_t> I(calib_nq * k);
+            std::vector<float> D(calib_nq * k);
             index->search(calib_nq, xq, k, D.data(), I.data());
 
-            // Calculate average FNR
-            auto [avg_fnr, all_fnrs] = calculate_fnr(I.data(), gt, calib_nq, k);
-            printf("[%.3f s] Average FNR = %.5f\n", elapsed() - t0, avg_fnr);
-
+            auto [avg_fnr, _] = calculate_fnr(I.data(), gt, calib_nq, k);
             if (avg_fnr <= alpha) {
-                printf("[%.3f s] Stopping search at nprobe = %ld with FNR = "
-                       "%.5f\n",
-                       elapsed() - t0, nprobe, avg_fnr);
                 optimal_nprobe = nprobe;
                 break;
             }
         }
-    }
 
-    {
+        printf("[%.3f s] Optimal nprobe for alpha %.5f = %d\n", elapsed() - t0, alpha, optimal_nprobe);
+
         size_t nq_remaining = nq - calib_nq;
         printf("[%.3f s] Evaluating on %ld queries\n", elapsed() - t0, nq_remaining);
 

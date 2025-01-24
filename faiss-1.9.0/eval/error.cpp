@@ -10,7 +10,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <ctime>
 
 #include <omp.h>
 #include <sys/time.h>
@@ -110,19 +109,23 @@ calculate_fnr(const faiss::idx_t *query_indices,
     return {overall_fnr, fnrs_per_query};
 }
 
-/// Command like this: ./error sift1M 0.5 0.1
+
+// Updated main function
 int main(int argc, char **argv) {
-    std::cout << argc << " arguments" << std::endl;
-    if (argc - 1 != 3) {
-        printf("You should at least input 4 params: the dataset name, calib "
-               "size percentage, alpha\n");
+    if (argc < 4) {
+        printf("You should input at least 3 params: dataset name, calib size percentage, and one or more alpha values\n");
         return 0;
     }
+
     std::string param1 = argv[1];
     std::string param2 = argv[2];
-    std::string param3 = argv[3];
+    std::vector<float> alphas;
+    for (int i = 3; i < argc; i++) {
+        alphas.push_back(std::stof(argv[i]));
+    }
+
+    std::sort(alphas.begin(), alphas.end(), std::greater<>()); // Sort in descending order
     float calib_sz = std::stof(param2);
-    float alpha = std::stof(param3);
 
     std::string db, query, gtI, gtD;
     if (param1 == "bert_10") {
@@ -276,44 +279,30 @@ int main(int argc, char **argv) {
         assert(nq2 == nq || !"incorrect nb of ground truth entries");
     }
 
-    auto calib_nq = size_t((1 - calib_sz) * nq);
-    int optimal_nprobe = 0;
+    auto calib_nq = size_t(calib_sz* nq);
 
-    {
+    int optimal_nprobe = 1;
+    for (float alpha : alphas) {
+        printf("[%.3f s] Processing alpha = %.5f. Starting from nprobe = %d\n", elapsed() - t0, alpha, optimal_nprobe);
 
-        printf("[%.3f s] Perform parameter search on %ld queries\n",
-               elapsed() - t0, calib_nq);
-
-        // Iterate over nprobe values
-        for (size_t nprobe = 1; nprobe <= nlist; nprobe++) {
+        // Search for optimal nprobe
+        for (size_t nprobe = optimal_nprobe; nprobe <= nlist; nprobe++) {
             index->nprobe = nprobe;
-            printf("[%.3f s] Testing nprobe = %ld\n", elapsed() - t0, nprobe);
-
-            // Perform knn search
-            std::vector<faiss::idx_t> I(nq * k);
-            std::vector<float> D(nq * k);
+            std::vector<faiss::idx_t> I(calib_nq * k);
+            std::vector<float> D(calib_nq * k);
             index->search(calib_nq, xq, k, D.data(), I.data());
 
-            // Calculate average FNR
-            auto [avg_fnr, all_fnrs] = calculate_fnr(I.data(), gt, calib_nq, k);
-            printf("[%.3f s] Average FNR = %.5f\n", elapsed() - t0, avg_fnr);
-
+            auto [avg_fnr, _] = calculate_fnr(I.data(), gt, calib_nq, k);
             if (avg_fnr <= alpha) {
-                printf("[%.3f s] Stopping search at nprobe = %ld with FNR = "
-                       "%.5f\n",
-                       elapsed() - t0, nprobe, avg_fnr);
                 optimal_nprobe = nprobe;
                 break;
             }
         }
-    }
 
-    {
+        printf("[%.3f s] Optimal nprobe for alpha %.5f = %d\n", elapsed() - t0, alpha, optimal_nprobe);
+
+        // Evaluate on remaining queries
         size_t nq_remaining = nq - calib_nq;
-
-        printf("[%.3f s] Evaluating on %ld queries\n", elapsed() - t0, nq_remaining);
-
-        // Perform knn search with optimal nprobe on the remaining queries
         index->nprobe = optimal_nprobe;
         std::vector<faiss::idx_t> I_remaining(nq_remaining * k);
         std::vector<float> D_remaining(nq_remaining * k);
@@ -321,20 +310,19 @@ int main(int argc, char **argv) {
         index->search(nq_remaining, xq + calib_nq * d, k, D_remaining.data(),
                       I_remaining.data());
 
-        // Calculate and print FNR for remaining queries
         auto [avg_fnr, all_fnrs] = calculate_fnr(
             I_remaining.data(), gt + calib_nq * k, nq_remaining, k);
-        printf("Average FNR for remaining queries = %.5f\n", avg_fnr);
+        printf("[%.3f s] Average FNR for alpha %.5f = %.5f\n", elapsed() - t0, alpha, avg_fnr);
 
+        // Save results
         std::ostringstream filename;
         filename << "../Faiss-error-" << param1 << "-" << k << "-" << alpha
-                  << "-" << std::time(nullptr) << ".log";           
+                 << "-" << std::time(nullptr) << ".log";
         write_to_file(all_fnrs, filename.str());
-
 
         std::ostringstream filename2;
         filename2 << "../Faiss-cls-" << param1 << "-" << k << "-" << alpha
-                 << "-" << std::time(nullptr) << ".log";
+                  << "-" << std::time(nullptr) << ".log";
         write_to_file(std::vector<int>{optimal_nprobe}, filename2.str());
     }
 
