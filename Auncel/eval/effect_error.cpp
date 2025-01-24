@@ -341,7 +341,7 @@ int main(int argc, char **argv) {
         D.resize(demo_size * k);
         I.resize(demo_size * k);
         // Set required recalls
-        std::vector<float> accs = {0.9, 0.8, 0.7, 0.6, 0.5, 0.4,0.3};
+        std::vector<float> accs = {0.95, 0.9, 0.8};
         for(int i = 0; i<demo_size+ts;i++){
             int index = i%accs.size();
             acc.push_back(accs[index]);
