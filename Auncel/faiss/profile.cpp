@@ -213,6 +213,12 @@ void Error_sys::set_queries(size_t n, const float *q, const float*acc, size_t al
             delete[] ix->t->t_fnrs;
         ix->t->t_fnrs = new float[allo_size];
         memset(ix->t->t_fnrs, 0, allo_size*sizeof(ix->t->t_fnrs[0]));
+
+        if (ix->t->t_cls != nullptr)
+            delete[] ix->t->t_cls;
+        ix->t->t_cls = new int[allo_size];
+        memset(ix->t->t_cls, 0, allo_size*sizeof(ix->t->t_cls[0]));
+
         ix->t->require_acc = acc;
     }
 }

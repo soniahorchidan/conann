@@ -88,7 +88,7 @@ double elapsed() {
 int main(int argc, char **argv) {
     std::cout << argc << " arguments" <<std::endl;
     if(argc - 1 != 4){
-        printf("You should at least input 4 params: the dataset name, topk, train size fraction, required accuracy\n");
+        printf("You should at least input 4 params: the dataset name, topk, train size fraction, alpha\n");
         return 0;
     }
     std::string param1 = argv[1];
@@ -98,7 +98,7 @@ int main(int argc, char **argv) {
 
     int input_k = std::stoi(param2);
     float training_fraction = std::stof(param3);
-    float required_accuracy = std::stof(param4);
+    float alpha = std::stof(param4);
 
     
     int figureid = -1;
@@ -282,10 +282,10 @@ int main(int argc, char **argv) {
         index->train(ntt, xt);
         index->set_tune_off();
         delete[] xt;
-        std::string filenameIn = "./trained_index/";
-        filenameIn += param1;
-        filenameIn += "_IVF1024,Flat_trained.index";
-        faiss::write_index(index, filenameIn.c_str());
+        // std::string filenameIn = "./trained_index/";
+        // filenameIn += param1;
+        // filenameIn += "_IVF1024,Flat_trained.index";
+        // faiss::write_index(index, filenameIn.c_str());
     }
 
     {
@@ -392,7 +392,7 @@ int main(int argc, char **argv) {
         I.resize(demo_size * k);
         // Set required recalls
         // std::vector<float> accs = {0.95, 0.9, 0.8};
-        std::vector<float> accs = {required_accuracy};
+        std::vector<float> accs = {1-alpha};
         for(int i = 0; i<demo_size+ts;i++){
             int index = i%accs.size();
             acc.push_back(accs[index]);
@@ -416,7 +416,7 @@ int main(int argc, char **argv) {
             {
             std::ostringstream fnr_filename;
             fnr_filename << "../Auncel-error-" << param1 << "-" << k << "-"
-                         << required_accuracy << "-"
+                         << alpha << "-"
                          << std::time(nullptr) << ".log";
             std::string filename = fnr_filename.str();
             std::ofstream outfile;
@@ -427,19 +427,19 @@ int main(int argc, char **argv) {
             }
             }
 
-            // {
-            // std::ostringstream cls_filename;
-            // cls_filename << "../Auncel-efficiency-" << param1 << "-" << k << "-"
-            //              << required_accuracy << "-"
-            //              << std::time(nullptr) << ".log";
-            // std::string filename = cls_filename.str();
-            // std::ofstream outfile;
-            // outfile.open(filename);
-            // for(int i = ts;i < (ts+ses); i++){
-            //     outfile << ix->t->t_fnrs[i] << " ";
-            //     outfile << std::endl;
-            // }
-            // }
+            {
+            std::ostringstream cls_filename;
+            cls_filename << "../Auncel-efficiency-" << param1 << "-" << k << "-"
+                         << alpha << "-"
+                         << std::time(nullptr) << ".log";
+            std::string filename = cls_filename.str();
+            std::ofstream outfile;
+            outfile.open(filename);
+            for(int i = ts;i < (ts+ses); i++){
+                outfile << ix->t->t_cls[i] << " ";
+                outfile << std::endl;
+            }
+            }
 
         }
     }
