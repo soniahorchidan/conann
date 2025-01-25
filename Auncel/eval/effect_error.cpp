@@ -84,22 +84,19 @@ double elapsed() {
     return tv.tv_sec + tv.tv_usec * 1e-6;
 }
 
-/// Command like this: ./knn_script sift1M 100 0.66 0.1
+/// Command like this: ./knn_script sift1M 100 0.66
 int main(int argc, char **argv) {
     std::cout << argc << " arguments" <<std::endl;
-    if(argc - 1 != 4){
-        printf("You should at least input 4 params: the dataset name, topk, train size fraction, alpha\n");
+    if(argc - 1 != 3){
+        printf("You should at least input 3 params: the dataset name, topk, train size fraction\n");
         return 0;
     }
     std::string param1 = argv[1];
     std::string param2 = argv[2];
     std::string param3 = argv[3];
-    std::string param4 = argv[4];
 
     int input_k = std::stoi(param2);
     float training_fraction = std::stof(param3);
-    float alpha = std::stof(param4);
-
     
     int figureid = -1;
     // if(input_k>100 || input_k <0){
@@ -107,19 +104,19 @@ int main(int argc, char **argv) {
     //     return 0;
     // }
     std::string db, query, gtI, gtD;
-    if(param1 == "bert10"){
+    if(param1 == "bert_10"){
         db = "../../data/bert/db.fvecs";
         query = "../../data/bert/queries.fvecs";
         gtI = "../../data/bert/indices-10.fvecs";
         gtD = "../../data/bert/distances-10.fvecs";
         figureid = 11;
-    } else if(param1 == "bert100"){
+    } else if(param1 == "bert_100"){
         db = "../../data/bert/db.fvecs";
         query = "../../data/bert/queries.fvecs";
         gtI = "../../data/bert/indices-100.fvecs";
         gtD = "../../data/bert/distances-100.fvecs";
         figureid = 11;
-    } else if(param1 == "bert1000"){
+    } else if(param1 == "bert_1000"){
         db = "../../data/bert/db.fvecs";
         query = "../../data/bert/queries.fvecs";
         gtI = "../../data/bert/indices-1000.fvecs";
@@ -147,33 +144,47 @@ int main(int argc, char **argv) {
         gtI = "/workspace/data/sift/sift10M/idx.ivecs";
         gtD = "/workspace/data/sift/sift10M/dis.fvecs";
     }
-    else if(param1 == "deep10M"){
+    else if(param1 == "deep10M_10"){
         figureid = 10;
         db = "../../data/deep/deep10M.fvecs";
-        query = "../../data/deep/query.fvecs";
-        gtI = "../../data/deep/idx.ivecs";
-        gtD = "../../data/deep/dis.fvecs";
+        query = "../../data/deep/queries.fvecs";
+        gtI = "../../data/deep/indices-10.ivecs";
+        gtD = "../../data/deep/distances-10.fvecs";
     }
-    else if(param1 == "gist10"){
+    else if(param1 == "deep10M_100"){
+        figureid = 10;
+        db = "../../data/deep/deep10M.fvecs";
+        query = "../../data/deep/queries.fvecs";
+        gtI = "../../data/deep/indices-100.ivecs";
+        gtD = "../../data/deep/distances-100.fvecs";
+    }
+    else if(param1 == "deep10M_1000"){
+        figureid = 10;
+        db = "../../data/deep/deep10M.fvecs";
+        query = "../../data/deep/queries.fvecs";
+        gtI = "../../data/deep/indices-1000.ivecs";
+        gtD = "../../data/deep/distances-1000.fvecs";
+    }
+    else if(param1 == "gist_10"){
         figureid = 11;
         db = "../../data/gist/gist_base.fvecs";
         query = "../../data/gist/queries.fvecs";
-        gtI = "../../data/gist/gist_gt_indices_k10.fvecs";
-        gtD = "../../data/gist/gist_gt_distances_k10.fvecs";
+        gtI = "../../data/gist/indices-10.fvecs";
+        gtD = "../../data/gist/distances-10.fvecs";
     }
-    else if(param1 == "gist100"){
+    else if(param1 == "gist_100"){
         figureid = 11;
         db = "../../data/gist/gist_base.fvecs";
         query = "../../data/gist/queries.fvecs";
-        gtI = "../../data/gist/gist_gt_indices_k100.fvecs";
-        gtD = "../../data/gist/gist_gt_distances_k100.fvecs";
+        gtI = "../../data/gist/indices_100.fvecs";
+        gtD = "../../data/gist/distances_100.fvecs";
     }
-    else if(param1 == "gist1000"){
+    else if(param1 == "gist_1000"){
         figureid = 11;
         db = "../../data/gist/gist_base.fvecs";
         query = "../../data/gist/queries.fvecs";
-        gtI = "../../data/gist/gist_gt_indices_k1000.fvecs";
-        gtD = "../../data/gist/gist_gt_distances_k1000.fvecs";
+        gtI = "../../data/gist/indices_1000.fvecs";
+        gtD = "../../data/gist/distances_1000.fvecs";
     }
     else if(param1 == "spacev"){
         db = "/workspace/data/spacev/spacev10M.fvecs";
@@ -181,12 +192,25 @@ int main(int argc, char **argv) {
         gtI = "/workspace/data/spacev/idx.ivecs";
         gtD = "/workspace/data/spacev/dis.fvecs";
     }
-    else if(param1 == "glove"){
+    else if(param1 == "glove_10"){
         figureid = 9;
         db = "../../data/glove/db.fvecs";
         query = "../../data/glove/queries.fvecs";
-        gtI = "../../data/glove/indices.ivecs";
-        gtD = "../../data/glove/distances.fvecs";
+        gtI = "../../data/glove/indices-10.ivecs";
+        gtD = "../../data/glove/distances-10.fvecs";
+    }
+    else if(param1 == "glove_100"){
+        figureid = 9;
+        db = "../../data/glove/db.fvecs";
+        query = "../../data/glove/queries.fvecs";
+        gtI = "../../data/glove/indices-100.ivecs";
+        gtD = "../../data/glove/distances-100.fvecs";
+    } else if(param1 == "glove_1000"){
+        figureid = 9;
+        db = "../../data/glove/db.fvecs";
+        query = "../../data/glove/queries.fvecs";
+        gtI = "../../data/glove/indices-1000.ivecs";
+        gtD = "../../data/glove/distances-1000.fvecs";
     }
     else if(param1 == "text"){
         figureid = 12;
@@ -245,21 +269,20 @@ int main(int argc, char **argv) {
     }
 
     faiss::Index* index;
-
     size_t d;
 
-    {
-        printf("[%.3f s] Loading train set\n", elapsed() - t0);
+    printf("[%.3f s] Loading db\n", elapsed() - t0);
+    size_t nb;
+    float* xb = fvecs_read(db.c_str(), &d, &nb);
 
-        size_t nt;
-        float* xt = fvecs_read(db.c_str(), &d, &nt);
+    {
 
         printf("[%.3f s] Preparing index \"%s\" d=%ld\n",
                elapsed() - t0,
                index_key,
                d);
         // if(param1 == "bert" || param1 == "sift10k" || param1 == "glove" || param1 == "sift1M" || param1 == "sift10M" || param1 == "deep10M" || param1 == "gist" || param1 == "spacev")
-            index = faiss::index_factory(d, index_key);
+        index = faiss::index_factory(d, index_key);
         // else
             // index = faiss::index_factory(d, index_key
             // ,faiss::METRIC_INNER_PRODUCT
@@ -272,28 +295,16 @@ int main(int argc, char **argv) {
         
         printf("Output index type: %d\n", index->type);
 
+        // train on half the dataset
+        auto nt = size_t(0.5 * nb);
         printf("[%.3f s] Training on %ld vectors\n", elapsed() - t0, nt);
 
-        // train on half the dataset
-        auto ntt = size_t(0.5 * nt);
-        printf("[%.3f s] Training on %ld vectors\n", elapsed() - t0, ntt);
-
         index->set_tune_mode();
-        index->train(ntt, xt);
+        index->train(nt, xb);
         index->set_tune_off();
-        delete[] xt;
-        // std::string filenameIn = "./trained_index/";
-        // filenameIn += param1;
-        // filenameIn += "_IVF1024,Flat_trained.index";
+
+        // printf("[%.3f s] Writing index to %s\n", elapsed() - t0, filenameIn.c_str());
         // faiss::write_index(index, filenameIn.c_str());
-    }
-
-    {
-        printf("[%.3f s] Loading database\n", elapsed() - t0);
-
-        size_t nb, d2;
-        float* xb = fvecs_read(db.c_str(), &d2, &nb);
-        assert(d == d2 || !"dataset does not have same dimension as train set");
 
         printf("[%.3f s] Indexing database, size %ld*%ld\n",
                elapsed() - t0,
@@ -302,9 +313,9 @@ int main(int argc, char **argv) {
 
         index->add(nb, xb);
 
-        delete[] xb;
     }
 
+    delete[] xb;
     size_t nq;
     float* xq;
 
@@ -381,64 +392,68 @@ int main(int argc, char **argv) {
         printf("[%.3f s] Finish error profile system training\n",
                elapsed() - t0);
 
-        std::vector<float> D;
-        std::vector<int64_t> I;
-        std::vector<float> acc;
-        size_t demo_size = ses;
-        topk = input_k;
-        // Set query topk val
-        err_sys.set_topk(topk);
-        D.resize(demo_size * k);
-        I.resize(demo_size * k);
-        // Set required recalls
-        // std::vector<float> accs = {0.95, 0.9, 0.8};
-        std::vector<float> accs = {1-alpha};
-        for(int i = 0; i<demo_size+ts;i++){
-            int index = i%accs.size();
-            acc.push_back(accs[index]);
-        }
-        
-        err_sys.set_queries(demo_size, xq, acc.data(), ts+ses);
-        printf("[%.3f s] Start error profile system search\n",
-               elapsed() - t0);
-        t0 = elapsed();
-        if(DC(faiss::IndexIVF)){
-            assert(figureid >= 1 && figureid <= 12);
-            ix->t->setparam(figureid);
-            ix->t->profile = true;
-        }
-        err_sys.search(D.data(), I.data(), ts);
-        printf("Finish error profile system search: %.3f\n",
-               elapsed() - t0);
 
-        if(DC(faiss::IndexIVF)){
-            /// log results
-            {
-            std::ostringstream fnr_filename;
-            fnr_filename << "../Auncel-error-" << param1 << "-" << k << "-"
-                         << alpha << "-"
-                         << std::time(nullptr) << ".log";
-            std::string filename = fnr_filename.str();
-            std::ofstream outfile;
-            outfile.open(filename);
-            for(int i = ts;i < (ts+ses); i++){
-                outfile << ix->t->t_fnrs[i] << " ";
-                outfile << std::endl;
+        std::vector<float> alphas = {0.05, 0.1, 0.2};
+        for (float alpha : alphas) {
+            std::vector<float> D;
+            std::vector<int64_t> I;
+            std::vector<float> acc;
+            size_t demo_size = ses;
+            topk = input_k;
+            // Set query topk val
+            err_sys.set_topk(topk);
+            D.resize(demo_size * k);
+            I.resize(demo_size * k);
+            // Set required recalls
+            // std::vector<float> accs = {0.95, 0.9, 0.8};
+            std::vector<float> accs = {1-alpha};
+            for(int i = 0; i<demo_size+ts;i++){
+                int index = i%accs.size();
+                acc.push_back(accs[index]);
             }
+            
+            err_sys.set_queries(demo_size, xq, acc.data(), ts+ses);
+            printf("[%.3f s] Start error profile system search\n",
+                elapsed() - t0);
+            t0 = elapsed();
+            if(DC(faiss::IndexIVF)){
+                assert(figureid >= 1 && figureid <= 12);
+                ix->t->setparam(figureid);
+                ix->t->profile = true;
             }
+            err_sys.search(D.data(), I.data(), ts);
+            printf("Finish error profile system search: %.3f\n",
+                elapsed() - t0);
 
-            {
-            std::ostringstream cls_filename;
-            cls_filename << "../Auncel-efficiency-" << param1 << "-" << k << "-"
-                         << alpha << "-"
-                         << std::time(nullptr) << ".log";
-            std::string filename = cls_filename.str();
-            std::ofstream outfile;
-            outfile.open(filename);
-            for(int i = ts;i < (ts+ses); i++){
-                outfile << ix->t->t_cls[i] << " ";
-                outfile << std::endl;
-            }
+            if(DC(faiss::IndexIVF)){
+                /// log results
+                {
+                std::ostringstream fnr_filename;
+                fnr_filename << "../../Auncel-error-" << param1 << "-" << k << "-"
+                            << alpha << "-"
+                            << std::time(nullptr) << ".log";
+                std::string filename = fnr_filename.str();
+                std::ofstream outfile;
+                outfile.open(filename);
+                for(int i = ts;i < (ts+ses); i++){
+                    outfile << ix->t->t_fnrs[i] << " ";
+                    outfile << std::endl;
+                }
+                }
+
+                {
+                std::ostringstream cls_filename;
+                cls_filename << "../../Auncel-efficiency-" << param1 << "-" << k << "-"
+                            << alpha << "-"
+                            << std::time(nullptr) << ".log";
+                std::string filename = cls_filename.str();
+                std::ofstream outfile;
+                outfile.open(filename);
+                for(int i = ts;i < (ts+ses); i++){
+                    outfile << ix->t->t_cls[i] << " ";
+                    outfile << std::endl;
+                }
+                }
             }
 
         }
