@@ -375,6 +375,8 @@ int main(int argc, char **argv) {
     nq = (nq / 10) * 10;
     // get training and testing sizes
     int ts = nq * training_fraction;
+    // Round down to the nearest number divisible by ten (necessary for auncel, don't know why)
+    ts = (ts / 10) * 10;
     int ses = nq - ts;
     // Run error profile system
     {
