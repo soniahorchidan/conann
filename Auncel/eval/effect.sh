@@ -8,13 +8,13 @@
 ./../build/eval/effect_error bert_100 100 0.66
 ./../build/eval/effect_error bert_1000 1000 0.66
 
-# ./../build/eval/effect_error glove_10 10 0.66
-# ./../build/eval/effect_error glove_100 100 0.66
-# ./../build/eval/effect_error glove_1000 1000 0.66
+./../build/eval/effect_error glove_10 10 0.66
+./../build/eval/effect_error glove_100 100 0.66
+./../build/eval/effect_error glove_1000 1000 0.66
 
-# ./../build/eval/effect_error gist_10 10 0.66
-# ./../build/eval/effect_error gist_100 100 0.66
-# ./../build/eval/effect_error gist_1000 1000 0.66
+./../build/eval/effect_error gist_10 10 0.66
+./../build/eval/effect_error gist_100 100 0.66
+./../build/eval/effect_error gist_1000 1000 0.66
 
 # BEGIN AUNCEL BLOCK
 # ./effect_error sift10M 100 5000 5000
