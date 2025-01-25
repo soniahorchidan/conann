@@ -73,9 +73,8 @@ double elapsed() {
     return tv.tv_sec + tv.tv_usec * 1e-6;
 }
 
-void write_gt_indices(const std::string &filename, const faiss::idx_t *indices,
-                      size_t n, int k, size_t *d_in) {
-    int* int_indices;
+void write_gt_indices(const std::string &filename, const int *int_indices,
+                      size_t n, int input_k, int out_k) {
     FILE *f = fopen(filename.c_str(), "wb");
     if (!f) {
         fprintf(stderr, "could not open %s for writing\n", filename.c_str());
@@ -83,27 +82,19 @@ void write_gt_indices(const std::string &filename, const faiss::idx_t *indices,
         abort();
     }
 
-    // conversion to integer
-    int_indices = new int[k * n];
-    for (int i = 0; i < k * n; i++) {
-        int_indices[i] = indices[i];
-    }
-
     for(size_t i=0;i < n; i++){
-        fwrite(&k, sizeof(int), 1, f);
-        fwrite(int_indices + (i * k), sizeof(int), k, f);
+        fwrite(&out_k, sizeof(int), 1, f);
+        fwrite(int_indices + (i * input_k), sizeof(int), out_k, f);
     }
     // fwrite(&n, sizeof(size_t), 1, f); // number of queries
     // fwrite(&k, sizeof(int), 1, f);    // number of neighbors (top k)
     // fwrite(d_in, sizeof(int), 1, f);
     // fwrite(indices, sizeof(int), n * k, f);
     fclose(f);
-    delete[] indices;
-    delete[] int_indices;
 }
 
 void write_gt_distances(const std::string &filename, const float *distances,
-                        size_t n, int k, size_t *d_in) {
+                        size_t n, int input_k, int out_k) {
     FILE *f = fopen(filename.c_str(), "wb");
     if (!f) {
         fprintf(stderr, "could not open %s for writing\n", filename.c_str());
@@ -111,8 +102,8 @@ void write_gt_distances(const std::string &filename, const float *distances,
         abort();
     }
     for(size_t i=0;i < n; i++){
-        fwrite(&k, sizeof(int), 1, f);
-        fwrite(distances + (i * k), sizeof(float), k, f);
+        fwrite(&out_k, sizeof(int), 1, f);
+        fwrite(distances + (i * input_k), sizeof(float), out_k, f);
     }
     // fwrite(&n, sizeof(size_t), 1, f); // number of queries
     // fwrite(&k, sizeof(int), 1, f);    // number of neighbors (top k)
@@ -207,28 +198,40 @@ int main(int argc, char **argv) {
     faiss::idx_t *gt_indices = new faiss::idx_t[nq * input_k];
     float *gt_distances = new float[nq * input_k];
 
+    printf("[%.3f s] Computing gts...\n", elapsed() - t0);
     exact_index.search(nq, xq, input_k, gt_distances, gt_indices);
 
+    // conversion to integer
+    int* int_indices = new int[input_k * nq];
+    for (int i = 0; i < nq * input_k; i++) {
+        int_indices[i] = gt_indices[i];
+    }
+
     // Print gt_indices and gt_distances for the first query (xq[0]):
-    std::cout << "gt_indices for the first query (xq[0]): ";
-    for (int i = 0; i < input_k; i++) {
-        std::cout << gt_indices[i] << " "; // Indices are integers
-    }
-    std::cout << std::endl;
+    // std::cout << "gt_indices for the first query (xq[0]): ";
+    // for (int i = 0; i < input_k; i++) {
+    //     std::cout << gt_indices[i] << " "; // Indices are integers
+    // }
+    // std::cout << std::endl;
 
-    std::cout << "gt_distances for the first query (xq[0]): ";
-    for (int i = 0; i < input_k; i++) {
-        std::cout << gt_distances[i] << " "; // Distances should be floats
-    }
-    std::cout << std::endl;
-    std::cout << "number of queries: " << nq << std::endl;
+    // std::cout << "gt_distances for the first query (xq[0]): ";
+    // for (int i = 0; i < input_k; i++) {
+    //     std::cout << gt_distances[i] << " "; // Distances should be floats
+    // }
+    // std::cout << std::endl;
+    // std::cout << "number of queries: " << nq << std::endl;
 
+    printf("[%.3f s] Writing gts...\n", elapsed() - t0);
     std::string base = db.substr(0, db.find_last_of("/\\"));
-    std::string filename1 = base + "/indices-" + std::to_string(input_k) + ".fvecs";
-    std::string filename2 = base + "/distances-" + std::to_string(input_k) + ".fvecs";
 
-    write_gt_indices(filename1, gt_indices, nq, input_k, &d);
-    write_gt_distances(filename2, gt_distances, nq, input_k, &d);
+    std::vector<int> output_ks = {10, 100, 1000};
+    for (int output_k : output_ks) {
+        std::string filename_idx = base + "/indices-" + std::to_string(output_k) + ".fvecs";
+        std::string filename_dis = base + "/distances-" + std::to_string(output_k) + ".fvecs";
+        write_gt_indices(filename_idx, int_indices, nq, input_k, output_k);
+        write_gt_distances(filename_dis, gt_distances, nq, input_k, output_k);
+    }
 
     delete[] xq;
+    delete[] int_indices;
 }
