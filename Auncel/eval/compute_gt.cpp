@@ -121,7 +121,7 @@ void write_gt_distances(const std::string &filename, const float *distances,
     fclose(f);
 }
 
-/// Command like this: ./knn_script sift1M 100 2000 8000
+/// Command like this: ./compute_gt gist 100
 int main(int argc, char **argv) {
     std::cout << argc << " arguments" << std::endl;
     if (argc - 1 != 2) {
@@ -135,17 +135,23 @@ int main(int argc, char **argv) {
 
     std::string db, query, gtI, gtD;
     if (param1 == "sift10k") {
-        db = "../data/sift10k/siftsmall_base.fvecs";
-        query = "../data/sift10k/siftsmall_query.fvecs";
+        db = "../../data/sift10k/siftsmall_base.fvecs";
+        query = "../../data/sift10k/siftsmall_query.fvecs";
     } else if (param1 == "sift1M") {
-        db = "../data/sift1M/sift_base.fvecs";
-        query = "../data/sift1M/sift_query.fvecs";
+        db = "../../data/sift1M/sift_base.fvecs";
+        query = "../../data/sift1M/sift_query.fvecs";
     } else if (param1 == "bert") {
-        db = "../data/bert/db.fvecs";
-        query = "../data/bert/queries.fvecs";
+        db = "../../data/bert/db.fvecs";
+        query = "../../data/bert/queries.fvecs";
     } else if (param1 == "gist") {
-        db = "../data/gist/gist_base.fvecs";
-        query = "../data/gist/queries.fvecs";
+        db = "../../data/gist/gist_base.fvecs";
+        query = "../../data/gist/queries.fvecs";
+    } else if (param1 == "glove") {
+        db = "../../data/glove/db.fvecs";
+        query = "../../data/glove/queries.fvecs";
+    } else if (param1 == "deep10M") {
+        db = "../../data/deep10M/deep10M.fvecs";
+        query = "../../data/deep10M/queries.fvecs";
     } else {
         printf("Your dataset name is illegal\n");
         return 0;
@@ -217,10 +223,9 @@ int main(int argc, char **argv) {
     std::cout << std::endl;
     std::cout << "number of queries: " << nq << std::endl;
 
-    char filename1[100]; 
-    snprintf(filename1, sizeof(filename1), "%s_gt_indices_k%d.fvecs", param1.data(), input_k);
-    char filename2[100]; 
-    snprintf(filename2, sizeof(filename2), "%s_gt_distances_k%d.fvecs", param1.data(), input_k);
+    std::string base = db.substr(0, db.find_last_of("/\\"));
+    std::string filename1 = base + "/indices-" + std::to_string(input_k) + ".fvecs";
+    std::string filename2 = base + "/distances-" + std::to_string(input_k) + ".fvecs";
 
     write_gt_indices(filename1, gt_indices, nq, input_k, &d);
     write_gt_distances(filename2, gt_distances, nq, input_k, &d);
