@@ -26,6 +26,22 @@
 
 #define DC(classname) classname* ix = dynamic_cast<classname*>(index)
 
+// template <typename T> double computeAverage(const std::vector<T> &numbers) {
+//     if (numbers.empty())
+//         return 0.0;
+//     double sum = std::accumulate(numbers.begin(), numbers.end(), 0.0);
+//     return sum / numbers.size();
+// }
+
+// template <typename T>
+// void write_to_file(const std::vector<T> &data, const std::string &filename) {
+//     std::ofstream file(filename);
+//     for (const auto &value : data) {
+//         file << value << '\n';
+//     }
+//     file.close();
+// }
+
 float* fvecs_read(const char* fname, size_t* d_out, size_t* n_out) {
     FILE* f = fopen(fname, "r");
     if (!f) {
@@ -68,32 +84,46 @@ double elapsed() {
     return tv.tv_sec + tv.tv_usec * 1e-6;
 }
 
-/// Command like this: ./knn_script sift1M 100 2000 8000
+/// Command like this: ./knn_script sift1M 100 0.66 0.1
 int main(int argc, char **argv) {
     std::cout << argc << " arguments" <<std::endl;
     if(argc - 1 != 4){
-        printf("You should at least input 4 params: the dataset name, topk, train size, query size\n");
+        printf("You should at least input 4 params: the dataset name, topk, train size fraction, required accuracy\n");
         return 0;
     }
     std::string param1 = argv[1];
     std::string param2 = argv[2];
-    std::string p3 = argv[3];
-    std::string p4 = argv[4];
+    std::string param3 = argv[3];
+    std::string param4 = argv[4];
 
     int input_k = std::stoi(param2);
-    int ts = std::stoi(p3);
-    int ses = std::stoi(p4);
+    float training_fraction = std::stof(param3);
+    float required_accuracy = std::stof(param4);
+
+    
     int figureid = -1;
     // if(input_k>100 || input_k <0){
     //     printf("Input topk must be lower than or equal to 100 and greater than 0\n");
     //     return 0;
     // }
     std::string db, query, gtI, gtD;
-    if(param1 == "bert"){
+    if(param1 == "bert10"){
         db = "../../data/bert/db.fvecs";
         query = "../../data/bert/queries.fvecs";
-        gtI = "../../data/bert/indices.fvecs";
-        gtD = "../../data/bert/distances.fvecs";
+        gtI = "../../data/bert/indices-10.fvecs";
+        gtD = "../../data/bert/distances-10.fvecs";
+        figureid = 11;
+    } else if(param1 == "bert100"){
+        db = "../../data/bert/db.fvecs";
+        query = "../../data/bert/queries.fvecs";
+        gtI = "../../data/bert/indices-100.fvecs";
+        gtD = "../../data/bert/distances-100.fvecs";
+        figureid = 11;
+    } else if(param1 == "bert1000"){
+        db = "../../data/bert/db.fvecs";
+        query = "../../data/bert/queries.fvecs";
+        gtI = "../../data/bert/indices-1000.fvecs";
+        gtD = "../../data/bert/distances-1000.fvecs";
         figureid = 11;
     }
     else if(param1 == "sift10k"){
@@ -329,6 +359,12 @@ int main(int argc, char **argv) {
 
     size_t topk = k;
     size_t max_topk = k;
+
+    // Round down to the nearest number divisible by ten (necessary for auncel, don't know why)
+    nq = (nq / 10) * 10;
+    // get training and testing sizes
+    int ts = nq * training_fraction;
+    int ses = nq - ts;
     // Run error profile system
     {
         printf("[%.3f s] Preparing error profile system criterion 100-recall at 100 "
@@ -356,7 +392,7 @@ int main(int argc, char **argv) {
         I.resize(demo_size * k);
         // Set required recalls
         // std::vector<float> accs = {0.95, 0.9, 0.8};
-        std::vector<float> accs = {0.8};
+        std::vector<float> accs = {required_accuracy};
         for(int i = 0; i<demo_size+ts;i++){
             int index = i%accs.size();
             acc.push_back(accs[index]);
@@ -376,18 +412,35 @@ int main(int argc, char **argv) {
                elapsed() - t0);
 
         if(DC(faiss::IndexIVF)){
-            /// Store the recalls and true recalls in logs
-            std::stringstream ss;
-            ss<<"Effective_error_"<< param1 <<".log";
-            std::string filename = ss.str();
+            /// log results
+            {
+            std::ostringstream fnr_filename;
+            fnr_filename << "../Auncel-error-" << param1 << "-" << k << "-"
+                         << required_accuracy << "-"
+                         << std::time(nullptr) << ".log";
+            std::string filename = fnr_filename.str();
             std::ofstream outfile;
             outfile.open(filename);
             for(int i = ts;i < (ts+ses); i++){
-                outfile << acc[i] << " ";
-                outfile << ix->t->t_recalls[i] << " ";
                 outfile << ix->t->t_fnrs[i] << " ";
                 outfile << std::endl;
             }
+            }
+
+            // {
+            // std::ostringstream cls_filename;
+            // cls_filename << "../Auncel-efficiency-" << param1 << "-" << k << "-"
+            //              << required_accuracy << "-"
+            //              << std::time(nullptr) << ".log";
+            // std::string filename = cls_filename.str();
+            // std::ofstream outfile;
+            // outfile.open(filename);
+            // for(int i = ts;i < (ts+ses); i++){
+            //     outfile << ix->t->t_fnrs[i] << " ";
+            //     outfile << std::endl;
+            // }
+            // }
+
         }
     }
     delete[] xq;
