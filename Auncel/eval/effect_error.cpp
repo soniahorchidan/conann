@@ -84,19 +84,21 @@ double elapsed() {
     return tv.tv_sec + tv.tv_usec * 1e-6;
 }
 
-/// Command like this: ./knn_script sift1M 100 0.66
+/// Command like this: ./knn_script sift1M 100 0.66 0.1
 int main(int argc, char **argv) {
     std::cout << argc << " arguments" <<std::endl;
-    if(argc - 1 != 3){
-        printf("You should at least input 3 params: the dataset name, topk, train size fraction\n");
+    if(argc - 1 != 4){
+        printf("You should at least input 4 params: the dataset name, topk, train size fraction, alpha\n");
         return 0;
     }
     std::string param1 = argv[1];
     std::string param2 = argv[2];
     std::string param3 = argv[3];
+    std::string param4 = argv[4];
 
     int input_k = std::stoi(param2);
     float training_fraction = std::stof(param3);
+    float alpha = std::stof(param4);
     
     int figureid = -1;
     // if(input_k>100 || input_k <0){
@@ -392,67 +394,64 @@ int main(int argc, char **argv) {
                elapsed() - t0);
 
 
-        std::vector<float> alphas = {0.05, 0.1, 0.2};
-        for (float alpha : alphas) {
-            std::vector<float> D;
-            std::vector<int64_t> I;
-            std::vector<float> acc;
-            size_t demo_size = ses;
-            topk = input_k;
-            // Set query topk val
-            err_sys.set_topk(topk);
-            D.resize(demo_size * k);
-            I.resize(demo_size * k);
-            // Set required recalls
-            // std::vector<float> accs = {0.95, 0.9, 0.8};
-            std::vector<float> accs = {1-alpha};
-            for(int i = 0; i<demo_size+ts;i++){
-                int index = i%accs.size();
-                acc.push_back(accs[index]);
-            }
-            
-            err_sys.set_queries(demo_size, xq, acc.data(), ts+ses);
-            printf("[%.3f s] Start error profile system search\n",
-                elapsed() - t0);
-            t0 = elapsed();
-            if(DC(faiss::IndexIVF)){
-                assert(figureid >= 1 && figureid <= 12);
-                ix->t->setparam(figureid);
-                ix->t->profile = true;
-            }
-            err_sys.search(D.data(), I.data(), ts);
-            printf("Finish error profile system search: %.3f\n",
-                elapsed() - t0);
+        std::vector<float> D;
+        std::vector<int64_t> I;
+        std::vector<float> acc;
+        size_t demo_size = ses;
+        topk = input_k;
+        // Set query topk val
+        err_sys.set_topk(topk);
+        D.resize(demo_size * k);
+        I.resize(demo_size * k);
+        // Set required recalls
+        // std::vector<float> accs = {0.95, 0.9, 0.8};
+        std::vector<float> accs = {1-alpha};
+        for(int i = 0; i<demo_size+ts;i++){
+            int index = i%accs.size();
+            acc.push_back(accs[index]);
+        }
+        
+        err_sys.set_queries(demo_size, xq, acc.data(), ts+ses);
+        printf("[%.3f s] Start error profile system search\n",
+            elapsed() - t0);
+        t0 = elapsed();
+        if(DC(faiss::IndexIVF)){
+            assert(figureid >= 1 && figureid <= 12);
+            ix->t->setparam(figureid);
+            ix->t->profile = true;
+        }
+        err_sys.search(D.data(), I.data(), ts);
+        printf("Finish error profile system search: %.3f\n",
+            elapsed() - t0);
 
-            if(DC(faiss::IndexIVF)){
-                /// log results
-                {
-                std::ostringstream fnr_filename;
-                fnr_filename << "../../Auncel-error-" << param1 << "-" << k << "-"
-                            << alpha << "-"
-                            << std::time(nullptr) << ".log";
-                std::string filename = fnr_filename.str();
-                std::ofstream outfile;
-                outfile.open(filename);
-                for(int i = ts;i < (ts+ses); i++){
-                    outfile << ix->t->t_fnrs[i] << " ";
-                    outfile << std::endl;
-                }
-                }
+        if(DC(faiss::IndexIVF)){
+            /// log results
+            {
+            std::ostringstream fnr_filename;
+            fnr_filename << "../../Auncel-error-" << param1 << "-" << k << "-"
+                        << alpha << "-"
+                        << std::time(nullptr) << ".log";
+            std::string filename = fnr_filename.str();
+            std::ofstream outfile;
+            outfile.open(filename);
+            for(int i = ts;i < (ts+ses); i++){
+                outfile << ix->t->t_fnrs[i] << " ";
+                outfile << std::endl;
+            }
+            }
 
-                {
-                std::ostringstream cls_filename;
-                cls_filename << "../../Auncel-efficiency-" << param1 << "-" << k << "-"
-                            << alpha << "-"
-                            << std::time(nullptr) << ".log";
-                std::string filename = cls_filename.str();
-                std::ofstream outfile;
-                outfile.open(filename);
-                for(int i = ts;i < (ts+ses); i++){
-                    outfile << ix->t->t_cls[i] << " ";
-                    outfile << std::endl;
-                }
-                }
+            {
+            std::ostringstream cls_filename;
+            cls_filename << "../../Auncel-efficiency-" << param1 << "-" << k << "-"
+                        << alpha << "-"
+                        << std::time(nullptr) << ".log";
+            std::string filename = cls_filename.str();
+            std::ofstream outfile;
+            outfile.open(filename);
+            for(int i = ts;i < (ts+ses); i++){
+                outfile << ix->t->t_cls[i] << " ";
+                outfile << std::endl;
+            }
             }
 
         }
