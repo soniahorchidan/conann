@@ -273,17 +273,18 @@ int main(int argc, char **argv) {
     faiss::Index* index;
     size_t d;
 
-    {
-        printf("[%.3f s] Loading db\n", elapsed() - t0);
-        size_t nb;
-        float* xb = fvecs_read(db.c_str(), &d, &nb);
+   {
+        printf("[%.3f s] Loading train set\n", elapsed() - t0);
+
+        size_t nt;
+        float* xt = fvecs_read(db.c_str(), &d, &nt);
 
         printf("[%.3f s] Preparing index \"%s\" d=%ld\n",
                elapsed() - t0,
                index_key,
                d);
         // if(param1 == "bert" || param1 == "sift10k" || param1 == "glove" || param1 == "sift1M" || param1 == "sift10M" || param1 == "deep10M" || param1 == "gist" || param1 == "spacev")
-        index = faiss::index_factory(d, index_key);
+            index = faiss::index_factory(d, index_key);
         // else
             // index = faiss::index_factory(d, index_key
             // ,faiss::METRIC_INNER_PRODUCT
@@ -296,16 +297,28 @@ int main(int argc, char **argv) {
         
         printf("Output index type: %d\n", index->type);
 
-        // train on half the dataset
-        auto nt = size_t(0.5 * nb);
         printf("[%.3f s] Training on %ld vectors\n", elapsed() - t0, nt);
 
-        index->set_tune_mode();
-        index->train(nt, xb);
-        index->set_tune_off();
+        // train on half the dataset
+        auto ntt = size_t(0.5 * nt);
+        printf("[%.3f s] Training on %ld vectors\n", elapsed() - t0, ntt);
 
-        // printf("[%.3f s] Writing index to %s\n", elapsed() - t0, filenameIn.c_str());
+        index->set_tune_mode();
+        index->train(ntt, xt);
+        index->set_tune_off();
+        delete[] xt;
+        // std::string filenameIn = "./trained_index/";
+        // filenameIn += param1;
+        // filenameIn += "_IVF1024,Flat_trained.index";
         // faiss::write_index(index, filenameIn.c_str());
+    }
+
+    {
+        printf("[%.3f s] Loading database\n", elapsed() - t0);
+
+        size_t nb, d2;
+        float* xb = fvecs_read(db.c_str(), &d2, &nb);
+        assert(d == d2 || !"dataset does not have same dimension as train set");
 
         printf("[%.3f s] Indexing database, size %ld*%ld\n",
                elapsed() - t0,
