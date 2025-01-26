@@ -4,17 +4,11 @@
 # ./../build/eval/effect_error sift10k 10 0.66
 # ./../build/eval/effect_error sift10k 10 0.66
 
-./../build/eval/effect_error bert_100 100 0.66 0.2
-./../build/eval/effect_error bert_100 100 0.66 0.1
-./../build/eval/effect_error bert_100 100 0.66 0.05
+./../build/eval/effect_error bert_100 100 0.66 0.2 0.1 0.05
 
-./../build/eval/effect_error glove_100 100 0.66 0.2
-./../build/eval/effect_error glove_100 100 0.66 0.1
-./../build/eval/effect_error glove_100 100 0.66 0.05
+./../build/eval/effect_error glove_100 100 0.66 0.2 0.1 0.05
 
-./../build/eval/effect_error gist_100 100 0.66 0.2
-./../build/eval/effect_error gist_100 100 0.66 0.1
-./../build/eval/effect_error gist_100 100 0.66 0.05
+./../build/eval/effect_error gist_100 100 0.66 0.2 0.1 0.05
 
 # variable k
 ./../build/eval/effect_error bert_10 10 0.66 0.1
