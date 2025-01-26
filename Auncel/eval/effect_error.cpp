@@ -131,14 +131,14 @@ int main(int argc, char **argv) {
     else if(param1 == "sift10k"){
         db = "../../data/sift10k/siftsmall_base.fvecs";
         query = "../../data/sift10k/siftsmall_query.fvecs";
-        gtI = "../../data/sift10k/sift10k_gt_indices_k10.ivecs";
+        gtI = "../../data/sift10k/sift10k_gt_indices_k10.fvecs";
         gtD = "../../data/sift10k/sift10k_gt_distances_k10.fvecs";
         figureid = 9;
     }
     else if(param1 == "sift1M"){
         db = "../../data/sift1M/sift_base.fvecs";
         query = "../../data/sift1M/sift_query.fvecs";
-        gtI = "../../data/sift1M/sift_gt_index.ivecs";
+        gtI = "../../data/sift1M/sift_gt_index.fvecs";
         gtD = "../../data/sift1M/sift_gt_dis.fvecs";
         figureid = 9;
     }
@@ -146,28 +146,28 @@ int main(int argc, char **argv) {
         figureid = 9;
         db = "/workspace/data/sift/sift10M/sift10M.fvecs";
         query = "/workspace/data/sift/sift10M/query.fvecs";
-        gtI = "/workspace/data/sift/sift10M/idx.ivecs";
+        gtI = "/workspace/data/sift/sift10M/idx.fvecs";
         gtD = "/workspace/data/sift/sift10M/dis.fvecs";
     }
     else if(param1 == "deep10M_10"){
         figureid = 10;
         db = "../../data/deep/deep10M.fvecs";
         query = "../../data/deep/queries.fvecs";
-        gtI = "../../data/deep/indices-10.ivecs";
+        gtI = "../../data/deep/indices-10.fvecs";
         gtD = "../../data/deep/distances-10.fvecs";
     }
     else if(param1 == "deep10M_100"){
         figureid = 10;
         db = "../../data/deep/deep10M.fvecs";
         query = "../../data/deep/queries.fvecs";
-        gtI = "../../data/deep/indices-100.ivecs";
+        gtI = "../../data/deep/indices-100.fvecs";
         gtD = "../../data/deep/distances-100.fvecs";
     }
     else if(param1 == "deep10M_1000"){
         figureid = 10;
         db = "../../data/deep/deep10M.fvecs";
         query = "../../data/deep/queries.fvecs";
-        gtI = "../../data/deep/indices-1000.ivecs";
+        gtI = "../../data/deep/indices-1000.fvecs";
         gtD = "../../data/deep/distances-1000.fvecs";
     }
     else if(param1 == "gist_10"){
@@ -194,34 +194,34 @@ int main(int argc, char **argv) {
     else if(param1 == "spacev"){
         db = "/workspace/data/spacev/spacev10M.fvecs";
         query = "/workspace/data/spacev/query.fvecs";
-        gtI = "/workspace/data/spacev/idx.ivecs";
+        gtI = "/workspace/data/spacev/idx.fvecs";
         gtD = "/workspace/data/spacev/dis.fvecs";
     }
     else if(param1 == "glove_10"){
         figureid = 9;
         db = "../../data/glove/db.fvecs";
         query = "../../data/glove/queries.fvecs";
-        gtI = "../../data/glove/indices-10.ivecs";
+        gtI = "../../data/glove/indices-10.fvecs";
         gtD = "../../data/glove/distances-10.fvecs";
     }
     else if(param1 == "glove_100"){
         figureid = 9;
         db = "../../data/glove/db.fvecs";
         query = "../../data/glove/queries.fvecs";
-        gtI = "../../data/glove/indices-100.ivecs";
+        gtI = "../../data/glove/indices-100.fvecs";
         gtD = "../../data/glove/distances-100.fvecs";
     } else if(param1 == "glove_1000"){
         figureid = 9;
         db = "../../data/glove/db.fvecs";
         query = "../../data/glove/queries.fvecs";
-        gtI = "../../data/glove/indices-1000.ivecs";
+        gtI = "../../data/glove/indices-1000.fvecs";
         gtD = "../../data/glove/distances-1000.fvecs";
     }
     else if(param1 == "text"){
         figureid = 12;
         db = "/workspace/data/text/text10M.fvecs";
         query = "/workspace/data/text/query.fvecs";
-        gtI = "/workspace/data/text/idx.ivecs";
+        gtI = "/workspace/data/text/idx.fvecs";
         gtD = "/workspace/data/text/dis.fvecs";
     }
     else{
