@@ -105,6 +105,7 @@ struct IndexIVFInterface : Level1Quantizer {
 // BEGIN AUNCEL BLOCK
     // Set training to false
     bool training = false;
+    bool latency_profiling = false;
     // Auncel Error Profile
     error_pro *t;
 // END AUNCEL BLOCK
@@ -251,6 +252,10 @@ struct IndexIVF : Index, IndexIVFInterface {
     void set_train_mode();
 
     void set_train_off();
+
+    void set_latency_mode();
+
+    void set_latency_off();
 
 //     void init_tune(size_t train_num, size_t topk, const float *train_q, const float *train_D, 
 //         const long *train_I, float *train_cd, long *train_ci);
