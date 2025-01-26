@@ -159,11 +159,21 @@ int main(int argc, char **argv) {
         query = "../data/deep/query.fvecs";
         gtI = "../data/deep/idx.ivecs";
         gtD = "../data/deep/dis.fvecs";
-    } else if (param1 == "gist") {
-        db = "../data/gist/gist_base.fvecs";
-        query = "../data/gist/gist_query.fvecs";
-        gtI = "../data/gist/idx.ivecs";
-        gtD = "../data/gist/dis.fvecs";
+    } else if (param1 == "gist_10") {
+        db = "../data/gist/db.fvecs";
+        query = "../data/gist/queries.fvecs";
+        gtI = "../data/gist/indices-10.fvecs";
+        gtD = "../data/gist/distances-10.fvecs";
+    } else if (param1 == "gist_100") {
+        db = "../data/gist/db.fvecs";
+        query = "../data/gist/queries.fvecs";
+        gtI = "../data/gist/indices-100.fvecs";
+        gtD = "../data/gist/distances-100.fvecs";
+    } else if (param1 == "gist_1000") {
+        db = "../data/gist/db.fvecs";
+        query = "../data/gist/queries.fvecs";
+        gtI = "../data/gist/indices-1000.fvecs";
+        gtD = "../data/gist/distances-1000.fvecs";
     } else if (param1 == "glove_100") {
         db = "../data/glove/db.fvecs";
         query = "../data/glove/queries.fvecs";
