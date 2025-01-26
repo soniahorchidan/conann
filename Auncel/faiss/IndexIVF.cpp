@@ -262,6 +262,14 @@ void IndexIVF::set_train_off(){
     quantizer->tune = false;
 }
 
+void IndexIVF::set_latency_mode(){
+    latency_profiling = true;
+}
+
+void IndexIVF::set_latency_off(){
+    latency_profiling = false;
+}
+
 // CHANGED TO index type from long to idx_t see Index.h
 void IndexIVF::init_tune(size_t train_num, size_t topk,const float *train_q, const float *train_D, 
         const idx_t *train_I,  float *train_cd, idx_t *train_ci){
@@ -967,24 +975,26 @@ void IndexIVF::search_preassigned(
                         std::vector<idx_t> gt_idxi(t->max_topk);
                         memcpy(gt_idxi.data(), t->train_I + id_q * k, sizeof(t->train_I[0]) * t->max_topk);
 
-                        int num_true_res = 0;
-                        int gt_start_index = id_q * k;
-                        // Compute intersection between GT and actual result.
-                        // Assumes no duplicate values in both loops which is reasonable
-                        for (size_t j = gt_start_index; j < gt_start_index + k; j++) {
-                            idx_t gt_index = t->train_I[j];
-                            for (size_t jk = 0; jk < k; jk++) {
-                                idx_t res_index = idxi[jk];
-                                if (idxi[jk] == t->train_I[j]) {
-                                    num_true_res++;
-                                    break;
+                        // we should not add overhead when testing latency
+                        if (!latency_profiling) {
+                            int num_true_res = 0;
+                            int gt_start_index = id_q * k;
+                            // Compute intersection between GT and actual result.
+                            // Assumes no duplicate values in both loops which is reasonable
+                            for (size_t j = gt_start_index; j < gt_start_index + k; j++) {
+                                idx_t gt_index = t->train_I[j];
+                                for (size_t jk = 0; jk < k; jk++) {
+                                    idx_t res_index = idxi[jk];
+                                    if (idxi[jk] == t->train_I[j]) {
+                                        num_true_res++;
+                                        break;
+                                    }
                                 }
                             }
+                            float inter = static_cast<float>(num_true_res) / static_cast<float>(k);
+                            float fnr = 1 - inter;
+                            t->t_fnrs[id_q] = fnr;
                         }
-                        float inter = static_cast<float>(num_true_res) / static_cast<float>(k);
-                        float fnr = 1 - inter;
-                        t->t_fnrs[id_q] = fnr;
-
 
                         float require_recall = t->require_acc[id_q];
                         if (!t->overhead_profile){

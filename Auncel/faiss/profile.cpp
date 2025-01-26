@@ -248,6 +248,26 @@ void Error_sys::search(float *D, int64_t *I, size_t start, size_t search_size){
     index->set_tune_off();
 }
 
+void Error_sys::search_latency(float *D, int64_t *I, size_t start, size_t search_size){
+    FAISS_THROW_IF_NOT_MSG(
+            is_trained == true, "Error sys must be trained before searching");
+    FAISS_THROW_IF_NOT_MSG(
+            num <= train_num, "Error sys search num must be lower than all qeuries num");
+    index->set_tune_mode();
+    if(key == "IVF"){
+        DC( IndexIVF);
+        ix->set_tune_mode(); 
+        ix->set_latency_mode();
+        ix->nprobe = ix->nlist;
+        if (search_size == -1)
+            ix->search(num, queries +start * ix->d, max_topk, D, I, start);
+        else
+            ix->search(search_size, queries +start * ix->d, max_topk, D, I, start);
+        ix->set_latency_off();
+    }
+    index->set_tune_off();
+}
+
 void Error_sys::time_search(float *D, int64_t *I, size_t start, size_t search_size){
     FAISS_THROW_IF_NOT_MSG(
             is_trained == true, "Error sys must be trained before searching");
