@@ -89,11 +89,11 @@ void write_queries(const std::string &filename, const float *vectors,
     fclose(f);
 }
 
-/// Command like this: ./sample_queries ./sift1M/db.fvecs 10000
+/// Command like this: ./sample_queries ./sift1M/db.fvecs 0.15
 int main(int argc, char **argv) {
     std::cout << argc << " arguments" << std::endl;
     if (argc - 1 != 2) {
-        printf("You should at least input 2 params: the dataset path, sample size \n");
+        printf("You should at least input 2 params: the dataset path, sample size fraction \n");
         return 0;
     }
     std::string param1 = argv[1];
@@ -102,7 +102,7 @@ int main(int argc, char **argv) {
     std::string db = param1;
     std::string base = db.substr(0, db.find_last_of("/\\"));
     std::string output_filepath = base + "/queries.fvecs";
-    int nq = std::stoi(param2);
+    float sample_fraction = std::stof(param2);
 
     // std::string db, query, gtI, gtD;
     // if (param1 == "sift10k") {
@@ -132,6 +132,7 @@ int main(int argc, char **argv) {
     printf("[%.3f s] Query not set, sampling queries from the database\n", elapsed() - t0);
 
     // Sample nq random queries from the database
+    int nq = nb * sample_fraction;
     float* xq = new float[nq * d];
 
     std::random_device rd;

@@ -167,18 +167,18 @@ void Error_sys::sys_train(size_t nq, const float *xq){
         std::cout<<"End t traing" <<std::endl;
 
         /*test offline part*/
-        for (size_t ij = 0; ij < 8; ij++){
-            size_t np = (1 << ij);
-            std::stringstream ss;
-            ss<<"Validation_"<< ix->d << "_" << np <<".log";
-            std::string filename = ss.str();
+        // for (size_t ij = 0; ij < 8; ij++){
+        //     size_t np = (1 << ij);
+        //     std::stringstream ss;
+        //     ss<<"Validation_"<< ix->d << "_" << np <<".log";
+        //     std::string filename = ss.str();
 
-            std::ofstream outfile;
-            outfile.open(filename);
-            for(int i = 0;i < ix->t->traces[ij].trace.size(); i++){
-                outfile << ix->t->traces[ij].trace[i].first << " " << ix->t->traces[ij].trace[i].second << std::endl;
-            }
-        }
+        //     std::ofstream outfile;
+        //     outfile.open(filename);
+        //     for(int i = 0;i < ix->t->traces[ij].trace.size(); i++){
+        //         outfile << ix->t->traces[ij].trace[i].first << " " << ix->t->traces[ij].trace[i].second << std::endl;
+        //     }
+        // }
     }
 }
 
@@ -213,6 +213,12 @@ void Error_sys::set_queries(size_t n, const float *q, const float*acc, size_t al
             delete[] ix->t->t_fnrs;
         ix->t->t_fnrs = new float[allo_size];
         memset(ix->t->t_fnrs, 0, allo_size*sizeof(ix->t->t_fnrs[0]));
+
+        if (ix->t->t_cls != nullptr)
+            delete[] ix->t->t_cls;
+        ix->t->t_cls = new int[allo_size];
+        memset(ix->t->t_cls, 0, allo_size*sizeof(ix->t->t_cls[0]));
+
         ix->t->require_acc = acc;
     }
 }

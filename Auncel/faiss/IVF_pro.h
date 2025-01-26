@@ -105,6 +105,8 @@ public:
 
     float* t_fnrs = nullptr;
 
+    int* t_cls = nullptr;
+
     float cur_rc;
 
     size_t *my_nprobe  = nullptr;

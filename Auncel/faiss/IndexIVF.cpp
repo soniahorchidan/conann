@@ -883,6 +883,8 @@ void IndexIVF::search_preassigned(
                     }
                     // extract intermediate search result and get the appropriate stop nprobe
                     if (tune) {
+
+                        t->t_cls[id_q] = static_cast<int>(ik);
                         // The current search clusters' NO.
                         // double tt1 = time();
                         size_t stage = ik + 1;
