@@ -181,15 +181,15 @@ int main(int argc, char **argv) {
         figureid = 11;
         db = "../../data/gist/gist_base.fvecs";
         query = "../../data/gist/queries.fvecs";
-        gtI = "../../data/gist/indices_100.fvecs";
-        gtD = "../../data/gist/distances_100.fvecs";
+        gtI = "../../data/gist/indices-100.fvecs";
+        gtD = "../../data/gist/distances-100.fvecs";
     }
     else if(param1 == "gist_1000"){
         figureid = 11;
         db = "../../data/gist/gist_base.fvecs";
         query = "../../data/gist/queries.fvecs";
-        gtI = "../../data/gist/indices_1000.fvecs";
-        gtD = "../../data/gist/distances_1000.fvecs";
+        gtI = "../../data/gist/indices-1000.fvecs";
+        gtD = "../../data/gist/distances-1000.fvecs";
     }
     else if(param1 == "spacev"){
         db = "/workspace/data/spacev/spacev10M.fvecs";
