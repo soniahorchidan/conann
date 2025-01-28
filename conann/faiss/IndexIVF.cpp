@@ -1336,7 +1336,7 @@ float IndexIVF::optimization(
     F.function = [](double lambda, void *params) -> double {
         auto *args = static_cast<LamhatParams *>(params);
         return args->index_ivf->lamhat_threshold(
-            static_cast<float>(lambda), args->target_fnr, *(args->calib_cx),
+            lambda, args->target_fnr, *(args->calib_cx),
             *(args->calib_labels), *(args->calib_diffs), *(args->calib_nonconf),
             *(args->calib_preds));
     };
@@ -1346,14 +1346,14 @@ float IndexIVF::optimization(
                            &calib_preds};
     F.params = &params;
 
-    float lower_bound = 0.0f;
-    float upper_bound = 1.0f;
+    double lower_bound = 0.0f;
+    double upper_bound = 1.0f;
     gsl_root_fsolver_set(solver, &F, lower_bound, upper_bound);
 
     int status;
     int max_iter = 100;
     int iter = 0;
-    float lamhat = 0.0f;
+    double lamhat = 0.0f;
 
     do {
         iter++;
@@ -1370,11 +1370,11 @@ float IndexIVF::optimization(
         std::cerr << "Root-finding failed to converge.\n";
     }
 
-    return lamhat;
+    return (float) lamhat;
 }
 
-float IndexIVF::lamhat_threshold(
-    float lambda, float target_fnr,
+double IndexIVF::lamhat_threshold(
+    double lambda, double target_fnr,
     const std::vector<std::vector<float>> &calib_cx,
     const std::vector<std::vector<faiss::idx_t>> &calib_labels,
     const std::vector<float> &calib_diffs,
@@ -1382,7 +1382,7 @@ float IndexIVF::lamhat_threshold(
     const std::vector<std::vector<std::vector<faiss::idx_t>>> &calib_preds) {
     auto [preds, _] =
         compute_predictions(lambda, calib_cx, calib_nonconf, calib_preds);
-    float fnr = false_negative_rate(preds, calib_labels);
+    double fnr = false_negative_rate(preds, calib_labels);
     return fnr - target_fnr;
 }
 
@@ -1460,7 +1460,7 @@ std::vector<float> IndexIVF::false_negative_rate_per_q(
     return fnr_per_query;
 }
 
-float IndexIVF::false_negative_rate(
+double IndexIVF::false_negative_rate(
     const std::vector<std::vector<faiss::idx_t>> &prediction_set,
     const std::vector<std::vector<faiss::idx_t>> &gt_labels) {
     std::vector<int> overlap;

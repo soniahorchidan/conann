@@ -480,7 +480,7 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     std::unordered_map<int, float> optimization_mondrian(float alpha);
 
-    float false_negative_rate(
+    double false_negative_rate(
         const std::vector<std::vector<faiss::idx_t>> &prediction_set,
         const std::vector<std::vector<faiss::idx_t>> &gt_labels);
 
@@ -488,8 +488,8 @@ struct IndexIVF : Index, IndexIVFInterface {
         const std::vector<std::vector<faiss::idx_t>> &prediction_set,
         const std::vector<std::vector<faiss::idx_t>> &gt_labels);
 
-    float lamhat_threshold(
-        float lambda, float target_fnr,
+    double lamhat_threshold(
+        double lambda, double target_fnr,
         const std::vector<std::vector<float>> &calib_cx,
         const std::vector<std::vector<faiss::idx_t>> &calib_labels,
         const std::vector<float> &calib_diffs,
