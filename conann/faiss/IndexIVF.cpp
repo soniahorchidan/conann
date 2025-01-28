@@ -1983,7 +1983,7 @@ void IndexIVF::search_preassigned_with_error_quantification(
                         all_preds_list[i].push_back(idxi_copy);
                     } else {
                         score_k =
-                            score_k / MAX_DISTANCE; // *  diff_scores[i]; 
+                            (score_k / MAX_DISTANCE +  diff_scores[i]) / 2; 
 
                         all_preds_list[i].push_back(idxi_copy);
                         // ConANN:: Early stopping; passing lamhat=-1 at
