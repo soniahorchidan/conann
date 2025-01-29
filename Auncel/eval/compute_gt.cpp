@@ -208,11 +208,15 @@ int main(int argc, char **argv) {
     }
 
     // Print gt_indices and gt_distances for the first query (xq[0]):
-    // std::cout << "gt_indices for the first query (xq[0]): ";
-    // for (int i = 0; i < input_k; i++) {
-    //     std::cout << gt_indices[i] << " "; // Indices are integers
-    // }
-    // std::cout << std::endl;
+    std::cout << "first 10 gt_indices for the first 10 query (xq[0]): ";
+    for (int j = 0; j < 10; j++) {
+        std::cout << "(xq[" << j << "]): ";
+        for (int i = j * input_k; i < j*input_k+10; i++) {
+            std::cout << gt_indices[i] << " "; // Indices are integers
+        }
+        std::cout << "\n";
+    }
+    std::cout << std::endl;
 
     // std::cout << "gt_distances for the first query (xq[0]): ";
     // for (int i = 0; i < input_k; i++) {
@@ -232,6 +236,64 @@ int main(int argc, char **argv) {
         write_gt_distances(filename_dis, gt_distances, nq, input_k, output_k);
     }
 
+    // Test area
+    // load ground-truth and convert int to long
+    // size_t k;                // nb of results per query in the GT
+    // faiss::idx_t* gt_read; // nq * k matrix of ground-truth nearest-neighbors
+    // size_t nq2;
+
+    // std::string filename_idx = base + "/test_indices-" + std::to_string(input_k) + ".fvecs";
+    // int* gt_int_read = ivecs_read(filename_idx.c_str(), &k, &nq2);
+    // assert(nq2 == nq || !"incorrect nb of ground truth entries");
+
+    // // gt = new faiss::Index::idx_t[k * nq];
+    // // CHANGED TO
+    // gt_read = new faiss::idx_t[k * nq];
+    // for (int i = 0; i < k * nq; i++) {
+    //     gt_read[i] = gt_int_read[i];
+    // }
+    // delete[] gt_int_read;
+
+    // for (int j = 0; j < nq; j++) {
+    //     std::cout << "(xq[" << j << "]): ";
+    //     for (int i = j * input_k; i < j*input_k+input_k; i++) {
+    //         std::cout << gt_indices[i] << " "; // Indices are integers
+    //     }
+    //     std::cout << "\t|\t";
+    //     for (int i = j * input_k; i < j*input_k+input_k; i++) {
+    //         std::cout << int_indices[i] << " "; // Indices are integers
+    //     }
+    //     std::cout << "\t|\t";
+    //     for (int i = j * input_k; i < j*input_k+input_k; i++) {
+    //         std::cout << gt_read[i] << " "; // Indices are integers
+    //     }
+    //     std::cout << "\n";
+    // }
+    // std::cout << std::endl;
+    // delete[] gt_read;
+
+    // // TEST distances
+
+
+    // std::string filename_dis = base + "/test_distances-" + std::to_string(input_k) + ".fvecs";
+    // float* gt_float = fvecs_read(filename_dis.c_str(), &k, &nq2);
+
+    // for (int j = 0; j < nq; j++) {
+    //     std::cout << "(xq[" << j << "]): ";
+    //     for (int i = j * input_k; i < j*input_k+input_k; i++) {
+    //         std::cout << gt_distances[i] << " "; // Indices are integers
+    //     }
+    //     std::cout << "\t|\t";
+    //     for (int i = j * input_k; i < j*input_k+input_k; i++) {
+    //         std::cout << gt_float[i] << " "; // Indices are integers
+    //     }
+    //     std::cout << "\n";
+    // }
+    // std::cout << std::endl;
+    // delete[] gt_float;
+
     delete[] xq;
     delete[] int_indices;
+    delete[] gt_indices;
+    delete[] gt_distances;
 }

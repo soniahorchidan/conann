@@ -1,4 +1,3 @@
-
 // Warning: Does not compute ground truths ingestible by faiss.
 
 
@@ -21,6 +20,7 @@
 #include <cstdio>
 #include <iostream>
 #include <random>
+#include <unordered_set>
 
 /*****************************************************
  * I/O functions for fvecs and ivecs
@@ -128,19 +128,28 @@ int main(int argc, char **argv) {
     int d;
     float *xb = fvecs_read(db.c_str(), &d, &nb);
 
-    
     printf("[%.3f s] Query not set, sampling queries from the database\n", elapsed() - t0);
 
     // Sample nq random queries from the database
     int nq = nb * sample_fraction;
-    float* xq = new float[nq * d];
+    if (nq > nb) {
+        printf("Error: Cannot sample more queries than available vectors\n");
+        return 1;
+    }
 
+    float* xq = new float[nq * d];
+    std::unordered_set<size_t> used_indices;
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<size_t> dis(0, nb - 1);
 
     for (size_t i = 0; i < nq; ++i) {
-        size_t random_index = dis(gen);
+        size_t random_index;
+        // avoid drawing duplicates
+        do {
+            random_index = dis(gen);
+        } while (!used_indices.insert(random_index).second);
+        
         std::memcpy(xq + i * d, xb + random_index * d, d * sizeof(float));
     }
 
@@ -150,7 +159,6 @@ int main(int argc, char **argv) {
         std::cout << xq[i] << " ";
     }
     std::cout << std::endl;
-
 
     write_queries(output_filepath, xq, nq, d);
     printf("[%.3f s] Sampled queries written to %s\n", elapsed() - t0, output_filepath.c_str());
