@@ -410,13 +410,6 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     void prep_calib(float calib_sz, float *xq, size_t nq, faiss::idx_t *gt);
 
-    float compute_l2_distance(const std::vector<float> &a,
-                              const std::vector<float> &b);
-
-
-    float cosine_similarity(const std::vector<float> &vec1,
-                            const std::vector<float> &vec2);
-
     std::pair<std::vector<std::vector<float>>,
               std::vector<std::vector<std::vector<faiss::idx_t>>>>
     compute_scores(float lamhat, const std::vector<std::vector<float>> &queries);
@@ -458,11 +451,11 @@ struct IndexIVF : Index, IndexIVFInterface {
         const std::vector<std::vector<float>> &calib_nonconf,
         const std::vector<std::vector<std::vector<faiss::idx_t>>> &calib_preds);
 
-    float false_negative_rate(
+    double false_negative_rate(
         const std::vector<std::vector<faiss::idx_t>> &prediction_set,
         const std::vector<std::vector<faiss::idx_t>> &gt_labels);
 
-    std::vector<float> false_negative_rate_per_q(
+    std::vector<float> recall_per_query(
         const std::vector<std::vector<faiss::idx_t>> &prediction_set,
         const std::vector<std::vector<faiss::idx_t>> &gt_labels);
 

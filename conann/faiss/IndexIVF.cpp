@@ -1105,7 +1105,6 @@ void IndexIVF::train(idx_t n, const float *x) {
 void IndexIVF::prep_calib(float calib_sz, float *xq, size_t nq,
                           faiss::idx_t *gt) {
     size_t half_nq = size_t(calib_sz * nq);
-    std::cout << "DEBUG:: calib sz=" << half_nq << "\n";
     calib_cx.resize(half_nq);
     calib_labels.resize(half_nq);
     test_cx.resize(nq - half_nq);
@@ -1127,36 +1126,9 @@ void IndexIVF::prep_calib(float calib_sz, float *xq, size_t nq,
         std::memcpy(test_labels[i - half_nq].data(), gt + i * K,
                     K * sizeof(faiss::idx_t));
     }
-
-    // calib_diffs = compute_difficulty_scores(calib_cx);
     auto [cn, c_clus] = compute_scores(-1, calib_cx);
     calib_nonconf = cn;
     calib_preds = c_clus;
-
-}
-
-// Compute the L2 distance between two vectors
-float IndexIVF::compute_l2_distance(const std::vector<float> &a,
-                                    const std::vector<float> &b) {
-    float distance = 0.0f;
-    for (size_t i = 0; i < a.size(); ++i) {
-        float diff = a[i] - b[i];
-        distance += diff * diff;
-    }
-    return std::sqrt(distance);
-}
-
-float IndexIVF::cosine_similarity(const std::vector<float> &vec1,
-                                  const std::vector<float> &vec2) {
-    float dot_product = 0.0f;
-    float norm1 = 0.0f;
-    float norm2 = 0.0f;
-    for (size_t i = 0; i < vec1.size(); ++i) {
-        dot_product += vec1[i] * vec2[i];
-        norm1 += vec1[i] * vec1[i];
-        norm2 += vec2[i] * vec2[i];
-    }
-    return dot_product / (std::sqrt(norm1) * std::sqrt(norm2));
 }
 
 std::pair<std::vector<std::vector<float>>,
@@ -1196,14 +1168,15 @@ IndexIVF::compute_scores(float lamhat,
     return {n_vec, preds_vec};
 }
 
-float IndexIVF::calibrate(float alpha, int k, float calib_sz, float *xq, size_t nq, faiss::idx_t *gt, float max_distance) {
+float IndexIVF::calibrate(float alpha, int k, float calib_sz, float *xq,
+                          size_t nq, faiss::idx_t *gt, float max_distance) {
     K = k;
     MAX_DISTANCE = max_distance;
     prep_calib(calib_sz, xq, nq, gt);
-    auto lamhat = optimization(alpha, calib_cx, calib_labels, calib_nonconf, calib_preds);
+    auto lamhat =
+        optimization(alpha, calib_cx, calib_labels, calib_nonconf, calib_preds);
     return lamhat;
 }
-
 
 float IndexIVF::optimization(
     float alpha, const std::vector<std::vector<float>> &calib_cx,
@@ -1234,9 +1207,8 @@ float IndexIVF::optimization(
             *(args->calib_preds));
     };
 
-    LamhatParams params = {this,          target_fnr,   &calib_cx,
-                           &calib_labels, &calib_nonconf,
-                           &calib_preds};
+    LamhatParams params = {this,          target_fnr,     &calib_cx,
+                           &calib_labels, &calib_nonconf, &calib_preds};
     F.params = &params;
 
     double lower_bound = 0.0f;
@@ -1263,7 +1235,7 @@ float IndexIVF::optimization(
         std::cerr << "Root-finding failed to converge.\n";
     }
 
-    return (float) lamhat;
+    return (float)lamhat;
 }
 
 double IndexIVF::lamhat_threshold(
@@ -1275,6 +1247,7 @@ double IndexIVF::lamhat_threshold(
     auto [preds, _] =
         compute_predictions(lambda, calib_cx, calib_nonconf, calib_preds);
     double fnr = false_negative_rate(preds, calib_labels);
+    std::cout << "Optimization: lambda=" << lambda << " fnr=" << fnr << "\n";
     return fnr - target_fnr;
 }
 
@@ -1291,72 +1264,51 @@ IndexIVF::compute_predictions(
         const auto &sc = nonconf[query_idx];
         const auto &p = preds[query_idx];
 
-        std::vector<float> unique_values;
-        std::vector<int> indexes;
-        std::unordered_set<float> seen;
+        std::vector<std::pair<float, size_t>> indexed_sc;
+        for (size_t i = 0; i < sc.size(); ++i) {
+            indexed_sc.push_back(
+                {sc[i], i}); // Store the value and its original index
+        }
 
-        for (int i = 0; i < sc.size(); ++i) {
-            if (seen.find(sc[i]) == seen.end()) {
-                unique_values.push_back(sc[i]);
-                indexes.push_back(i);
-                seen.insert(sc[i]);
+        std::sort(indexed_sc.begin(), indexed_sc.end(),
+                  std::greater<>()); // Sort by value in descending order
+
+        float optimal_sc = -1;
+        for (size_t i = 0; i < indexed_sc.size(); ++i) {
+            if (indexed_sc[i].first >= lambda) {
+                optimal_sc = indexed_sc[i].first;
+            } else {
+                break;
             }
         }
 
-        int index = -1; // Default if no match is found
-        int uid = -1;
-        for (int i = 0; i < unique_values.size(); ++i) {
-            if (unique_values[i] >= lambda) {
-                index = indexes[i];
-                uid = i;
+        int index = indexed_sc.size();
+        int num_cls_searched = 0;
+        for (size_t i = 0; i < indexed_sc.size(); ++i) {
+            if (indexed_sc[i].first >= optimal_sc) {
+                num_cls_searched++;
+                if (indexed_sc[i].first == optimal_sc) {
+                    index = indexed_sc[i].second;
+                    break;
+                }
             }
         }
 
-        if (index == -1) {
+        if (index < sc.size() && num_cls_searched > 0) {
+            test_preds.push_back({p[index]});
+            cl_searched.push_back(num_cls_searched);
+        } else {
             test_preds.push_back({});
             cl_searched.push_back(-1);
-        } else {
-            test_preds.push_back({p[index]}); // Add prediction at index
-            cl_searched.push_back(index);
         }
     }
     return {test_preds, cl_searched};
 }
 
-std::vector<float> IndexIVF::false_negative_rate_per_q(
+std::vector<float> IndexIVF::recall_per_query(
     const std::vector<std::vector<faiss::idx_t>> &prediction_set,
     const std::vector<std::vector<faiss::idx_t>> &gt_labels) {
-    std::vector<float> fnr_per_query;
-    int total_overlap = 0;
-    int total_gt_size = 0;
-
-    for (size_t i = 0; i < prediction_set.size(); ++i) {
-        const std::set<int> pred_set(prediction_set[i].begin(),
-                                     prediction_set[i].end());
-        const std::set<int> gt_set(gt_labels[i].begin(), gt_labels[i].end());
-
-        // Calculate intersection size
-        int intersection_size = 0;
-        for (int pred : pred_set) {
-            if (gt_set.count(pred) > 0) {
-                ++intersection_size;
-            }
-        }
-
-        int gt_size = gt_set.size();
-        total_overlap += intersection_size;
-        total_gt_size += gt_size;
-
-        if (gt_size > 0) {
-            fnr_per_query.push_back(
-                1.0f - static_cast<float>(intersection_size) / gt_size);
-        } else {
-            // no gt
-            fnr_per_query.push_back(-2.0f);
-        }
-    }
-
-    return fnr_per_query;
+    // TODO
 }
 
 double IndexIVF::false_negative_rate(
@@ -1399,13 +1351,12 @@ std::pair<std::vector<float>, std::vector<int>>
 IndexIVF::evaluate(float lamhat, const std::vector<std::vector<float>> &queries,
                    const std::vector<std::vector<faiss::idx_t>> &labels) {
     auto [nonconf, all_preds_per_nprobe] = compute_scores(lamhat, queries);
-
     auto [test_preds, cl_searched] =
         compute_predictions(lamhat, queries, nonconf, all_preds_per_nprobe);
-    auto fnr = false_negative_rate_per_q(test_preds, labels);
-    return {fnr, cl_searched};
-}
 
+    float fnr = false_negative_rate(test_preds, labels);
+    return {{fnr}, cl_searched};
+}
 
 void IndexIVF::search_conann(idx_t n, const float *x, float lamhat,
                              float *distances, idx_t *labels) {
@@ -1438,7 +1389,8 @@ void IndexIVF::search_with_error_quantification(
     idx_t n, const float *x, idx_t k, float *distances, idx_t *labels,
     float lambda,
     std::unordered_map<faiss::idx_t, std::vector<float>> &nonconf_list,
-    std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>> &all_preds_list,
+    std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>
+        &all_preds_list,
     const SearchParameters *params_in) const {
 
     FAISS_THROW_IF_NOT(k > 0);
@@ -1499,11 +1451,18 @@ void IndexIVF::search_with_error_quantification(
                                    std::vector<std::vector<faiss::idx_t>>>
                     local_all_preds_list;
 
+                // initialization
+                for (int q = 0; q < i1 - i0; q++) {
+                    for (int i = 0; i < n_list; i++) {
+                        local_nonconf_list[q].resize(n_list, 0.0);
+                        local_all_preds_list[q].resize(n_list);
+                    }
+                }
+
                 try {
-                    sub_search_func(
-                        i1 - i0, x + i0 * d, distances + i0 * k,
-                        labels + i0 * k, &stats[slice],
-                        local_nonconf_list, local_all_preds_list);
+                    sub_search_func(i1 - i0, x + i0 * d, distances + i0 * k,
+                                    labels + i0 * k, &stats[slice],
+                                    local_nonconf_list, local_all_preds_list);
 
                     // Use pragma critical to ensure thread-safe merging
 #pragma omp critical
@@ -1566,6 +1525,8 @@ void IndexIVF::search_preassigned_with_error_quantification(
         &all_preds_list,
     const IVFSearchParameters *params, IndexIVFStats *ivf_stats) const {
     FAISS_THROW_IF_NOT(k > 0);
+
+    std::cout << "CONANN WARNING! Add back early stopping!\n";
 
     idx_t nprobe = params ? params->nprobe : this->nprobe;
     nprobe = std::min((idx_t)nlist, nprobe);
@@ -1785,24 +1746,15 @@ void IndexIVF::search_preassigned_with_error_quantification(
                         }
                     }
                     std::vector<faiss::idx_t> idxi_copy(idxi, idxi + k);
+                    all_preds_list[i][keys[i * nprobe + ik]] = idxi_copy;
 
                     if (score_k > MAX_DISTANCE) {
-                        nonconf_list[i].push_back(1.0);
-                        all_preds_list[i].push_back(idxi_copy);
+                        nonconf_list[i][keys[i * nprobe + ik]] = 1.0;
                     } else {
-                        score_k = score_k / MAX_DISTANCE;
-                        nonconf_list[i].push_back(score_k);
-                        all_preds_list[i].push_back(idxi_copy);
-
-                        all_preds_list[i].push_back(idxi_copy);
-                        // ConANN:: Early stopping; passing lamhat=-1 at
-                        // calibration to compute all.
-                        if (score_k < lamhat) {
-                            nonconf_list[i].push_back(0.0);
-                            break;
-                        } else {
-                            nonconf_list[i].push_back(score_k);
-                        }
+                        nonconf_list[i][keys[i * nprobe + ik]] =
+                            score_k / MAX_DISTANCE;
+                        // // ConANN:: Early stopping; passing lamhat=-1 at
+                        // // calibration to compute all.
                     }
                 }
 

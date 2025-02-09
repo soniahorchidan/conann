@@ -71,10 +71,19 @@ double elapsed() {
 }
 
 template <typename T> double computeAverage(const std::vector<T> &numbers) {
-    if (numbers.empty())
+    if (numbers.empty()) 
         return 0.0;
-    double sum = std::accumulate(numbers.begin(), numbers.end(), 0.0);
-    return sum / numbers.size();
+    double sum = 0.0;
+    int negativeCount = 0;
+    for (const auto& num : numbers) {
+        if (num > 0) {
+            sum += num;
+        } else {
+            ++negativeCount;
+        }
+    }
+    // std::cout << "Number of negative values: " << negativeCount << std::endl;
+    return sum / (numbers.size() - negativeCount);
 }
 
 template <typename T>
@@ -102,7 +111,7 @@ int main(int argc, char **argv) {
 
     float max_distance;
 
-    float bert_max_dist = 200;
+    float bert_max_dist = 20;
     float glove_max_dist = 100;
     float gist_max_dist = 200;
     float deep_max_dist = 100;
@@ -276,21 +285,21 @@ int main(int argc, char **argv) {
 
     printf("[%.3f s] ConANN Calibration\n", elapsed() - t0);
     auto lamhat = index->calibrate(alpha, k, calib_sz, xq, nq, gt, max_distance);
+    std::cout << "Found lamhat=" << lamhat<< "\n";
     printf("[%.3f s] ConANN Evaluation\n", elapsed() - t0);
     auto [fnr, cls] = index->evaluate_test(lamhat);
     std::cout << "alpha=" << alpha << ", test fnr=" << computeAverage(fnr)
               << ", avg cls searched=" << computeAverage(cls) << std::endl;
 
     // std::ostringstream fnr_filename;
-    // fnr_filename << "../ConANN-error-" << param1 << "-" << k << "-" << alpha
-    //              << "-" << num_bins << "-" << std::time(nullptr) <<".log";
+    // fnr_filename << "../ConANN-error-" << param1 << "-" << k << "-" << alpha <<".log";
 
     // write_to_file(fnr, fnr_filename.str());
 
     // std::ostringstream cls_filename;
 
     // cls_filename << "../ConANN-efficiency-" << param1 << "-" << k << "-"
-    //              << alpha << "-" << num_bins << "-" << std::time(nullptr) << ".log";
+    //              << alpha << ".log";
 
     // write_to_file(cls, cls_filename.str());
 
