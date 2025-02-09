@@ -397,18 +397,14 @@ struct IndexIVF : Index, IndexIVFInterface {
     int n_list;
     int K;
     float MAX_DISTANCE = 100000;
-    int NUM_MONDRIAN_BINS = 5;
     std::vector<std::vector<float>> centroids;
 
     std::vector<std::vector<float>> calib_cx;
     std::vector<std::vector<float>> test_cx;
 
     std::vector<std::vector<faiss::idx_t>> calib_labels;
-    std::vector<float> calib_diffs;
     std::vector<std::vector<float>> calib_nonconf;
     std::vector<std::vector<std::vector<faiss::idx_t>>> calib_preds;
-    std::map<int, std::vector<int>> calib_groups;
-    std::vector<float> groups_boundaries;
 
     std::vector<std::vector<faiss::idx_t>> test_labels;
 
@@ -417,20 +413,13 @@ struct IndexIVF : Index, IndexIVFInterface {
     float compute_l2_distance(const std::vector<float> &a,
                               const std::vector<float> &b);
 
-    std::vector<float>
-    compute_difficulty_scores(const std::vector<std::vector<float>> &queries);
 
     float cosine_similarity(const std::vector<float> &vec1,
                             const std::vector<float> &vec2);
 
     std::pair<std::vector<std::vector<float>>,
               std::vector<std::vector<std::vector<faiss::idx_t>>>>
-    compute_scores(float lamhat, const std::vector<std::vector<float>> &queries,
-                   const std::vector<float> &diff_scores);
-
-    std::map<int, std::vector<int>>
-    partition_by_difficulty(const std::vector<float> &diff_scores,
-                            int n_groups);
+    compute_scores(float lamhat, const std::vector<std::vector<float>> &queries);
 
     std::pair<std::vector<std::vector<faiss::idx_t>>, std::vector<int>>
     compute_predictions(
@@ -441,7 +430,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     // if in calibration mode, lamhat needs to be -1.
     void search_with_error_quantification(
         idx_t n, const float *x, idx_t k, float *distances, idx_t *labels,
-        float lamhat, const std::vector<float> &diff_scores,
+        float lamhat,
         std::unordered_map<faiss::idx_t, std::vector<float>> &nonconf_list,
         std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>
             &all_preds_list,
@@ -450,35 +439,24 @@ struct IndexIVF : Index, IndexIVFInterface {
     void search_conann(idx_t n, const float *x, float lamhat, float *distances,
                        idx_t *labels);
 
-    void search_conann_mondrian(idx_t n, const float *x,
-                                std::unordered_map<int, float> lamhats,
-                                float *distances, idx_t *labels);
-
     // if in calibration mode, lamhat needs to be -1.
     void search_preassigned_with_error_quantification(
         idx_t n, const float *x, idx_t k, const idx_t *assign,
         const float *centroid_dis, float *distances, idx_t *labels,
-        bool store_pairs, float lamhat, const std::vector<float> &diff_scores,
+        bool store_pairs, float lamhat,
         std::unordered_map<faiss::idx_t, std::vector<float>> &nonconf_list,
         std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>
             &all_preds_list,
         const IVFSearchParameters *params = nullptr,
         IndexIVFStats *stats = nullptr) const;
 
-    float calibrate(float alpha, int k, float *xq, size_t nq, faiss::idx_t *gt);
-
-    std::unordered_map<int, float>
-    calibrate_mondrian(float alpha, int k, float calib_sz, float *xq, size_t nq,
-                       faiss::idx_t *gt, float max_distance, int num_bins);
+    float calibrate(float alpha, int k, float calib_sz, float *xq, size_t nq, faiss::idx_t *gt, float max_distance);
 
     float optimization(
         float alpha, const std::vector<std::vector<float>> &calib_cx,
         const std::vector<std::vector<faiss::idx_t>> &calib_labels,
-        const std::vector<float> &calib_diffs,
         const std::vector<std::vector<float>> &calib_nonconf,
         const std::vector<std::vector<std::vector<faiss::idx_t>>> &calib_preds);
-
-    std::unordered_map<int, float> optimization_mondrian(float alpha);
 
     float false_negative_rate(
         const std::vector<std::vector<faiss::idx_t>> &prediction_set,
@@ -492,14 +470,11 @@ struct IndexIVF : Index, IndexIVFInterface {
         float lambda, float target_fnr,
         const std::vector<std::vector<float>> &calib_cx,
         const std::vector<std::vector<faiss::idx_t>> &calib_labels,
-        const std::vector<float> &calib_diffs,
         const std::vector<std::vector<float>> &calib_nonconf,
         const std::vector<std::vector<std::vector<faiss::idx_t>>> &calib_preds);
 
     std::pair<std::vector<float>, std::vector<int>> evaluate_test(float lamhat);
 
-    std::pair<std::vector<float>, std::vector<int>>
-    evaluate_test_mondrian(std::unordered_map<int, float> lamhats);
 
     std::pair<std::vector<float>, std::vector<int>>
     evaluate(float lamhat, const std::vector<std::vector<float>> &queries,

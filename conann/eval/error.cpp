@@ -86,21 +86,19 @@ void write_to_file(const std::vector<T> &data, const std::string &filename) {
     file.close();
 }
 
-/// Command like this: ./error sift1M 0.5 0.1 5
+/// Command like this: ./error sift1M 0.5 0.1
 int main(int argc, char **argv) {
     std::cout << argc << " arguments" << std::endl;
-    if (argc - 1 != 4) {
-        printf("You should at least input 4 params: the dataset name, calib "
-               "size percentage, alpha, num mondrian bins\n");
+    if (argc - 1 != 3) {
+        printf("You should at least input 3 params: the dataset name, calib "
+               "size percentage, alpha\n");
         return 0;
     }
     std::string param1 = argv[1];
     std::string param2 = argv[2];
     std::string param3 = argv[3];
-    std::string param4 = argv[4];
     float calib_sz = std::stof(param2);
     float alpha = std::stof(param3);
-    int num_bins = std::stoi(param4);
 
     float max_distance;
 
@@ -116,9 +114,9 @@ int main(int argc, char **argv) {
         max_distance = bert_max_dist;
     } else if (param1 == "bert_100") {
         db = "../data/bert/db.fvecs";
-        query = "../data/bert/queries.fvecs";
-        gtI = "../data/bert/indices-100.fvecs";
-        gtD = "../data/bert/distances-100.fvecs";
+        query = "../data/small-bert/queries.fvecs";
+        gtI = "../data/small-bert/indices-100.fvecs";
+        gtD = "../data/small-bert/distances-100.fvecs";
         max_distance = bert_max_dist;
     } else if (param1 == "bert_1000") {
         db = "../data/bert/db.fvecs";
@@ -157,7 +155,7 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    omp_set_num_threads(16);
+    omp_set_num_threads(8);
     double t0 = elapsed();
 
     // this is typically the fastest one.
@@ -251,26 +249,25 @@ int main(int argc, char **argv) {
         assert(nq3 == nq || !"incorrect nb of ground truth entries");
     }
 
-    printf("[%.3f s] ConANN Mondrian Calibration\n", elapsed() - t0);
-    auto lamhat = index->calibrate_mondrian(alpha, k, calib_sz, xq, nq, gt,
-                                            max_distance, num_bins);
-    printf("[%.3f s] ConANN Mondrian Evaluation\n", elapsed() - t0);
-    auto [fnr, cls] = index->evaluate_test_mondrian(lamhat);
+    printf("[%.3f s] ConANN Calibration\n", elapsed() - t0);
+    auto lamhat = index->calibrate(alpha, k, calib_sz, xq, nq, gt, max_distance);
+    printf("[%.3f s] ConANN Evaluation\n", elapsed() - t0);
+    auto [fnr, cls] = index->evaluate_test(lamhat);
     std::cout << "alpha=" << alpha << ", test fnr=" << computeAverage(fnr)
               << ", avg cls searched=" << computeAverage(cls) << std::endl;
 
-    std::ostringstream fnr_filename;
-    fnr_filename << "../ConANN-error-" << param1 << "-" << k << "-" << alpha
-                 << "-" << num_bins << "-" << std::time(nullptr) <<".log";
+    // std::ostringstream fnr_filename;
+    // fnr_filename << "../ConANN-error-" << param1 << "-" << k << "-" << alpha
+    //              << "-" << num_bins << "-" << std::time(nullptr) <<".log";
 
-    write_to_file(fnr, fnr_filename.str());
+    // write_to_file(fnr, fnr_filename.str());
 
-    std::ostringstream cls_filename;
+    // std::ostringstream cls_filename;
 
-    cls_filename << "../ConANN-efficiency-" << param1 << "-" << k << "-"
-                 << alpha << "-" << num_bins << "-" << std::time(nullptr) << ".log";
+    // cls_filename << "../ConANN-efficiency-" << param1 << "-" << k << "-"
+    //              << alpha << "-" << num_bins << "-" << std::time(nullptr) << ".log";
 
-    write_to_file(cls, cls_filename.str());
+    // write_to_file(cls, cls_filename.str());
 
     delete[] xq;
     delete[] gt;

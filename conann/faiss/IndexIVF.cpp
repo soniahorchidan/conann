@@ -1105,6 +1105,7 @@ void IndexIVF::train(idx_t n, const float *x) {
 void IndexIVF::prep_calib(float calib_sz, float *xq, size_t nq,
                           faiss::idx_t *gt) {
     size_t half_nq = size_t(calib_sz * nq);
+    std::cout << "DEBUG:: calib sz=" << half_nq << "\n";
     calib_cx.resize(half_nq);
     calib_labels.resize(half_nq);
     test_cx.resize(nq - half_nq);
@@ -1127,12 +1128,11 @@ void IndexIVF::prep_calib(float calib_sz, float *xq, size_t nq,
                     K * sizeof(faiss::idx_t));
     }
 
-    calib_diffs = compute_difficulty_scores(calib_cx);
-    auto [cn, c_clus] = compute_scores(-1, calib_cx, calib_diffs);
+    // calib_diffs = compute_difficulty_scores(calib_cx);
+    auto [cn, c_clus] = compute_scores(-1, calib_cx);
     calib_nonconf = cn;
     calib_preds = c_clus;
 
-    calib_groups = partition_by_difficulty(calib_diffs, NUM_MONDRIAN_BINS);
 }
 
 // Compute the L2 distance between two vectors
@@ -1144,32 +1144,6 @@ float IndexIVF::compute_l2_distance(const std::vector<float> &a,
         distance += diff * diff;
     }
     return std::sqrt(distance);
-}
-
-std::vector<float> IndexIVF::compute_difficulty_scores(
-    const std::vector<std::vector<float>> &queries) {
-    std::vector<float> diff_scores;
-    for (const auto &query : queries) {
-        std::vector<float> similarities;
-        for (const auto &centroid : centroids) {
-            // Compute the cosine similarity between the query and centroid
-            float similarity = cosine_similarity(query, centroid);
-            similarities.push_back(similarity);
-        }
-        // Find the two highest cosine similarities (closest vectors)
-        std::nth_element(similarities.begin(), similarities.begin() + 1,
-                         similarities.end(), std::greater<float>());
-        float closest_similarity = similarities[0];
-        float second_closest_similarity = similarities[1];
-        float score = (closest_similarity - second_closest_similarity) /
-                      closest_similarity;
-
-        // Apply sigmoid to exaggerate differences
-        // score = 1.0f / (1.0f + std::exp(-score));
-        diff_scores.push_back(score);
-    }
-
-    return diff_scores;
 }
 
 float IndexIVF::cosine_similarity(const std::vector<float> &vec1,
@@ -1188,8 +1162,7 @@ float IndexIVF::cosine_similarity(const std::vector<float> &vec1,
 std::pair<std::vector<std::vector<float>>,
           std::vector<std::vector<std::vector<faiss::idx_t>>>>
 IndexIVF::compute_scores(float lamhat,
-                         const std::vector<std::vector<float>> &queries,
-                         const std::vector<float> &diff_scores) {
+                         const std::vector<std::vector<float>> &queries) {
     int num_queries = queries.size();
     std::unordered_map<faiss::idx_t, std::vector<float>> nonconf_list;
     std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>
@@ -1206,7 +1179,7 @@ IndexIVF::compute_scores(float lamhat,
 
     search_with_error_quantification(num_queries, flattened.data(), K,
                                      dis.data(), nns.data(), lamhat,
-                                     diff_scores, nonconf_list, all_preds_list);
+                                     nonconf_list, all_preds_list);
 
     // Convert to simpler format
     std::vector<std::vector<float>> n_vec(nonconf_list.size());
@@ -1223,97 +1196,18 @@ IndexIVF::compute_scores(float lamhat,
     return {n_vec, preds_vec};
 }
 
-std::map<int, std::vector<int>>
-IndexIVF::partition_by_difficulty(const std::vector<float> &diff_scores,
-                                  int n_groups) {
-    std::map<int, std::vector<int>> groups;
-
-    // If boundaries are not provided, compute them
-    if (groups_boundaries.empty()) {
-        std::vector<std::pair<float, int>> indexed_scores;
-        for (size_t i = 0; i < diff_scores.size(); ++i) {
-            indexed_scores.push_back({diff_scores[i], i});
-        }
-        std::sort(indexed_scores.begin(), indexed_scores.end());
-        int bin_size = diff_scores.size() / n_groups;
-
-        for (int group = 1; group < n_groups; ++group) {
-            int boundary_idx = group * bin_size - 1;
-            groups_boundaries.push_back(indexed_scores[boundary_idx].first);
-        }
-    }
-
-    for (size_t i = 0; i < diff_scores.size(); ++i) {
-        float score = diff_scores[i];
-        int group = 0;
-        for (int j = 0; j < n_groups - 1; ++j) {
-            if (score <= groups_boundaries[j]) {
-                group = j;
-                break;
-            }
-            group = j + 1;
-        }
-
-        groups[group].push_back(i);
-    }
-
-    return groups;
-}
-
-float IndexIVF::calibrate(float alpha, int k, float *xq, size_t nq,
-                          faiss::idx_t *gt) {
+float IndexIVF::calibrate(float alpha, int k, float calib_sz, float *xq, size_t nq, faiss::idx_t *gt, float max_distance) {
     K = k;
-    prep_calib(0.5, xq, nq, gt);
-    auto lamhat = optimization(alpha, calib_cx, calib_labels, calib_diffs,
-                               calib_nonconf, calib_preds);
+    MAX_DISTANCE = max_distance;
+    prep_calib(calib_sz, xq, nq, gt);
+    auto lamhat = optimization(alpha, calib_cx, calib_labels, calib_nonconf, calib_preds);
     return lamhat;
 }
 
-std::unordered_map<int, float>
-IndexIVF::calibrate_mondrian(float alpha, int k, float calib_sz, float *xq,
-                             size_t nq, faiss::idx_t *gt, float max_distance,
-                             int num_bins) {
-    K = k;
-    MAX_DISTANCE = max_distance;
-    NUM_MONDRIAN_BINS = num_bins;
-    prep_calib(calib_sz, xq, nq, gt);
-    auto lamhats = optimization_mondrian(alpha);
-    return lamhats;
-}
-
-std::unordered_map<int, float> IndexIVF::optimization_mondrian(float alpha) {
-    std::unordered_map<int, float> thresholds;
-    for (const auto &group_pair : calib_groups) {
-        int group = group_pair.first;
-        const std::vector<int> &group_indices = group_pair.second;
-        int gsz = group_indices.size();
-
-        // Extract group-specific data
-        std::vector<std::vector<float>> group_queries;
-        std::vector<std::vector<faiss::idx_t>> group_labels;
-        std::vector<float> group_diffs;
-        std::vector<std::vector<float>> group_nonconf;
-        std::vector<std::vector<std::vector<faiss::idx_t>>> group_preds;
-
-        // Populate group-specific vectors based on group_indices
-        for (int idx : group_indices) {
-            group_queries.push_back(calib_cx[idx]);
-            group_labels.push_back(calib_labels[idx]);
-            group_diffs.push_back(calib_diffs[idx]);
-            group_nonconf.push_back(calib_nonconf[idx]);
-            group_preds.push_back(calib_preds[idx]);
-        }
-        thresholds[group] =
-            optimization(alpha, group_queries, group_labels, group_diffs,
-                         group_nonconf, group_preds);
-    }
-    return thresholds;
-}
 
 float IndexIVF::optimization(
     float alpha, const std::vector<std::vector<float>> &calib_cx,
     const std::vector<std::vector<faiss::idx_t>> &calib_labels,
-    const std::vector<float> &calib_diffs,
     const std::vector<std::vector<float>> &calib_nonconf,
     const std::vector<std::vector<std::vector<faiss::idx_t>>> &calib_preds) {
     int n = calib_cx.size();
@@ -1328,7 +1222,6 @@ float IndexIVF::optimization(
         float target_fnr;
         const std::vector<std::vector<float>> *calib_cx;
         const std::vector<std::vector<faiss::idx_t>> *calib_labels;
-        const std::vector<float> *calib_diffs;
         const std::vector<std::vector<float>> *calib_nonconf;
         const std::vector<std::vector<std::vector<faiss::idx_t>>> *calib_preds;
     };
@@ -1337,12 +1230,12 @@ float IndexIVF::optimization(
         auto *args = static_cast<LamhatParams *>(params);
         return args->index_ivf->lamhat_threshold(
             static_cast<float>(lambda), args->target_fnr, *(args->calib_cx),
-            *(args->calib_labels), *(args->calib_diffs), *(args->calib_nonconf),
+            *(args->calib_labels), *(args->calib_nonconf),
             *(args->calib_preds));
     };
 
     LamhatParams params = {this,          target_fnr,   &calib_cx,
-                           &calib_labels, &calib_diffs, &calib_nonconf,
+                           &calib_labels, &calib_nonconf,
                            &calib_preds};
     F.params = &params;
 
@@ -1377,7 +1270,6 @@ float IndexIVF::lamhat_threshold(
     float lambda, float target_fnr,
     const std::vector<std::vector<float>> &calib_cx,
     const std::vector<std::vector<faiss::idx_t>> &calib_labels,
-    const std::vector<float> &calib_diffs,
     const std::vector<std::vector<float>> &calib_nonconf,
     const std::vector<std::vector<std::vector<faiss::idx_t>>> &calib_preds) {
     auto [preds, _] =
@@ -1497,39 +1389,9 @@ IndexIVF::evaluate_test(float lamhat) {
 }
 
 std::pair<std::vector<float>, std::vector<int>>
-IndexIVF::evaluate_test_mondrian(std::unordered_map<int, float> lamhats) {
-    std::pair<std::vector<float>, std::vector<int>> all;
-
-    auto test_diffs = compute_difficulty_scores(test_cx);
-    auto test_groups = partition_by_difficulty(test_diffs, NUM_MONDRIAN_BINS);
-
-    for (const auto &group_pair : test_groups) {
-        int group = group_pair.first;
-        const std::vector<int> &group_indices = group_pair.second;
-        auto lamhat = lamhats[group];
-
-        std::vector<std::vector<float>> group_queries;
-        std::vector<std::vector<faiss::idx_t>> group_labels;
-
-        for (int idx : group_indices) {
-            group_queries.push_back(test_cx[idx]);
-            group_labels.push_back(test_labels[idx]);
-        }
-        auto eval_res = evaluate(lamhat, group_queries, group_labels);
-        all.first.insert(all.first.end(), eval_res.first.begin(),
-                         eval_res.first.end());
-        all.second.insert(all.second.end(), eval_res.second.begin(),
-                          eval_res.second.end());
-    }
-    return all;
-}
-
-std::pair<std::vector<float>, std::vector<int>>
 IndexIVF::evaluate(float lamhat, const std::vector<std::vector<float>> &queries,
                    const std::vector<std::vector<faiss::idx_t>> &labels) {
-    std::vector<float> diff_scores = compute_difficulty_scores(queries);
-    auto [nonconf, all_preds_per_nprobe] =
-        compute_scores(lamhat, queries, diff_scores);
+    auto [nonconf, all_preds_per_nprobe] = compute_scores(lamhat, queries);
 
     auto [test_preds, cl_searched] =
         compute_predictions(lamhat, queries, nonconf, all_preds_per_nprobe);
@@ -1537,56 +1399,6 @@ IndexIVF::evaluate(float lamhat, const std::vector<std::vector<float>> &queries,
     return {fnr, cl_searched};
 }
 
-void IndexIVF::search_conann_mondrian(idx_t n, const float *x,
-                                      std::unordered_map<int, float> lamhats,
-                                      float *distances, idx_t *labels) {
-    std::vector<std::vector<float>> queries;
-    queries.resize(n);
-    for (size_t i = 0; i < n; ++i) {
-        queries[i].resize(d);
-        for (size_t j = 0; j < d; ++j) {
-            queries[i][j] = x[i * d + j];
-        }
-    }
-
-    auto test_diffs = compute_difficulty_scores(queries);
-    auto test_groups = partition_by_difficulty(test_diffs, NUM_MONDRIAN_BINS);
-
-    for (const auto &group_pair : test_groups) {
-        int group = group_pair.first;
-        auto group_indices = group_pair.second;
-
-        if (group_indices.size() == 0)
-            continue;
-
-        auto lamhat = lamhats[group];
-        std::vector<std::vector<float>> group_queries;
-
-        for (int idx : group_indices) {
-            group_queries.push_back(queries[idx]);
-        }
-
-        float* qs = new float[group_indices.size() * d];
-        size_t index = 0;
-        for (const auto& sub_vector : group_queries) {
-            for (float value : sub_vector) {
-                qs[index++] = value;
-            }
-        }
-        
-        std::vector<faiss::idx_t> nns(K * group_indices.size());
-        std::vector<float> dis(K * group_indices.size());
-        search_conann(group_indices.size(), qs,
-                      lamhat, dis.data(), nns.data());
-
-        for (size_t i = 0; i < group_indices.size(); ++i) {
-            for (size_t j = 0; j < K; ++j) {
-                // distances[group_indices[i] * K + j] = dis[i * K + j];
-                labels[group_indices[i] * K + j] = nns[i * K + j];
-            }
-        }
-    }
-}
 
 void IndexIVF::search_conann(idx_t n, const float *x, float lamhat,
                              float *distances, idx_t *labels) {
@@ -1596,10 +1408,7 @@ void IndexIVF::search_conann(idx_t n, const float *x, float lamhat,
             queries[i][j] = x[i * d + j];
         }
     }
-    std::vector<float> diff_scores = compute_difficulty_scores(queries);
-    auto [nonconf, all_preds_per_nprobe] =
-        compute_scores(lamhat, queries, diff_scores);
-
+    auto [nonconf, all_preds_per_nprobe] = compute_scores(lamhat, queries);
     auto [test_preds, cl_searched] =
         compute_predictions(lamhat, queries, nonconf, all_preds_per_nprobe);
 
@@ -1620,11 +1429,11 @@ void IndexIVF::search_conann(idx_t n, const float *x, float lamhat,
 
 void IndexIVF::search_with_error_quantification(
     idx_t n, const float *x, idx_t k, float *distances, idx_t *labels,
-    float lambda, const std::vector<float> &diff_scores,
+    float lambda,
     std::unordered_map<faiss::idx_t, std::vector<float>> &nonconf_list,
-    std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>
-        &all_preds_list,
+    std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>> &all_preds_list,
     const SearchParameters *params_in) const {
+
     FAISS_THROW_IF_NOT(k > 0);
 
     const IVFSearchParameters *params = nullptr;
@@ -1640,7 +1449,7 @@ void IndexIVF::search_with_error_quantification(
     auto sub_search_func =
         [this, k, nprobe, params, lambda](
             idx_t n, const float *x, float *distances, idx_t *labels,
-            IndexIVFStats *ivf_stats, const std::vector<float> &diff_scores,
+            IndexIVFStats *ivf_stats,
             std::unordered_map<faiss::idx_t, std::vector<float>> &nonconf_list,
             std::unordered_map<faiss::idx_t,
                                std::vector<std::vector<faiss::idx_t>>>
@@ -1658,8 +1467,7 @@ void IndexIVF::search_with_error_quantification(
 
             search_preassigned_with_error_quantification(
                 n, x, k, idx.get(), coarse_dis.get(), distances, labels, false,
-                lambda, diff_scores, nonconf_list, all_preds_list, params,
-                ivf_stats);
+                lambda, nonconf_list, all_preds_list, params, ivf_stats);
 
             double t2 = getmillisecs();
             ivf_stats->quantization_time += t1 - t0;
@@ -1688,8 +1496,6 @@ void IndexIVF::search_with_error_quantification(
                     sub_search_func(
                         i1 - i0, x + i0 * d, distances + i0 * k,
                         labels + i0 * k, &stats[slice],
-                        std::vector<float>(diff_scores.begin() + i0,
-                                           diff_scores.begin() + i1),
                         local_nonconf_list, local_all_preds_list);
 
                     // Use pragma critical to ensure thread-safe merging
@@ -1749,7 +1555,7 @@ void IndexIVF::search_with_error_quantification(
 void IndexIVF::search_preassigned_with_error_quantification(
     idx_t n, const float *x, idx_t k, const idx_t *keys,
     const float *coarse_dis, float *distances, idx_t *labels, bool store_pairs,
-    float lamhat, const std::vector<float> &diff_scores,
+    float lamhat,
     std::unordered_map<faiss::idx_t, std::vector<float>> &nonconf_list,
     std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>
         &all_preds_list,
@@ -1980,12 +1786,7 @@ void IndexIVF::search_preassigned_with_error_quantification(
                         nonconf_list[i].push_back(1.0);
                         all_preds_list[i].push_back(idxi_copy);
                     } else {
-                        score_k =
-                            score_k / MAX_DISTANCE *
-                            diff_scores[i]; // GOOD: avg nprobe=15.31 for GIST
-                        // int w = 0.2;
-                        // score_k = (1 - w) * (score_k / MAX_DISTANCE) + w *
-                        // diff_scores[i];
+                        score_k = score_k / MAX_DISTANCE;
                         nonconf_list[i].push_back(score_k);
                         all_preds_list[i].push_back(idxi_copy);
 

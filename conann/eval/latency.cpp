@@ -252,28 +252,27 @@ int main(int argc, char **argv) {
         assert(nq3 == nq || !"incorrect nb of ground truth entries");
     }
 
-    printf("[%.3f s] ConANN Mondrian Calibration\n", elapsed() - t0);
-    auto lamhat = index->calibrate_mondrian(alpha, k, calib_sz, xq, nq, gt,
-                                            max_distance, num_bins);
+    printf("[%.3f s] NEEDS UPDATING! ConANN Calibration\n", elapsed() - t0);
+    auto lamhat = index->calibrate(alpha, k, calib_sz, xq, nq, gt,  max_distance);
     int test_start_idx = size_t(calib_sz * nq);
 
-    printf("[%.3f s] ConANN Mondrian Evaluation on %ld queries\n", elapsed() - t0, nq - test_start_idx);
-    std::vector<double> latencies;
-    for (int i = test_start_idx; i < nq; ++i) {
-        // iterate one query at a time
-        const float *xi = xq + i * index->d;
-        std::vector<faiss::idx_t> nns(k);
-        std::vector<float> dis(k);
+    // printf("[%.3f s] ConANN Evaluation on %ld queries\n", elapsed() - t0, nq - test_start_idx);
+    // std::vector<double> latencies;
+    // for (int i = test_start_idx; i < nq; ++i) {
+    //     // iterate one query at a time
+    //     const float *xi = xq + i * index->d;
+    //     std::vector<faiss::idx_t> nns(k);
+    //     std::vector<float> dis(k);
 
-        double t1 = elapsed();
-        index->search_conann_mondrian(1, xi, lamhat, dis.data(), nns.data());
-        latencies.push_back((elapsed() - t1) * 1000);
-    }
+    //     double t1 = elapsed();
+    //     index->search_conann_mondrian(1, xi, lamhat, dis.data(), nns.data());
+    //     latencies.push_back((elapsed() - t1) * 1000);
+    // }
 
-    std::ostringstream filename;
-    filename << "../ConANN-latency-" << param1 << "-" << k << "-" << alpha
-             << "-" << num_bins << "-" << std::time(nullptr) << ".log";
-    write_to_file(latencies, filename.str());
+    // std::ostringstream filename;
+    // filename << "../ConANN-latency-" << param1 << "-" << k << "-" << alpha
+    //          << "-" << num_bins << "-" << std::time(nullptr) << ".log";
+    // write_to_file(latencies, filename.str());
 
     delete[] xq;
     delete[] gt;
