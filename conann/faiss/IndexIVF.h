@@ -398,6 +398,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     int K;
     float MAX_DISTANCE = 100000;
     std::vector<std::vector<float>> centroids;
+    std::vector<float> centroids_density;
 
     std::vector<std::vector<float>> calib_cx;
     std::vector<std::vector<float>> test_cx;
@@ -405,6 +406,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::vector<std::vector<faiss::idx_t>> calib_labels;
     std::vector<std::vector<float>> calib_nonconf;
     std::vector<std::vector<std::vector<faiss::idx_t>>> calib_preds;
+    std::vector<float> calib_diffs;
 
     std::vector<std::vector<faiss::idx_t>> test_labels;
 
@@ -412,7 +414,7 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     std::pair<std::vector<std::vector<float>>,
               std::vector<std::vector<std::vector<faiss::idx_t>>>>
-    compute_scores(float lamhat, const std::vector<std::vector<float>> &queries);
+    compute_scores(float lamhat, const std::vector<std::vector<float>> &queries, const std::vector<float> &diff_scores);
 
     std::pair<std::vector<std::vector<faiss::idx_t>>, std::vector<int>>
     compute_predictions(
@@ -423,7 +425,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     // if in calibration mode, lamhat needs to be -1.
     void search_with_error_quantification(
         idx_t n, const float *x, idx_t k, float *distances, idx_t *labels,
-        float lamhat,
+        float lamhat, const std::vector<float> &diff_scores,
         std::unordered_map<faiss::idx_t, std::vector<float>> &nonconf_list,
         std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>
             &all_preds_list,
@@ -436,7 +438,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     void search_preassigned_with_error_quantification(
         idx_t n, const float *x, idx_t k, const idx_t *assign,
         const float *centroid_dis, float *distances, idx_t *labels,
-        bool store_pairs, float lamhat,
+        bool store_pairs, float lamhat, const std::vector<float> &diff_scores,
         std::unordered_map<faiss::idx_t, std::vector<float>> &nonconf_list,
         std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>
             &all_preds_list,
@@ -445,9 +447,16 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     float calibrate(float alpha, int k, float calib_sz, float *xq, size_t nq, faiss::idx_t *gt, float max_distance);
 
+    float cosine_similarity(const std::vector<float> &vec1,
+                                  const std::vector<float> &vec2) ;
+
+    std::vector<float> compute_difficulty_scores(
+        const std::vector<std::vector<float>> &queries);
+
     float optimization(
         float alpha, const std::vector<std::vector<float>> &calib_cx,
         const std::vector<std::vector<faiss::idx_t>> &calib_labels,
+        const std::vector<float> &calib_diffs,
         const std::vector<std::vector<float>> &calib_nonconf,
         const std::vector<std::vector<std::vector<faiss::idx_t>>> &calib_preds);
 
@@ -460,9 +469,10 @@ struct IndexIVF : Index, IndexIVFInterface {
         const std::vector<std::vector<faiss::idx_t>> &gt_labels);
 
     double lamhat_threshold(
-        double lambda, double target_fnr,
+        float lambda, float target_fnr,
         const std::vector<std::vector<float>> &calib_cx,
         const std::vector<std::vector<faiss::idx_t>> &calib_labels,
+        const std::vector<float> &calib_diffs,
         const std::vector<std::vector<float>> &calib_nonconf,
         const std::vector<std::vector<std::vector<faiss::idx_t>>> &calib_preds);
 
