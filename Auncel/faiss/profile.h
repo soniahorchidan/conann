@@ -81,6 +81,9 @@ public:
 
     /// Do error-profile sys search
     void search(float *D, int64_t*I, size_t start, size_t search_size = -1);
+    
+    /// Do error-profile sys search with optimizations for latency profiling
+    void search_latency(float *D, int64_t*I, size_t start, size_t search_size = -1);
 
     void time_search(float *D, int64_t*I, size_t start, size_t search_size = -1);
 

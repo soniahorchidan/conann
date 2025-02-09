@@ -136,7 +136,7 @@ int main(int argc,char **argv) {
         return 0;
     }
 
-	omp_set_num_threads(16);
+	omp_set_num_threads(32);
     double t0 = elapsed();
     
     // this is typically the fastest one.
@@ -273,7 +273,10 @@ int main(int argc,char **argv) {
         err_sys.set_topk(topk);
         D.resize(demo_size * k);
         I.resize(demo_size * k);
-        std::vector<float> accs = {5, 10, 15, 20, 25, 30, 35, 40, 45, 50};
+
+        // std::vector<float> accs = {5, 10, 15, 20, 25, 30, 35, 40, 45, 50};
+        // CHANGED TO
+        std::vector<float> accs = {5, 10, 20};
         // Set required time(ms)
         for(int i = 0; i<demo_size+ts;i++){
             int index = i%accs.size();

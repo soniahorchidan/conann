@@ -103,6 +103,9 @@ int main(int argc, char **argv) {
     float max_distance;
 
     float bert_max_dist = 200;
+    float glove_max_dist = 100;
+    float gist_max_dist = 200;
+    float deep_max_dist = 100;
     float sift_max_dist = 100000;
 
     std::string db, query, gtI, gtD;
@@ -135,21 +138,43 @@ int main(int argc, char **argv) {
         query = "/workspace/data/sift/sift10M/query.fvecs";
         gtI = "/workspace/data/sift/sift10M/idx.ivecs";
         gtD = "/workspace/data/sift/sift10M/dis.fvecs";
+        max_distance = sift_max_dist;
     } else if (param1 == "deep10M") {
         db = "../data/deep/deep10M.fvecs";
         query = "../data/deep/query.fvecs";
         gtI = "../data/deep/idx.ivecs";
         gtD = "../data/deep/dis.fvecs";
-    } else if (param1 == "gist") {
+        max_distance = deep_max_dist;
+    } else if (param1 == "gist_10") {
         db = "../data/gist/gist_base.fvecs";
-        query = "../data/gist/gist_query.fvecs";
-        gtI = "../data/gist/idx.ivecs";
-        gtD = "../data/gist/dis.fvecs";
-    } else if (param1 == "glove") {
+        query = "../data/gist/queries.fvecs";
+        gtI = "../data/gist/indices-10.fvecs";
+        gtD = "../data/gist/distances-10.fvecs";
+        max_distance = gist_max_dist;
+    } else if (param1 == "gist_100") {
+        db = "../data/gist/gist_base.fvecs";
+        query = "../data/gist/queries.fvecs";
+        gtI = "../data/gist/indices-100.fvecs";
+        gtD = "../data/gist/distances-100.fvecs";
+        max_distance = gist_max_dist;
+    } else if (param1 == "gist_1000") {
+        db = "../data/gist/gist_base.fvecs";
+        query = "../data/gist/queries.fvecs";
+        gtI = "../data/gist/indices-1000.fvecs";
+        gtD = "../data/gist/distances-1000.fvecs";
+        max_distance = gist_max_dist;
+    } else if (param1 == "glove_100") {
         db = "../data/glove/db.fvecs";
         query = "../data/glove/queries.fvecs";
         gtI = "../data/glove/indices-100.fvecs";
         gtD = "../data/glove/distances-100.fvecs";
+        max_distance = glove_max_dist;
+    } else if (param1 == "glove_1000") {
+        db = "../data/glove/db.fvecs";
+        query = "../data/glove/queries.fvecs";
+        gtI = "../data/glove/indices-1000.fvecs";
+        gtD = "../data/glove/distances-1000.fvecs";
+        max_distance = glove_max_dist;
     } else {
         printf("Your dataset name is illegal\n");
         return 0;

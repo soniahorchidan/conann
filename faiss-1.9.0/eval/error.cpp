@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iomanip>
 #include <numeric>
+#include <algorithm>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -158,22 +159,37 @@ int main(int argc, char **argv) {
         query = "../data/deep/query.fvecs";
         gtI = "../data/deep/idx.ivecs";
         gtD = "../data/deep/dis.fvecs";
-    } else if (param1 == "gist") {
+    } else if (param1 == "gist_10") {
         db = "../data/gist/gist_base.fvecs";
-        query = "../data/gist/gist_query.fvecs";
-        gtI = "../data/gist/idx.ivecs";
-        gtD = "../data/gist/dis.fvecs";
+        query = "../data/gist/queries.fvecs";
+        gtI = "../data/gist/indices-10.fvecs";
+        gtD = "../data/gist/distances-10.fvecs";
+    } else if (param1 == "gist_100") {
+        db = "../data/gist/gist_base.fvecs";
+        query = "../data/gist/queries.fvecs";
+        gtI = "../data/gist/indices-100.fvecs";
+        gtD = "../data/gist/distances-100.fvecs";
+    } else if (param1 == "gist_1000") {
+        db = "../data/gist/gist_base.fvecs";
+        query = "../data/gist/queries.fvecs";
+        gtI = "../data/gist/indices-1000.fvecs";
+        gtD = "../data/gist/distances-1000.fvecs";
     } else if (param1 == "glove_100") {
         db = "../data/glove/db.fvecs";
         query = "../data/glove/queries.fvecs";
         gtI = "../data/glove/indices-100.fvecs";
         gtD = "../data/glove/distances-100.fvecs";
+    } else if (param1 == "glove_1000") {
+        db = "../data/glove/db.fvecs";
+        query = "../data/glove/queries.fvecs";
+        gtI = "../data/glove/indices-1000.fvecs";
+        gtD = "../data/glove/distances-1000.fvecs";
     } else {
         printf("Your dataset name is illegal\n");
         return 0;
     }
 
-    omp_set_num_threads(16);
+    omp_set_num_threads(32);
     double t0 = elapsed();
 
     // this is typically the fastest one.
@@ -321,7 +337,7 @@ int main(int argc, char **argv) {
         write_to_file(all_fnrs, filename.str());
 
         std::ostringstream filename2;
-        filename2 << "../Faiss-cls-" << param1 << "-" << k << "-" << alpha
+        filename2 << "../Faiss-efficiency-" << param1 << "-" << k << "-" << alpha
                   << "-" << std::time(nullptr) << ".log";
         write_to_file(std::vector<int>{optimal_nprobe}, filename2.str());
     }

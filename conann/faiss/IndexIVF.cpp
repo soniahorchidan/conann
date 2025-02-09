@@ -1239,14 +1239,14 @@ float IndexIVF::optimization(
                            &calib_preds};
     F.params = &params;
 
-    float lower_bound = 0.0f;
-    float upper_bound = 1.0f;
+    double lower_bound = 0.0f;
+    double upper_bound = 1.0f;
     gsl_root_fsolver_set(solver, &F, lower_bound, upper_bound);
 
     int status;
     int max_iter = 100;
     int iter = 0;
-    float lamhat = 0.0f;
+    double lamhat = 0.0f;
 
     do {
         iter++;
@@ -1263,18 +1263,18 @@ float IndexIVF::optimization(
         std::cerr << "Root-finding failed to converge.\n";
     }
 
-    return lamhat;
+    return (float) lamhat;
 }
 
-float IndexIVF::lamhat_threshold(
-    float lambda, float target_fnr,
+double IndexIVF::lamhat_threshold(
+    double lambda, double target_fnr,
     const std::vector<std::vector<float>> &calib_cx,
     const std::vector<std::vector<faiss::idx_t>> &calib_labels,
     const std::vector<std::vector<float>> &calib_nonconf,
     const std::vector<std::vector<std::vector<faiss::idx_t>>> &calib_preds) {
     auto [preds, _] =
         compute_predictions(lambda, calib_cx, calib_nonconf, calib_preds);
-    float fnr = false_negative_rate(preds, calib_labels);
+    double fnr = false_negative_rate(preds, calib_labels);
     return fnr - target_fnr;
 }
 
@@ -1290,25 +1290,32 @@ IndexIVF::compute_predictions(
     for (size_t query_idx = 0; query_idx < queries.size(); ++query_idx) {
         const auto &sc = nonconf[query_idx];
         const auto &p = preds[query_idx];
-        int index = 0;
 
-        while (index < sc.size() && sc[index] >= lambda)
-            index++;
+        std::vector<float> unique_values;
+        std::vector<int> indexes;
+        std::unordered_set<float> seen;
 
-        if (index == sc.size()) {
-            int gt_idx = std::distance(sc.begin(),
-                                       std::find(sc.begin(), sc.end(), 0.0f));
-            test_preds.push_back({p[gt_idx]}); // push gt
-            cl_searched.push_back(gt_idx);
-        } else {
-            if (index > 1 && index < sc.size()) {
-                // take smalles number of clusters searches which achieves this,
-                // if multiple scores are equal to the optimal one.
-                while (sc[index] == sc[index - 1]) {
-                    index--;
-                }
+        for (int i = 0; i < sc.size(); ++i) {
+            if (seen.find(sc[i]) == seen.end()) {
+                unique_values.push_back(sc[i]);
+                indexes.push_back(i);
+                seen.insert(sc[i]);
             }
+        }
 
+        int index = -1; // Default if no match is found
+        int uid = -1;
+        for (int i = 0; i < unique_values.size(); ++i) {
+            if (unique_values[i] >= lambda) {
+                index = indexes[i];
+                uid = i;
+            }
+        }
+
+        if (index == -1) {
+            test_preds.push_back({});
+            cl_searched.push_back(-1);
+        } else {
             test_preds.push_back({p[index]}); // Add prediction at index
             cl_searched.push_back(index);
         }
@@ -1352,7 +1359,7 @@ std::vector<float> IndexIVF::false_negative_rate_per_q(
     return fnr_per_query;
 }
 
-float IndexIVF::false_negative_rate(
+double IndexIVF::false_negative_rate(
     const std::vector<std::vector<faiss::idx_t>> &prediction_set,
     const std::vector<std::vector<faiss::idx_t>> &gt_labels) {
     std::vector<int> overlap;
@@ -1515,22 +1522,20 @@ void IndexIVF::search_with_error_quantification(
                         }
                     }
 
-                    // post-processing to add 0s.
-                    // TODO: optimize.
-                    for (auto &entry : nonconf_list) {
-                        auto &vec = entry.second;
-                        if (vec.empty())
-                            continue;
+                    // // post-processing to add 0s.
+                    // // TODO: optimize.
+                    // for (auto &entry : nonconf_list) {
+                    //     auto &vec = entry.second;
+                    //     if (vec.empty())
+                    //         continue;
 
-                        float last_value = vec.back();
-                        if (last_value == 0)
-                            continue;
-                        for (int i = vec.size() - 1; i >= 1; --i) {
-                            if (vec[i] == last_value) {
-                                vec[i] = 0;
-                            }
-                        }
-                    }
+                    //     float last_value = vec.back();
+                    //     for (int i = vec.size(); i >= 0; --i) {
+                    //         if (vec[i] == last_value) {
+                    //             vec[i] = 0;
+                    //         }
+                    //     }
+                    // }
 
                 } catch (const std::exception &e) {
                     std::lock_guard<std::mutex> lock(exception_mutex);
@@ -1771,7 +1776,6 @@ void IndexIVF::search_preassigned_with_error_quantification(
                     }
 
                     float score_k = 0.0;
-
                     // Find largest score corresponding to the kth closest
                     // vector. Needed because FAISS does not maintain them
                     // ordered.
@@ -1790,12 +1794,14 @@ void IndexIVF::search_preassigned_with_error_quantification(
                         nonconf_list[i].push_back(score_k);
                         all_preds_list[i].push_back(idxi_copy);
 
+                        all_preds_list[i].push_back(idxi_copy);
                         // ConANN:: Early stopping; passing lamhat=-1 at
                         // calibration to compute all.
                         if (score_k < lamhat) {
                             nonconf_list[i].push_back(0.0);
-                            all_preds_list[i].push_back(idxi_copy);
                             break;
+                        } else {
+                            nonconf_list[i].push_back(score_k);
                         }
                     }
                 }
