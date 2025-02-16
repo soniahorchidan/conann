@@ -198,22 +198,47 @@ void IndexIVF::add_with_ids(idx_t n, const float *x, const idx_t *xids) {
         centroids.push_back(std::move(centroid));
     }
 
+    // std::vector<size_t> cluster_counts(n_list, 0);
+
+    // // Compute densities
+    // // Count vectors per centroid
+    // for (size_t i = 0; i < n; ++i) {
+    //     cluster_counts[coarse_idx[i]]++;
+    // }
+
+    // // Store densities (e.g., using count as a proxy)
+    // std::cout << "Cluster densities=";
+    // for (size_t i = 0; i < n_list; ++i) {
+    //     float cl_d = static_cast<float>(cluster_counts[i]) / n;
+    //     std::cout << cl_d << " ";
+    //     centroids_density.push_back(cl_d);
+    // }
+    // std::cout << "\n";
+
     std::vector<size_t> cluster_counts(n_list, 0);
+    std::vector<float> cluster_densities(n_list, 0.0f);
 
-    // Compute densities
-    // Count vectors per centroid
+    // Count points in each cluster and compute density
     for (size_t i = 0; i < n; ++i) {
-        cluster_counts[coarse_idx[i]]++;
+        size_t cluster_idx = coarse_idx[i];
+        cluster_counts[cluster_idx]++;
     }
 
-    // Store densities (e.g., using count as a proxy)
-    std::cout << "Cluster densities=";
+    // Calculate density as a fraction of points per centroid
+    size_t max_cluster_size = *std::max_element(cluster_counts.begin(), cluster_counts.end());
+    
     for (size_t i = 0; i < n_list; ++i) {
-        float cl_d = static_cast<float>(cluster_counts[i]) / n;
-        std::cout << cl_d << " ";
-        centroids_density.push_back(cl_d);
+        // Normalize cluster density to the max cluster size
+        if (max_cluster_size > 0) {
+            cluster_densities[i] = static_cast<float>(cluster_counts[i]) / static_cast<float>(max_cluster_size);
+        } else {
+            cluster_densities[i] = 0.0f; // If no points assigned, density is 0
+        }
+
+        // Store the normalized density (ensured to be between 0 and 1)
+        std::cout << "Normalized cluster density for centroid " << i << ": " << cluster_densities[i] << std::endl;
+        centroids_density.push_back(cluster_densities[i]);
     }
-    std::cout << "\n";
 
     // ----------------------------
 }
@@ -1171,6 +1196,24 @@ IndexIVF::compute_scores(float lamhat,
     for (const auto &[key, value] : nonconf_list) {
         n_vec[key] = value;
     }
+
+    // apply temperature scaling
+    float temperature = 0.05;
+    // 41 cls searched on GLOVE with t=0.1, but slightly invalid
+    for (auto& scores : n_vec) {
+        double sum_exp = 0.0;
+
+        // Calculate sum(exp(z_j / T)) for the current batch of scores
+        for (float score : scores) {
+            sum_exp += std::exp(score / temperature);
+        }
+
+        // Apply temperature scaling to each score and normalize
+        for (float& score : scores) {
+            score = std::exp(score / temperature) / sum_exp;
+        }
+    }
+
     std::vector<std::vector<std::vector<faiss::idx_t>>> preds_vec(
         all_preds_list.size());
 
@@ -1812,8 +1855,8 @@ void IndexIVF::search_preassigned_with_error_quantification(
                         nonconf_list[i][keys[i * nprobe + ik]] = 1.0;
                     } else {
                         auto x = centroids_density[keys[i * nprobe + ik]];
-                        nonconf_list[i][keys[i * nprobe + ik]] =
-                            (score_k / MAX_DISTANCE + diff_scores[i]) / 2;
+                        nonconf_list[i][keys[i * nprobe + ik]] = 
+                            (score_k / MAX_DISTANCE + 2 * diff_scores[i]) / 3;
                     }
                 }
 
