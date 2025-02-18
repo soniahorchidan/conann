@@ -1198,21 +1198,21 @@ IndexIVF::compute_scores(float lamhat,
     }
 
     // apply temperature scaling
-    float temperature = 0.05;
+    // float temperature = 0.05;
     // 41 cls searched on GLOVE with t=0.1, but slightly invalid
-    for (auto& scores : n_vec) {
-        double sum_exp = 0.0;
+    // for (auto& scores : n_vec) {
+    //     double sum_exp = 0.0;
 
-        // Calculate sum(exp(z_j / T)) for the current batch of scores
-        for (float score : scores) {
-            sum_exp += std::exp(score / temperature);
-        }
+    //     // Calculate sum(exp(z_j / T)) for the current batch of scores
+    //     for (float score : scores) {
+    //         sum_exp += std::exp(score / temperature);
+    //     }
 
-        // Apply temperature scaling to each score and normalize
-        for (float& score : scores) {
-            score = std::exp(score / temperature) / sum_exp;
-        }
-    }
+    //     // Apply temperature scaling to each score and normalize
+    //     for (float& score : scores) {
+    //         score = std::exp(score / temperature) / sum_exp;
+    //     }
+    // }
 
     std::vector<std::vector<std::vector<faiss::idx_t>>> preds_vec(
         all_preds_list.size());
@@ -1408,7 +1408,32 @@ IndexIVF::compute_predictions(
 std::vector<float> IndexIVF::recall_per_query(
     const std::vector<std::vector<faiss::idx_t>> &prediction_set,
     const std::vector<std::vector<faiss::idx_t>> &gt_labels) {
-    // TODO
+
+    int nq = prediction_set.size();
+    int k = gt_labels[0].size();
+    int total_false_negatives = 0;
+    std::vector<float> fnrs_per_query(nq);
+
+    for (size_t i = 0; i < nq; ++i) {
+        const std::set<int> pred_set(prediction_set[i].begin(),
+                                     prediction_set[i].end());
+        const std::set<int> gt_set(gt_labels[i].begin(), gt_labels[i].end());
+        // Calculate intersection size
+        int intersection_size = 0;
+        for (int pred : pred_set) {
+            if (gt_set.count(pred) > 0) {
+                ++intersection_size;
+            }
+        }
+        // FNR = 1 - (intersection_size / k)
+        fnrs_per_query[i] = 1.0f - (static_cast<float>(intersection_size) / static_cast<float>(k));
+        total_false_negatives += k - intersection_size;
+    }
+
+    float overall_fnr = static_cast<float>(total_false_negatives) / (nq * k);
+    float check_fnr = std::accumulate(fnrs_per_query.begin(), fnrs_per_query.end(), 0.0) / fnrs_per_query.size();
+    std::cout << "Overall FNR: " << overall_fnr << "; Check FNR: " << check_fnr << std::endl;
+    return fnrs_per_query;
 }
 
 double IndexIVF::false_negative_rate(
@@ -1455,8 +1480,8 @@ IndexIVF::evaluate(float lamhat, const std::vector<std::vector<float>> &queries,
     auto [test_preds, cl_searched] =
         compute_predictions(lamhat, queries, nonconf, all_preds_per_nprobe);
 
-    float fnr = false_negative_rate(test_preds, labels);
-    return {{fnr}, cl_searched};
+    auto fnrs = recall_per_query(test_preds, labels);
+    return {fnrs, cl_searched};
 }
 
 void IndexIVF::search_conann(idx_t n, const float *x, float lamhat,
@@ -1854,6 +1879,7 @@ void IndexIVF::search_preassigned_with_error_quantification(
                     if (score_k > MAX_DISTANCE) {
                         nonconf_list[i][keys[i * nprobe + ik]] = 1.0;
                     } else {
+                        // unused x
                         auto x = centroids_density[keys[i * nprobe + ik]];
                         nonconf_list[i][keys[i * nprobe + ik]] = 
                             (score_k / MAX_DISTANCE + 2 * diff_scores[i]) / 3;
