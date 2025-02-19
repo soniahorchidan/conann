@@ -120,21 +120,21 @@ int main(int argc, char **argv) {
     std::string db, query, gtI, gtD;
     if (param1 == "bert_10") {
         db = "../data/bert/db.fvecs";
-        query = "../data/bert/queries.fvecs";
-        gtI = "../data/bert/indices-10.fvecs";
-        gtD = "../data/bert/distances-10.fvecs";
+        query = "../data/next-bert/queries.fvecs";
+        gtI = "../data/next-bert/indices-10.fvecs";
+        gtD = "../data/next-bert/distances-10.fvecs";
         max_distance = bert_max_dist;
     } else if (param1 == "bert_100") {
         db = "../data/bert/db.fvecs";
-        query = "../data/small-bert/queries.fvecs";
-        gtI = "../data/small-bert/indices-100.fvecs";
-        gtD = "../data/small-bert/distances-100.fvecs";
+        query = "../data/next-bert/queries.fvecs";
+        gtI = "../data/next-bert/indices-100.fvecs";
+        gtD = "../data/next-bert/distances-100.fvecs";
         max_distance = bert_max_dist;
     } else if (param1 == "bert_1000") {
         db = "../data/bert/db.fvecs";
-        query = "../data/bert/queries.fvecs";
-        gtI = "../data/bert/indices-1000.fvecs";
-        gtD = "../data/bert/distances-1000.fvecs";
+        query = "../data/next-bert/queries.fvecs";
+        gtI = "../data/next-bert/indices-1000.fvecs";
+        gtD = "../data/next-bert/distances-1000.fvecs";
         max_distance = bert_max_dist;
     } else if (param1 == "sift1M") {
         db = "../data/sift1M/sift1M.fvecs";
@@ -156,9 +156,9 @@ int main(int argc, char **argv) {
         max_distance = deep_max_dist;
     } else if (param1 == "gist_10") {
         db = "../data/gist/gist_base.fvecs";
-        query = "../data/gist/queries.fvecs";
-        gtI = "../data/gist/indices-10.fvecs";
-        gtD = "../data/gist/distances-10.fvecs";
+        query = "../data/next-gist/queries.fvecs";
+        gtI = "../data/next-gist/indices-10.fvecs";
+        gtD = "../data/next-gist/distances-10.fvecs";
         max_distance = gist_max_dist;
     } else if (param1 == "gist_100") {
         db = "../data/gist/gist_base.fvecs";
@@ -292,17 +292,17 @@ int main(int argc, char **argv) {
     std::cout << "alpha=" << alpha << ", test fnr=" << avg_fnr
               << ", avg cls searched=" << computeAverage(cls) << std::endl;
 
-    // std::ostringstream fnr_filename;
-    // fnr_filename << "../ConANN-error-" << param1 << "-" << k << "-" << alpha <<".log";
+    std::ostringstream fnr_filename;
+    fnr_filename << "../ConANN-error-" << param1 << "-" << k << "-" << alpha <<".log";
 
-    // write_to_file(fnr, fnr_filename.str());
+    write_to_file(fnr, fnr_filename.str());
 
-    // std::ostringstream cls_filename;
+    std::ostringstream cls_filename;
 
-    // cls_filename << "../ConANN-efficiency-" << param1 << "-" << k << "-"
-    //              << alpha << ".log";
+    cls_filename << "../ConANN-efficiency-" << param1 << "-" << k << "-"
+                 << alpha << ".log";
 
-    // write_to_file(cls, cls_filename.str());
+    write_to_file(cls, cls_filename.str());
 
     delete[] xq;
     delete[] gt;

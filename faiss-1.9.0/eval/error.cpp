@@ -131,19 +131,19 @@ int main(int argc, char **argv) {
     std::string db, query, gtI, gtD;
     if (param1 == "bert_10") {
         db = "../data/bert/db.fvecs";
-        query = "../data/bert/queries.fvecs";
-        gtI = "../data/bert/indices-10.fvecs";
-        gtD = "../data/bert/distances-10.fvecs";
+        query = "../data/next-bert/queries.fvecs";
+        gtI = "../data/next-bert/indices-10.fvecs";
+        gtD = "../data/next-bert/distances-10.fvecs";
     } else if (param1 == "bert_100") {
         db = "../data/bert/db.fvecs";
-        query = "../data/bert/queries.fvecs";
-        gtI = "../data/bert/indices-100.fvecs";
-        gtD = "../data/bert/distances-100.fvecs";
+        query = "../data/next-bert/queries.fvecs";
+        gtI = "../data/next-bert/indices-100.fvecs";
+        gtD = "../data/next-bert/distances-100.fvecs";
     } else if (param1 == "bert_1000") {
         db = "../data/bert/db.fvecs";
-        query = "../data/bert/queries.fvecs";
-        gtI = "../data/bert/indices-1000.fvecs";
-        gtD = "../data/bert/distances-1000.fvecs";
+        query = "../data/next-bert/queries.fvecs";
+        gtI = "../data/next-bert/indices-1000.fvecs";
+        gtD = "../data/next-bert/distances-1000.fvecs";
     } else if (param1 == "sift1M") {
         db = "../data/sift1M/sift1M.fvecs";
         query = "../data/sift1M/1M_query.fvecs";
