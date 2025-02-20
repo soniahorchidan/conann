@@ -1340,8 +1340,8 @@ double IndexIVF::lamhat_threshold(
     const std::vector<std::vector<std::vector<faiss::idx_t>>> &calib_preds) {
     auto [preds, _] =
         compute_predictions(lambda, calib_cx, calib_nonconf, calib_preds);
-    double fnr = false_negative_rate(preds, calib_labels);
-        std::cout << "Optimization: lambda=" << lambda << " fnr=" << fnr << "\n";
+    float fnr = false_negative_rate(preds, calib_labels);
+    std::cout << "Optimization: lambda=" << lambda << " fnr=" << fnr << "\n";
     return fnr - target_fnr;
 }
 
