@@ -134,7 +134,7 @@ int main(int argc, char **argv) {
         query = "../data/bert/queries.fvecs";
         gtI = "../data/bert/indices-10.fvecs";
         gtD = "../data/bert/distances-10.fvecs";
-    } else if (param1 == "bert_100") {
+    }  else if (param1 == "bert_100") {
         db = "../data/bert/db.fvecs";
         query = "../data/bert/queries.fvecs";
         gtI = "../data/bert/indices-100.fvecs";
@@ -189,7 +189,7 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    omp_set_num_threads(32);
+    omp_set_num_threads(64);
     double t0 = elapsed();
 
     // this is typically the fastest one.

@@ -1197,22 +1197,17 @@ IndexIVF::compute_scores(float lamhat,
         n_vec[key] = value;
     }
 
-    // apply temperature scaling
-    float temperature = 0.05;
-    // 41 cls searched on GLOVE with t=0.1, but slightly invalid
-    for (auto& scores : n_vec) {
-        double sum_exp = 0.0;
-
-        // Calculate sum(exp(z_j / T)) for the current batch of scores
-        for (float score : scores) {
-            sum_exp += std::exp(score / temperature);
-        }
-
-        // Apply temperature scaling to each score and normalize
-        for (float& score : scores) {
-            score = std::exp(score / temperature) / sum_exp;
-        }
-    }
+    // // apply temperature scaling
+    // float temperature = 0.4;
+    // for (auto& scores : n_vec) {
+    //     double sum_exp = 0.0;
+    //     for (float score : scores) {
+    //         sum_exp += std::exp(score / temperature);
+    //     }
+    //     for (float& score : scores) {
+    //         score = std::exp(score / temperature) / sum_exp;
+    //     }
+    // }
 
     std::vector<std::vector<std::vector<faiss::idx_t>>> preds_vec(
         all_preds_list.size());
@@ -1856,7 +1851,7 @@ void IndexIVF::search_preassigned_with_error_quantification(
                     } else {
                         auto x = centroids_density[keys[i * nprobe + ik]];
                         nonconf_list[i][keys[i * nprobe + ik]] = 
-                            (score_k / MAX_DISTANCE + 2 * diff_scores[i]) / 3;
+                            diff_scores[i] * score_k / MAX_DISTANCE;
                     }
                 }
 

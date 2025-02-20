@@ -189,7 +189,7 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    omp_set_num_threads(32);
+    omp_set_num_threads(64);
     double t0 = elapsed();
 
     // this is typically the fastest one.

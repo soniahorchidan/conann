@@ -126,9 +126,9 @@ int main(int argc, char **argv) {
         max_distance = bert_max_dist;
     } else if (param1 == "bert_100") {
         db = "../data/bert/db.fvecs";
-        query = "../data/small-bert/queries.fvecs";
-        gtI = "../data/small-bert/indices-100.fvecs";
-        gtD = "../data/small-bert/distances-100.fvecs";
+        query = "../data/bert/queries.fvecs";
+        gtI = "../data/bert/indices-100.fvecs";
+        gtD = "../data/bert/distances-100.fvecs";
         max_distance = bert_max_dist;
     } else if (param1 == "bert_1000") {
         db = "../data/bert/db.fvecs";
@@ -189,7 +189,7 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    omp_set_num_threads(8);
+    omp_set_num_threads(64);
     double t0 = elapsed();
 
     // this is typically the fastest one.
