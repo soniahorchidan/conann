@@ -1105,7 +1105,6 @@ void IndexIVF::train(idx_t n, const float *x) {
 void IndexIVF::prep_calib(float calib_sz, float *xq, size_t nq,
                           faiss::idx_t *gt) {
     size_t half_nq = size_t(calib_sz * nq);
-    std::cout << "DEBUG:: calib sz=" << half_nq << "\n";
     calib_cx.resize(half_nq);
     calib_labels.resize(half_nq);
     test_cx.resize(nq - half_nq);
@@ -1186,6 +1185,20 @@ IndexIVF::compute_scores(float lamhat,
     for (const auto &[key, value] : nonconf_list) {
         n_vec[key] = value;
     }
+    // // apply temperature scaling
+    // float temperature = 0.3;
+    // for (auto& scores : n_vec) {
+    //     double sum_exp = 0.0;
+    //     for (float score : scores) {
+    //         if (score > 0)
+    //             sum_exp += std::exp(score / temperature);
+    //     }
+    //     for (float& score : scores) {
+    //         if (score > 0)
+    //             score = std::exp(score / temperature) / sum_exp;
+    //     }
+    // }
+
     std::vector<std::vector<std::vector<faiss::idx_t>>> preds_vec(
         all_preds_list.size());
 
@@ -1275,6 +1288,7 @@ float IndexIVF::lamhat_threshold(
     auto [preds, _] =
         compute_predictions(lambda, calib_cx, calib_nonconf, calib_preds);
     float fnr = false_negative_rate(preds, calib_labels);
+    std::cout << "lambda=" << lambda << " fnr=" << fnr << "\n";
     return fnr - target_fnr;
 }
 

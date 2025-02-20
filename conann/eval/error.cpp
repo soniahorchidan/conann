@@ -256,18 +256,17 @@ int main(int argc, char **argv) {
     std::cout << "alpha=" << alpha << ", test fnr=" << computeAverage(fnr)
               << ", avg cls searched=" << computeAverage(cls) << std::endl;
 
-    // std::ostringstream fnr_filename;
-    // fnr_filename << "../ConANN-error-" << param1 << "-" << k << "-" << alpha
-    //              << "-" << num_bins << "-" << std::time(nullptr) <<".log";
+    std::ostringstream fnr_filename;
+    fnr_filename << "../ConANN-error-" << param1 << "-" << k << "-" << alpha <<".log";
 
-    // write_to_file(fnr, fnr_filename.str());
+    write_to_file(fnr, fnr_filename.str());
 
-    // std::ostringstream cls_filename;
+    std::ostringstream cls_filename;
 
-    // cls_filename << "../ConANN-efficiency-" << param1 << "-" << k << "-"
-    //              << alpha << "-" << num_bins << "-" << std::time(nullptr) << ".log";
+    cls_filename << "../ConANN-efficiency-" << param1 << "-" << k << "-"
+                 << alpha << ".log";
 
-    // write_to_file(cls, cls_filename.str());
+    write_to_file(cls, cls_filename.str());
 
     delete[] xq;
     delete[] gt;
