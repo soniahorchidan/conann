@@ -1197,17 +1197,17 @@ IndexIVF::compute_scores(float lamhat,
         n_vec[key] = value;
     }
 
-    // apply temperature scaling
-    float temperature = 0.4;
-    for (auto& scores : n_vec) {
-        double sum_exp = 0.0;
-        for (float score : scores) {
-            sum_exp += std::exp(score / temperature);
-        }
-        for (float& score : scores) {
-            score = std::exp(score / temperature) / sum_exp;
-        }
-    }
+    // // apply temperature scaling
+    // float temperature = 0.4;
+    // for (auto& scores : n_vec) {
+    //     double sum_exp = 0.0;
+    //     for (float score : scores) {
+    //         sum_exp += std::exp(score / temperature);
+    //     }
+    //     for (float& score : scores) {
+    //         score = std::exp(score / temperature) / sum_exp;
+    //     }
+    // }
 
     std::vector<std::vector<std::vector<faiss::idx_t>>> preds_vec(
         all_preds_list.size());
