@@ -1284,6 +1284,10 @@ float IndexIVF::optimization(
     float target_fnr =
         (static_cast<float>(n) + 1.0f) / n * alpha - 1.0f / (n + 1.0f);
 
+    // Logger to get loss function information
+    // std::cout << "Opening log file" << std::endl;
+    // freopen("../lossf.log", "w", stdout);
+
     // Use GSL's root-finding for the brentq method
     gsl_root_fsolver *solver = gsl_root_fsolver_alloc(gsl_root_fsolver_brent);
     gsl_function F;
@@ -1327,7 +1331,11 @@ float IndexIVF::optimization(
         status = gsl_root_test_interval(lower_bound, upper_bound, 1e-6, 1e-6);
     } while (status == GSL_CONTINUE && iter < max_iter);
 
-    gsl_root_fsolver_free(solver);
+    // std::cout << std::endl;
+    // fclose(stdout);
+    // freopen("/dev/tty", "w", stdout); // Restore stdout to terminal
+    // std::cout << "Log file closed." << std::endl;
+    // gsl_root_fsolver_free(solver);
 
     if (status != GSL_SUCCESS) {
         std::cerr << "Root-finding failed to converge.\n";
@@ -1346,7 +1354,9 @@ double IndexIVF::lamhat_threshold(
     auto [preds, _] =
         compute_predictions(lambda, calib_cx, calib_nonconf, calib_preds);
     double fnr = false_negative_rate(preds, calib_labels);
-        std::cout << "Optimization: lambda=" << lambda << " fnr=" << fnr << "\n";
+    std::cout << "Optimization: lambda=" << lambda << " fnr=" << fnr << "\n";
+    // std::cout << lambda << " " << fnr << "\n";
+
     return fnr - target_fnr;
 }
 
