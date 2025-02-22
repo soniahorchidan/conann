@@ -43,9 +43,10 @@ Makefile
 # datasets
 data/*
 
-# do not ignore sift10k and dataset; small enough
+# do not ignore the bert and synthetic datasets; small enough
 # !data/sift10k/
 !data/bert/
+!data/synthetic*
 
 # results
 *.log

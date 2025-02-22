@@ -131,19 +131,19 @@ int main(int argc, char **argv) {
     std::string db, query, gtI, gtD;
     if (param1 == "bert_10") {
         db = "../data/bert/db.fvecs";
-        query = "../data/next-bert/queries.fvecs";
-        gtI = "../data/next-bert/indices-10.fvecs";
-        gtD = "../data/next-bert/distances-10.fvecs";
-    } else if (param1 == "bert_100") {
+        query = "../data/bert/queries.fvecs";
+        gtI = "../data/bert/indices-10.fvecs";
+        gtD = "../data/bert/distances-10.fvecs";
+    }  else if (param1 == "bert_100") {
         db = "../data/bert/db.fvecs";
-        query = "../data/next-bert/queries.fvecs";
-        gtI = "../data/next-bert/indices-100.fvecs";
-        gtD = "../data/next-bert/distances-100.fvecs";
+        query = "../data/bert/queries.fvecs";
+        gtI = "../data/bert/indices-100.fvecs";
+        gtD = "../data/bert/distances-100.fvecs";
     } else if (param1 == "bert_1000") {
         db = "../data/bert/db.fvecs";
-        query = "../data/next-bert/queries.fvecs";
-        gtI = "../data/next-bert/indices-1000.fvecs";
-        gtD = "../data/next-bert/distances-1000.fvecs";
+        query = "../data/bert/queries.fvecs";
+        gtI = "../data/bert/indices-1000.fvecs";
+        gtD = "../data/bert/distances-1000.fvecs";
     } else if (param1 == "sift1M") {
         db = "../data/sift1M/sift1M.fvecs";
         query = "../data/sift1M/1M_query.fvecs";
@@ -184,12 +184,17 @@ int main(int argc, char **argv) {
         query = "../data/glove/queries.fvecs";
         gtI = "../data/glove/indices-1000.fvecs";
         gtD = "../data/glove/distances-1000.fvecs";
+    } else if (param1 == "synth") {
+        db = "../data/synthetic10/db.fvecs";
+        query = "../data/synthetic10/queries.fvecs";
+        gtI = "../data/synthetic10/indices-1000.fvecs";
+        gtD = "../data/synthetic10/distances-1000.fvecs";
     } else {
         printf("Your dataset name is illegal\n");
         return 0;
     }
 
-    omp_set_num_threads(32);
+    omp_set_num_threads(8);
     double t0 = elapsed();
 
     // this is typically the fastest one.
@@ -200,7 +205,7 @@ int main(int argc, char **argv) {
     size_t d;
 
     int nlist = 1024; // 1024 as per index_key
-    if (param1.find("bert") != std::string::npos) {
+    if (param1.find("bert") != std::string::npos || param1.find("synth") != std::string::npos) {
         nlist = 128;
     }
 

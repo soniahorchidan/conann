@@ -120,21 +120,27 @@ int main(int argc, char **argv) {
     std::string db, query, gtI, gtD;
     if (param1 == "bert_10") {
         db = "../data/bert/db.fvecs";
-        query = "../data/next-bert/queries.fvecs";
-        gtI = "../data/next-bert/indices-10.fvecs";
-        gtD = "../data/next-bert/distances-10.fvecs";
+        query = "../data/bert/queries.fvecs";
+        gtI = "../data/bert/indices-10.fvecs";
+        gtD = "../data/bert/distances-10.fvecs";
         max_distance = bert_max_dist;
     } else if (param1 == "bert_100") {
         db = "../data/bert/db.fvecs";
-        query = "../data/next-bert/queries.fvecs";
-        gtI = "../data/next-bert/indices-100.fvecs";
-        gtD = "../data/next-bert/distances-100.fvecs";
+        query = "../data/bert/queries.fvecs";
+        gtI = "../data/bert/indices-100.fvecs";
+        gtD = "../data/bert/distances-100.fvecs";
         max_distance = bert_max_dist;
     } else if (param1 == "bert_1000") {
         db = "../data/bert/db.fvecs";
-        query = "../data/next-bert/queries.fvecs";
-        gtI = "../data/next-bert/indices-1000.fvecs";
-        gtD = "../data/next-bert/distances-1000.fvecs";
+        query = "../data/bert/queries.fvecs";
+        gtI = "../data/bert/indices-1000.fvecs";
+        gtD = "../data/bert/distances-1000.fvecs";
+        max_distance = bert_max_dist;
+    } else if (param1 == "synth") {
+        db = "../data/synthetic10/db.fvecs";
+        query = "../data/synthetic10/queries.fvecs";
+        gtI = "../data/synthetic10/indices-1000.fvecs";
+        gtD = "../data/synthetic10/distances-1000.fvecs";
         max_distance = bert_max_dist;
     } else if (param1 == "sift1M") {
         db = "../data/sift1M/sift1M.fvecs";
@@ -156,12 +162,12 @@ int main(int argc, char **argv) {
         max_distance = deep_max_dist;
     } else if (param1 == "gist_10") {
         db = "../data/gist/gist_base.fvecs";
-        query = "../data/next-gist/queries.fvecs";
-        gtI = "../data/next-gist/indices-10.fvecs";
-        gtD = "../data/next-gist/distances-10.fvecs";
+        query = "../data/gist/queries.fvecs";
+        gtI = "../data/gist/indices-10.fvecs";
+        gtD = "../data/gist/distances-10.fvecs";
         max_distance = gist_max_dist;
     } else if (param1 == "gist_100") {
-        db = "../data/gist/gist_base.fvecs";
+        db = "../data/gist/gist1M.fvecs";
         query = "../data/gist/queries.fvecs";
         gtI = "../data/gist/indices-100.fvecs";
         gtD = "../data/gist/distances-100.fvecs";
@@ -209,7 +215,7 @@ int main(int argc, char **argv) {
                index_key, d);
 
         int nlist = 1024; // 1024 as per index_key
-        if (param1.find("bert") != std::string::npos) {
+        if (param1.find("bert") != std::string::npos || param1.find("synth") != std::string::npos) {
             nlist = 128;
         }
 
@@ -217,7 +223,6 @@ int main(int argc, char **argv) {
         index = new faiss::IndexIVFFlat(flat_index, d, nlist, faiss::METRIC_L2);
 
         index->nprobe = nlist;
-
         // train on half the dataset
         auto ntt = size_t(0.5 * nt);
         printf("[%.3f s] Training on %ld vectors\n", elapsed() - t0, ntt);
@@ -294,14 +299,12 @@ int main(int argc, char **argv) {
 
     std::ostringstream fnr_filename;
     fnr_filename << "../ConANN-error-" << param1 << "-" << k << "-" << alpha <<".log";
-
     write_to_file(fnr, fnr_filename.str());
 
     std::ostringstream cls_filename;
 
     cls_filename << "../ConANN-efficiency-" << param1 << "-" << k << "-"
                  << alpha << ".log";
-
     write_to_file(cls, cls_filename.str());
 
     delete[] xq;
