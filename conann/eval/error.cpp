@@ -293,7 +293,8 @@ int main(int argc, char **argv) {
     std::cout << "Found lamhat=" << lamhat<< "\n";
     printf("[%.3f s] ConANN Evaluation\n", elapsed() - t0);
     auto [fnr, cls] = index->evaluate_test(lamhat);
-    std::cout << "alpha=" << alpha << ", test fnr=" << computeAverage(fnr)
+    float avg_fnr = std::accumulate(fnr.begin(), fnr.end(), 0.0) / fnr.size();
+    std::cout << "alpha=" << alpha << ", test fnr=" << avg_fnr
               << ", avg cls searched=" << computeAverage(cls) << std::endl;
 
     std::ostringstream fnr_filename;

@@ -1279,6 +1279,10 @@ float IndexIVF::optimization(
     float target_fnr =
         (static_cast<float>(n) + 1.0f) / n * alpha - 1.0f / (n + 1.0f);
 
+    // Logger to get loss function information
+    // std::cout << "Opening log file" << std::endl;
+    // freopen("../lossf.log", "w", stdout);
+
     // Use GSL's root-finding for the brentq method
     gsl_root_fsolver *solver = gsl_root_fsolver_alloc(gsl_root_fsolver_brent);
     gsl_function F;
@@ -1322,7 +1326,11 @@ float IndexIVF::optimization(
         status = gsl_root_test_interval(lower_bound, upper_bound, 1e-6, 1e-6);
     } while (status == GSL_CONTINUE && iter < max_iter);
 
-    gsl_root_fsolver_free(solver);
+    // std::cout << std::endl;
+    // fclose(stdout);
+    // freopen("/dev/tty", "w", stdout); // Restore stdout to terminal
+    // std::cout << "Log file closed." << std::endl;
+    // gsl_root_fsolver_free(solver);
 
     if (status != GSL_SUCCESS) {
         std::cerr << "Root-finding failed to converge.\n";
@@ -1342,6 +1350,8 @@ double IndexIVF::lamhat_threshold(
         compute_predictions(lambda, calib_cx, calib_nonconf, calib_preds);
     float fnr = false_negative_rate(preds, calib_labels);
     std::cout << "Optimization: lambda=" << lambda << " fnr=" << fnr << "\n";
+    // std::cout << lambda << " " << fnr << "\n";
+
     return fnr - target_fnr;
 }
 
@@ -1403,7 +1413,32 @@ IndexIVF::compute_predictions(
 std::vector<float> IndexIVF::recall_per_query(
     const std::vector<std::vector<faiss::idx_t>> &prediction_set,
     const std::vector<std::vector<faiss::idx_t>> &gt_labels) {
-    // TODO
+
+    int nq = prediction_set.size();
+    int k = gt_labels[0].size();
+    int total_false_negatives = 0;
+    std::vector<float> fnrs_per_query(nq);
+
+    for (size_t i = 0; i < nq; ++i) {
+        const std::set<int> pred_set(prediction_set[i].begin(),
+                                     prediction_set[i].end());
+        const std::set<int> gt_set(gt_labels[i].begin(), gt_labels[i].end());
+        // Calculate intersection size
+        int intersection_size = 0;
+        for (int pred : pred_set) {
+            if (gt_set.count(pred) > 0) {
+                ++intersection_size;
+            }
+        }
+        // FNR = 1 - (intersection_size / k)
+        fnrs_per_query[i] = 1.0f - (static_cast<float>(intersection_size) / static_cast<float>(k));
+        total_false_negatives += k - intersection_size;
+    }
+
+    float overall_fnr = static_cast<float>(total_false_negatives) / (nq * k);
+    float check_fnr = std::accumulate(fnrs_per_query.begin(), fnrs_per_query.end(), 0.0) / fnrs_per_query.size();
+    std::cout << "Overall FNR: " << overall_fnr << "; Check FNR: " << check_fnr << std::endl;
+    return fnrs_per_query;
 }
 
 double IndexIVF::false_negative_rate(
@@ -1450,8 +1485,8 @@ IndexIVF::evaluate(float lamhat, const std::vector<std::vector<float>> &queries,
     auto [test_preds, cl_searched] =
         compute_predictions(lamhat, queries, nonconf, all_preds_per_nprobe);
 
-    float fnr = false_negative_rate(test_preds, labels);
-    return {{fnr}, cl_searched};
+    auto fnrs = recall_per_query(test_preds, labels);
+    return {fnrs, cl_searched};
 }
 
 void IndexIVF::search_conann(idx_t n, const float *x, float lamhat,
