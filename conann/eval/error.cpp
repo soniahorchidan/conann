@@ -221,6 +221,9 @@ int main(int argc, char **argv) {
 
         faiss::IndexFlatL2 *flat_index = new faiss::IndexFlatL2(d);
         index = new faiss::IndexIVFFlat(flat_index, d, nlist, faiss::METRIC_L2);
+        // Make clustering seed explicit
+        index->cp.seed = 420;
+        // index->pq.cp.seed = 666 
 
         index->nprobe = nlist;
         // train on half the dataset
@@ -291,25 +294,30 @@ int main(int argc, char **argv) {
     printf("[%.3f s] ConANN Calibration\n", elapsed() - t0);
     auto lamhat = index->calibrate(alpha, k, calib_sz, xq, nq, gt, max_distance);
     std::cout << "Found lamhat=" << lamhat<< "\n";
-    printf("[%.3f s] ConANN Evaluation\n", elapsed() - t0);
-    auto [fnr, cls] = index->evaluate_test(lamhat);
-    float avg_fnr = std::accumulate(fnr.begin(), fnr.end(), 0.0) / fnr.size();
-    std::cout << "alpha=" << alpha << ", test fnr=" << avg_fnr
-              << ", avg cls searched=" << computeAverage(cls) << std::endl;
-
-    std::ostringstream fnr_filename;
-    fnr_filename << "../ConANN-error-" << param1 << "-" << k << "-" << alpha <<".log";
-    write_to_file(fnr, fnr_filename.str());
-
-    std::ostringstream cls_filename;
-
-    cls_filename << "../ConANN-efficiency-" << param1 << "-" << k << "-"
-                 << alpha << ".log";
-    write_to_file(cls, cls_filename.str());
-
+    
+    // Around half of GT was mem_cpied into calib_cx and calib_labels so we can free up this memory here
     delete[] xq;
     delete[] gt;
     delete[] gt_v;
+
+    
+    printf("[%.3f s] ConANN Evaluation\n", elapsed() - t0);
+    auto [fnr, cls] = index->evaluate_test(lamhat);
+    float avg_fnr = std::accumulate(fnr.begin(), fnr.end(), 0.0) / fnr.size();
+    printf("[%.3f s] Finished: alpha=%.3f, test fnr=%.3f, avg cls searched=%.3f\n", elapsed() - t0, alpha, avg_fnr, computeAverage(cls));
+    // std::cout << "alpha=" << alpha << ", test fnr=" << avg_fnr
+    //           << ", avg cls searched=" << computeAverage(cls) << std::endl;
+
+    // std::ostringstream fnr_filename;
+    // fnr_filename << "../ConANN-error-" << param1 << "-" << k << "-" << alpha <<".log";
+    // write_to_file(fnr, fnr_filename.str());
+
+    // std::ostringstream cls_filename;
+
+    // cls_filename << "../ConANN-efficiency-" << param1 << "-" << k << "-"
+    //              << alpha << ".log";
+    // write_to_file(cls, cls_filename.str());
+
     delete index;
     return 0;
 }

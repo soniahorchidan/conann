@@ -209,6 +209,8 @@ int main(int argc, char **argv) {
 
         faiss::IndexFlatL2 *flat_index = new faiss::IndexFlatL2(d);
         index = new faiss::IndexIVFFlat(flat_index, d, nlist, faiss::METRIC_L2);
+        // Make clustering seed explicit
+        index->cp.seed = 420;
 
         index->nprobe = nlist;
 
