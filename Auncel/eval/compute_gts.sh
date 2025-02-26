@@ -11,4 +11,4 @@
 
 ./../build/eval/compute_gt gist 1000
 
-./../build/eval/compute_gt glove 1000
+# ./../build/eval/compute_gt glove 1000

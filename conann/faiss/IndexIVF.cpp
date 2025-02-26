@@ -19,6 +19,7 @@
 #include <gsl/gsl_roots.h>
 #include <omp.h>
 
+#include <sys/time.h>
 #include <algorithm>
 #include <chrono>
 #include <cinttypes>
@@ -236,7 +237,8 @@ void IndexIVF::add_with_ids(idx_t n, const float *x, const idx_t *xids) {
         }
 
         // Store the normalized density (ensured to be between 0 and 1)
-        std::cout << "Normalized cluster density for centroid " << i << ": " << cluster_densities[i] << std::endl;
+        // std::cout << "Normalized cluster density for centroid " << i << ": " << cluster_densities[i] << std::endl;
+        // Cachable but depends on K-Means and is not expensive to compute
         centroids_density.push_back(cluster_densities[i]);
     }
 
@@ -1141,6 +1143,7 @@ void IndexIVF::train(idx_t n, const float *x) {
 void IndexIVF::prep_calib(float calib_sz, float *xq, size_t nq,
                           faiss::idx_t *gt) {
     size_t half_nq = size_t(calib_sz * nq);
+    double t1 = elapsed();
     calib_cx.resize(half_nq);
     calib_labels.resize(half_nq);
     test_cx.resize(nq - half_nq);
@@ -1162,16 +1165,29 @@ void IndexIVF::prep_calib(float calib_sz, float *xq, size_t nq,
         std::memcpy(test_labels[i - half_nq].data(), gt + i * K,
                     K * sizeof(faiss::idx_t));
     }
+    std::cout << "Time spent doing memcpy: " << elapsed() - t1 << std::endl;
+
+    //TODO(caching):
+    // the three calib_ variables can be cached
+    t1 = elapsed();
     calib_diffs = compute_difficulty_scores(calib_cx);
-    auto [cn, c_clus] = compute_scores(-1, calib_cx, calib_diffs);
+    std::cout << "Time spent computing difficulty scores: " << elapsed() - t1 << std::endl;
+    t1 = elapsed();
+    // previously -1 was passed for lamhat here
+    auto [cn, c_clus] = compute_scores(calib_cx, calib_diffs);
+    std::cout << "Time spent computing scores: " << elapsed() - t1 << std::endl;
     calib_nonconf = cn;
     calib_preds = c_clus;
 }
 
+// had unused lamdba passed in previously
+// TODO(caching):
+// effectively this function can be completely cached
+// with seeded clustering we can assume this always returns the same at every run
+// this function takes >90% of the total runtime
 std::pair<std::vector<std::vector<float>>,
           std::vector<std::vector<std::vector<faiss::idx_t>>>>
-IndexIVF::compute_scores(float lamhat,
-                         const std::vector<std::vector<float>> &queries,
+IndexIVF::compute_scores(const std::vector<std::vector<float>> &queries,
                          const std::vector<float> &diff_scores) {
     int num_queries = queries.size();
     std::unordered_map<faiss::idx_t, std::vector<float>> nonconf_list;
@@ -1188,7 +1204,7 @@ IndexIVF::compute_scores(float lamhat,
     }
 
     search_with_error_quantification(num_queries, flattened.data(), K,
-                                     dis.data(), nns.data(), lamhat,
+                                     dis.data(), nns.data(),
                                      diff_scores, nonconf_list, all_preds_list);
 
     // Convert to simpler format
@@ -1258,14 +1274,26 @@ std::vector<float> IndexIVF::compute_difficulty_scores(
     return diff_scores;
 }
 
+
+double IndexIVF::elapsed() {
+    struct timeval tv;
+    gettimeofday(&tv, nullptr);
+    return tv.tv_sec + tv.tv_usec * 1e-6;
+}
+
 float IndexIVF::calibrate(float alpha, int k, float calib_sz, float *xq,
                           size_t nq, faiss::idx_t *gt, float max_distance) {
     std::cout << "CONANN WARNING! Add back early stopping!\n";
     K = k;
     MAX_DISTANCE = max_distance;
+
+    // double t1 = elapsed();
     prep_calib(calib_sz, xq, nq, gt);
+    // std::cout << "Time spent preparing calibration: " << elapsed() - t1 << std::endl;
+    double t1 = elapsed();
     auto lamhat =
         optimization(alpha, calib_cx, calib_labels, calib_diffs, calib_nonconf, calib_preds);
+    std::cout << "Time spent optimizing: " << elapsed() - t1 << std::endl;
     return lamhat;
 }
 
@@ -1278,6 +1306,10 @@ float IndexIVF::optimization(
     int n = calib_cx.size();
     float target_fnr =
         (static_cast<float>(n) + 1.0f) / n * alpha - 1.0f / (n + 1.0f);
+
+    // Logger to get loss function information
+    // std::cout << "Opening log file" << std::endl;
+    // freopen("../lossf.log", "w", stdout);
 
     // Use GSL's root-finding for the brentq method
     gsl_root_fsolver *solver = gsl_root_fsolver_alloc(gsl_root_fsolver_brent);
@@ -1322,7 +1354,11 @@ float IndexIVF::optimization(
         status = gsl_root_test_interval(lower_bound, upper_bound, 1e-6, 1e-6);
     } while (status == GSL_CONTINUE && iter < max_iter);
 
-    gsl_root_fsolver_free(solver);
+    // std::cout << std::endl;
+    // fclose(stdout);
+    // freopen("/dev/tty", "w", stdout); // Restore stdout to terminal
+    // std::cout << "Log file closed." << std::endl;
+    // gsl_root_fsolver_free(solver);
 
     if (status != GSL_SUCCESS) {
         std::cerr << "Root-finding failed to converge.\n";
@@ -1341,7 +1377,9 @@ double IndexIVF::lamhat_threshold(
     auto [preds, _] =
         compute_predictions(lambda, calib_cx, calib_nonconf, calib_preds);
     float fnr = false_negative_rate(preds, calib_labels);
-    std::cout << "Optimization: lambda=" << lambda << " fnr=" << fnr << "\n";
+    // std::cout << "Optimization: lambda=" << lambda << " fnr=" << fnr << "\n";
+    // std::cout << lambda << " " << fnr << "\n";
+
     return fnr - target_fnr;
 }
 
@@ -1403,7 +1441,32 @@ IndexIVF::compute_predictions(
 std::vector<float> IndexIVF::recall_per_query(
     const std::vector<std::vector<faiss::idx_t>> &prediction_set,
     const std::vector<std::vector<faiss::idx_t>> &gt_labels) {
-    // TODO
+
+    int nq = prediction_set.size();
+    int k = gt_labels[0].size();
+    int total_false_negatives = 0;
+    std::vector<float> fnrs_per_query(nq);
+
+    for (size_t i = 0; i < nq; ++i) {
+        const std::set<int> pred_set(prediction_set[i].begin(),
+                                     prediction_set[i].end());
+        const std::set<int> gt_set(gt_labels[i].begin(), gt_labels[i].end());
+        // Calculate intersection size
+        int intersection_size = 0;
+        for (int pred : pred_set) {
+            if (gt_set.count(pred) > 0) {
+                ++intersection_size;
+            }
+        }
+        // FNR = 1 - (intersection_size / k)
+        fnrs_per_query[i] = 1.0f - (static_cast<float>(intersection_size) / static_cast<float>(k));
+        total_false_negatives += k - intersection_size;
+    }
+
+    float overall_fnr = static_cast<float>(total_false_negatives) / (nq * k);
+    float check_fnr = std::accumulate(fnrs_per_query.begin(), fnrs_per_query.end(), 0.0) / fnrs_per_query.size();
+    std::cout << "Overall FNR: " << overall_fnr << "; Check FNR: " << check_fnr << std::endl;
+    return fnrs_per_query;
 }
 
 double IndexIVF::false_negative_rate(
@@ -1446,12 +1509,19 @@ std::pair<std::vector<float>, std::vector<int>>
 IndexIVF::evaluate(float lamhat, const std::vector<std::vector<float>> &queries,
                    const std::vector<std::vector<faiss::idx_t>> &labels) {
     std::vector<float> diff_scores = compute_difficulty_scores(queries);
-    auto [nonconf, all_preds_per_nprobe] = compute_scores(lamhat, queries, diff_scores);
+    double t1 = elapsed();
+    // TODO(caching):
+    // both results of compute_scores can be cached and would bring a massive increase.
+    // they should be cached together with the three calib_ variables
+    auto [nonconf, all_preds_per_nprobe] = compute_scores(queries, diff_scores);
+    std::cout << "Time spent computing scores: " << elapsed() - t1 << std::endl;
+    t1 = elapsed();
     auto [test_preds, cl_searched] =
         compute_predictions(lamhat, queries, nonconf, all_preds_per_nprobe);
+    std::cout << "Time spent computing predictions: " << elapsed() - t1 << std::endl;
 
-    float fnr = false_negative_rate(test_preds, labels);
-    return {{fnr}, cl_searched};
+    auto fnrs = recall_per_query(test_preds, labels);
+    return {fnrs, cl_searched};
 }
 
 void IndexIVF::search_conann(idx_t n, const float *x, float lamhat,
@@ -1463,7 +1533,7 @@ void IndexIVF::search_conann(idx_t n, const float *x, float lamhat,
         }
     }
     std::vector<float> diff_scores = compute_difficulty_scores(queries);
-    auto [nonconf, all_preds_per_nprobe] = compute_scores(lamhat, queries, diff_scores);
+    auto [nonconf, all_preds_per_nprobe] = compute_scores(queries, diff_scores);
     auto [test_preds, cl_searched] =
         compute_predictions(lamhat, queries, nonconf, all_preds_per_nprobe);
 
@@ -1482,9 +1552,9 @@ void IndexIVF::search_conann(idx_t n, const float *x, float lamhat,
     // TODO: maintain distances too
 }
 
+// had unused lambda passed in previously
 void IndexIVF::search_with_error_quantification(
-    idx_t n, const float *x, idx_t k, float *distances, idx_t *labels,
-    float lambda, const std::vector<float> &diff_scores,
+    idx_t n, const float *x, idx_t k, float *distances, idx_t *labels, const std::vector<float> &diff_scores,
     std::unordered_map<faiss::idx_t, std::vector<float>> &nonconf_list,
     std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>
         &all_preds_list,
@@ -1503,7 +1573,7 @@ void IndexIVF::search_with_error_quantification(
 
     // search function for a subset of queries
     auto sub_search_func =
-        [this, k, nprobe, params, lambda](
+        [this, k, nprobe, params](
             idx_t n, const float *x, float *distances, idx_t *labels,
             IndexIVFStats *ivf_stats, const std::vector<float> &diff_scores,
             std::unordered_map<faiss::idx_t, std::vector<float>> &nonconf_list,
@@ -1523,7 +1593,7 @@ void IndexIVF::search_with_error_quantification(
 
             search_preassigned_with_error_quantification(
                 n, x, k, idx.get(), coarse_dis.get(), distances, labels, false,
-                lambda, diff_scores, nonconf_list, all_preds_list, params, ivf_stats);
+                diff_scores, nonconf_list, all_preds_list, params, ivf_stats);
 
             double t2 = getmillisecs();
             ivf_stats->quantization_time += t1 - t0;
@@ -1616,10 +1686,10 @@ void IndexIVF::search_with_error_quantification(
     }
 }
 
+// had unused lambda passed in previously
 void IndexIVF::search_preassigned_with_error_quantification(
     idx_t n, const float *x, idx_t k, const idx_t *keys,
-    const float *coarse_dis, float *distances, idx_t *labels, bool store_pairs,
-    float lamhat, const std::vector<float> &diff_scores,
+    const float *coarse_dis, float *distances, idx_t *labels, bool store_pairs, const std::vector<float> &diff_scores,
     std::unordered_map<faiss::idx_t, std::vector<float>> &nonconf_list,
     std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>
         &all_preds_list,

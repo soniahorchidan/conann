@@ -400,21 +400,29 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::vector<std::vector<float>> centroids;
     std::vector<float> centroids_density;
 
+    // for convenience
+    double elapsed();
+
+    // declared here but later a memcpy of half the GT
     std::vector<std::vector<float>> calib_cx;
     std::vector<std::vector<float>> test_cx;
-
     std::vector<std::vector<faiss::idx_t>> calib_labels;
+    std::vector<std::vector<faiss::idx_t>> test_labels;
+    
+    // TODO(caching):
+    // - cache can be keyed by dataset and k-means seed
+    // - the following three calib_ are computed in prep_calib
+    // - all three can be cached and should be cached together
     std::vector<std::vector<float>> calib_nonconf;
     std::vector<std::vector<std::vector<faiss::idx_t>>> calib_preds;
     std::vector<float> calib_diffs;
 
-    std::vector<std::vector<faiss::idx_t>> test_labels;
 
     void prep_calib(float calib_sz, float *xq, size_t nq, faiss::idx_t *gt);
 
     std::pair<std::vector<std::vector<float>>,
               std::vector<std::vector<std::vector<faiss::idx_t>>>>
-    compute_scores(float lamhat, const std::vector<std::vector<float>> &queries, const std::vector<float> &diff_scores);
+    compute_scores(const std::vector<std::vector<float>> &queries, const std::vector<float> &diff_scores);
 
     std::pair<std::vector<std::vector<faiss::idx_t>>, std::vector<int>>
     compute_predictions(
@@ -422,10 +430,9 @@ struct IndexIVF : Index, IndexIVFInterface {
         const std::vector<std::vector<float>> &nonconf,
         const std::vector<std::vector<std::vector<faiss::idx_t>>> &preds);
 
-    // if in calibration mode, lamhat needs to be -1.
     void search_with_error_quantification(
-        idx_t n, const float *x, idx_t k, float *distances, idx_t *labels,
-        float lamhat, const std::vector<float> &diff_scores,
+        idx_t n, const float *x, idx_t k, float *distances, idx_t *labels, 
+        const std::vector<float> &diff_scores,
         std::unordered_map<faiss::idx_t, std::vector<float>> &nonconf_list,
         std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>
             &all_preds_list,
@@ -438,7 +445,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     void search_preassigned_with_error_quantification(
         idx_t n, const float *x, idx_t k, const idx_t *assign,
         const float *centroid_dis, float *distances, idx_t *labels,
-        bool store_pairs, float lamhat, const std::vector<float> &diff_scores,
+        bool store_pairs, const std::vector<float> &diff_scores,
         std::unordered_map<faiss::idx_t, std::vector<float>> &nonconf_list,
         std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>
             &all_preds_list,

@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <algorithm>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -120,9 +121,14 @@ int main(int argc, char **argv) {
         return 0;
     }
     std::string param1 = argv[1];
-    std::string param2 = argv[2];
 
-    int input_k = std::stoi(param2);
+    std::vector<int> output_ks;
+    for (int i = 2; i < argc; i++) {
+        output_ks.push_back(std::stoi(argv[i]));
+    }
+    // sort high to low
+    std::sort(output_ks.begin(), output_ks.end(), std::greater<int>());
+
 
     std::string db, query, gtI, gtD;
     if (param1 == "sift10k") {
@@ -195,15 +201,15 @@ int main(int argc, char **argv) {
 
     delete[] xb;
 
-    faiss::idx_t *gt_indices = new faiss::idx_t[nq * input_k];
-    float *gt_distances = new float[nq * input_k];
+    faiss::idx_t *gt_indices = new faiss::idx_t[nq * output_ks[0]];
+    float *gt_distances = new float[nq * output_ks[0]];
 
     printf("[%.3f s] Computing gts...\n", elapsed() - t0);
-    exact_index.search(nq, xq, input_k, gt_distances, gt_indices);
+    exact_index.search(nq, xq, output_ks[0], gt_distances, gt_indices);
 
     // conversion to integer
-    int* int_indices = new int[input_k * nq];
-    for (int i = 0; i < nq * input_k; i++) {
+    int* int_indices = new int[output_ks[0] * nq];
+    for (int i = 0; i < nq * output_ks[0]; i++) {
         int_indices[i] = gt_indices[i];
     }
 
@@ -211,7 +217,7 @@ int main(int argc, char **argv) {
     std::cout << "first 10 gt_indices for the first 10 query (xq[0]): ";
     for (int j = 0; j < 10; j++) {
         std::cout << "(xq[" << j << "]): ";
-        for (int i = j * input_k; i < j*input_k+10; i++) {
+        for (int i = j * output_ks[0]; i < j*output_ks[0]+10; i++) {
             std::cout << gt_indices[i] << " "; // Indices are integers
         }
         std::cout << "\n";
@@ -219,7 +225,7 @@ int main(int argc, char **argv) {
     std::cout << std::endl;
 
     // std::cout << "gt_distances for the first query (xq[0]): ";
-    // for (int i = 0; i < input_k; i++) {
+    // for (int i = 0; i < output_ks[0]; i++) {
     //     std::cout << gt_distances[i] << " "; // Distances should be floats
     // }
     // std::cout << std::endl;
@@ -228,12 +234,11 @@ int main(int argc, char **argv) {
     printf("[%.3f s] Writing gts...\n", elapsed() - t0);
     std::string base = db.substr(0, db.find_last_of("/\\"));
 
-    std::vector<int> output_ks = {10, 100, 1000};
     for (int output_k : output_ks) {
         std::string filename_idx = base + "/indices-" + std::to_string(output_k) + ".fvecs";
         std::string filename_dis = base + "/distances-" + std::to_string(output_k) + ".fvecs";
-        write_gt_indices(filename_idx, int_indices, nq, input_k, output_k);
-        write_gt_distances(filename_dis, gt_distances, nq, input_k, output_k);
+        write_gt_indices(filename_idx, int_indices, nq, output_ks[0], output_k);
+        write_gt_distances(filename_dis, gt_distances, nq, output_ks[0], output_k);
     }
 
     // Test area
