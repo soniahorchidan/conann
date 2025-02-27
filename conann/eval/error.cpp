@@ -295,7 +295,7 @@ int main(int argc, char **argv) {
     auto lamhat = index->calibrate(alpha, k, calib_sz, xq, nq, gt, max_distance);
     std::cout << "Found lamhat=" << lamhat<< "\n";
     
-    // Around half of GT was mem_cpied into calib_cx and calib_labels so we can free up this memory here
+    // Around half of GT was mem_copied into calib_cx and calib_labels so we can free up this memory here
     delete[] xq;
     delete[] gt;
     delete[] gt_v;

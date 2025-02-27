@@ -222,6 +222,7 @@ set(FAISS_HEADERS
   utils/hamming_distance/hamdis-inl.h
   utils/hamming_distance/neon-inl.h
   utils/hamming_distance/avx2-inl.h
+  ConannCache.h
 )
 
 if(NOT WIN32)

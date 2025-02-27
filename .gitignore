@@ -54,6 +54,9 @@ data/*
 # indexes
 conann/eval/trained_index/
 
+# disk cache
+**/conann-cache/
+
 # do not ignore logs in result file
 !results/**/*.log
 

@@ -409,10 +409,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::vector<std::vector<faiss::idx_t>> calib_labels;
     std::vector<std::vector<faiss::idx_t>> test_labels;
     
-    // TODO(caching):
-    // - cache can be keyed by dataset and k-means seed
-    // - the following three calib_ are computed in prep_calib
-    // - all three can be cached and should be cached together
+    // the following three calib_ are computed in prep_calib
     std::vector<std::vector<float>> calib_nonconf;
     std::vector<std::vector<std::vector<faiss::idx_t>>> calib_preds;
     std::vector<float> calib_diffs;
