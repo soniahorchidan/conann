@@ -399,7 +399,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     float MAX_DISTANCE = 100000;
     std::vector<std::vector<float>> centroids;
     std::vector<float> centroids_density;
-    std::string dataset_name;
+    std::string DATASET_KEY;
     bool readFromCache = true;
     bool writeToCache = true; // can usually leave true (minimal extra latency)
 
@@ -452,7 +452,7 @@ struct IndexIVF : Index, IndexIVFInterface {
         const IVFSearchParameters *params = nullptr,
         IndexIVFStats *stats = nullptr) const;
 
-    float calibrate(float alpha, int k, float calib_sz, float *xq, size_t nq, faiss::idx_t *gt, float max_distance);
+    float calibrate(float alpha, int k, float calib_sz, float *xq, size_t nq, faiss::idx_t *gt, float max_distance, std::string dataset_key);
 
     float cosine_similarity(const std::vector<float> &vec1,
                                   const std::vector<float> &vec2) ;

@@ -1170,7 +1170,7 @@ void IndexIVF::prep_calib(float calib_sz, float *xq, size_t nq,
 
     // caching block start
     t1 = elapsed();
-    std::string cacheKeyDiffScores{conann_cache::create_key(conann_cache::Stage::Calib, ntotal, d, K, "diff_scores")};
+    std::string cacheKeyDiffScores{conann_cache::create_key(conann_cache::Stage::Calib, DATASET_KEY, "diff_scores")};
     if (readFromCache && conann_cache::check_cached_file(cacheKeyDiffScores)) {
         calib_diffs = conann_cache::read_from_cache<std::vector<float>>(cacheKeyDiffScores);
     } else {
@@ -1182,8 +1182,8 @@ void IndexIVF::prep_calib(float calib_sz, float *xq, size_t nq,
     std::cout << "Time spent computing difficulty scores: " << elapsed() - t1 << std::endl;
     t1 = elapsed();
     
-    std::string cacheKeyNonConf{conann_cache::create_key(conann_cache::Stage::Calib, ntotal, d, K, "nonconf_list")};
-    std::string cacheKeyAllPreds{conann_cache::create_key(conann_cache::Stage::Calib, ntotal, d, K, "all_preds")};
+    std::string cacheKeyNonConf{conann_cache::create_key(conann_cache::Stage::Calib, DATASET_KEY, "nonconf_list")};
+    std::string cacheKeyAllPreds{conann_cache::create_key(conann_cache::Stage::Calib, DATASET_KEY, "all_preds")};
     if (readFromCache && conann_cache::check_cached_file(cacheKeyNonConf) && conann_cache::check_cached_file(cacheKeyAllPreds)) {
         calib_nonconf = conann_cache::read_from_cache<std::vector<std::vector<float>>>(cacheKeyNonConf);
         calib_preds = conann_cache::read_from_cache<std::vector<std::vector<std::vector<faiss::idx_t>>>>(cacheKeyAllPreds);
@@ -1299,10 +1299,11 @@ double IndexIVF::elapsed() {
 }
 
 float IndexIVF::calibrate(float alpha, int k, float calib_sz, float *xq,
-                          size_t nq, faiss::idx_t *gt, float max_distance) {
+                          size_t nq, faiss::idx_t *gt, float max_distance, std::string dataset_key) {
     std::cout << "CONANN WARNING! Add back early stopping!\n";
     K = k;
     MAX_DISTANCE = max_distance;
+    DATASET_KEY = dataset_key;
 
     // double t1 = elapsed();
     prep_calib(calib_sz, xq, nq, gt);
@@ -1528,7 +1529,7 @@ IndexIVF::evaluate(float lamhat, const std::vector<std::vector<float>> &queries,
 
     // caching block start
     std::vector<float> diff_scores;
-    std::string cacheKeyDiffScores{conann_cache::create_key(conann_cache::Stage::Eval, ntotal, d, K, "diff_scores")};
+    std::string cacheKeyDiffScores{conann_cache::create_key(conann_cache::Stage::Eval, DATASET_KEY, "diff_scores")};
     if (readFromCache && conann_cache::check_cached_file(cacheKeyDiffScores)) {
         diff_scores = conann_cache::read_from_cache<std::vector<float>>(cacheKeyDiffScores);
     } else {
@@ -1541,8 +1542,8 @@ IndexIVF::evaluate(float lamhat, const std::vector<std::vector<float>> &queries,
     
     std::vector<std::vector<float>> nonconf{};
     std::vector<std::vector<std::vector<faiss::idx_t>>> all_preds_per_nprobe{};
-    std::string cacheKeyNonConf{conann_cache::create_key(conann_cache::Stage::Eval, ntotal, d, K, "nonconf_list")};
-    std::string cacheKeyAllPreds{conann_cache::create_key(conann_cache::Stage::Eval, ntotal, d, K, "all_preds")};
+    std::string cacheKeyNonConf{conann_cache::create_key(conann_cache::Stage::Eval, DATASET_KEY, "nonconf_list")};
+    std::string cacheKeyAllPreds{conann_cache::create_key(conann_cache::Stage::Eval, DATASET_KEY, "all_preds")};
     if (readFromCache && conann_cache::check_cached_file(cacheKeyNonConf) && conann_cache::check_cached_file(cacheKeyAllPreds)) {
         nonconf = conann_cache::read_from_cache<std::vector<std::vector<float>>>(cacheKeyNonConf);
         all_preds_per_nprobe = conann_cache::read_from_cache<std::vector<std::vector<std::vector<faiss::idx_t>>>>(cacheKeyAllPreds);

@@ -114,20 +114,19 @@ enum class Stage {
 // I am hoping that dataset_size, dimension and k are enough to uniquely identify one dataset
 // Stage is used do differentiate between calibration and evaluation
 // Variable to identify the data we are storing
-std::string create_key(Stage stage, int dataset_size, int dimension, int k, std::string variable_name) {
-    std::string key{};
+std::string create_key(Stage stage, const std::string& dataset_key, const std::string& variable_name) {
+    std::string key{dataset_key + "_" + variable_name};
     switch (stage)
     {
     case Stage::Calib:
-        key += "calib_";
+        key += "_calib";
         break;
     case Stage::Eval:
-        key += "eval_";
+        key += "_eval";
         break;
     default:
         break;
     }
-    key += std::to_string(dataset_size) + "_" + std::to_string(dimension) + "_" + std::to_string(k) + "_" + variable_name;
     return key;
 }
 
@@ -207,8 +206,8 @@ void test_cache_io() {
     
     // Test 6: Test key
     {
-        auto key = faiss::conann_cache::create_key(conann_cache::Stage::Calib, 1000, 30, 10, "test");
-        assert(key == "calib_1000_30_10_test");
+        auto key = faiss::conann_cache::create_key(conann_cache::Stage::Calib, "databert", "test");
+        assert(key == "databert_test_calib");
     }
     
     // Cleanup

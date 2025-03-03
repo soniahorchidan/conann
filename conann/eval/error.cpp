@@ -106,6 +106,7 @@ int main(int argc, char **argv) {
     std::string param1 = argv[1];
     std::string param2 = argv[2];
     std::string param3 = argv[3];
+    std::string dataset_key = param1;
     float calib_sz = std::stof(param2);
     float alpha = std::stof(param3);
 
@@ -118,73 +119,73 @@ int main(int argc, char **argv) {
     float sift_max_dist = 100000;
 
     std::string db, query, gtI, gtD;
-    if (param1 == "bert_10") {
+    if (dataset_key == "bert_10") {
         db = "../data/bert/db.fvecs";
         query = "../data/bert/queries.fvecs";
         gtI = "../data/bert/indices-10.fvecs";
         gtD = "../data/bert/distances-10.fvecs";
         max_distance = bert_max_dist;
-    } else if (param1 == "bert_100") {
+    } else if (dataset_key == "bert_100") {
         db = "../data/bert/db.fvecs";
         query = "../data/bert/queries.fvecs";
         gtI = "../data/bert/indices-100.fvecs";
         gtD = "../data/bert/distances-100.fvecs";
         max_distance = bert_max_dist;
-    } else if (param1 == "bert_1000") {
+    } else if (dataset_key == "bert_1000") {
         db = "../data/bert/db.fvecs";
         query = "../data/bert/queries.fvecs";
         gtI = "../data/bert/indices-1000.fvecs";
         gtD = "../data/bert/distances-1000.fvecs";
         max_distance = bert_max_dist;
-    } else if (param1 == "synth") {
+    } else if (dataset_key == "synth") {
         db = "../data/synthetic10/db.fvecs";
         query = "../data/synthetic10/queries.fvecs";
         gtI = "../data/synthetic10/indices-1000.fvecs";
         gtD = "../data/synthetic10/distances-1000.fvecs";
         max_distance = bert_max_dist;
-    } else if (param1 == "sift1M") {
+    } else if (dataset_key == "sift1M") {
         db = "../data/sift1M/sift1M.fvecs";
         query = "../data/sift1M/1M_query.fvecs";
         gtI = "../data/sift1M/idx_1M.ivecs";
         gtD = "../data/sift1M/dis_1M.fvecs";
         max_distance = sift_max_dist;
-    } else if (param1 == "sift10M") {
+    } else if (dataset_key == "sift10M") {
         db = "/workspace/data/sift/sift10M/sift10M.fvecs";
         query = "/workspace/data/sift/sift10M/query.fvecs";
         gtI = "/workspace/data/sift/sift10M/idx.ivecs";
         gtD = "/workspace/data/sift/sift10M/dis.fvecs";
         max_distance = sift_max_dist;
-    } else if (param1 == "deep10M") {
+    } else if (dataset_key == "deep10M") {
         db = "../data/deep/deep10M.fvecs";
         query = "../data/deep/query.fvecs";
         gtI = "../data/deep/idx.ivecs";
         gtD = "../data/deep/dis.fvecs";
         max_distance = deep_max_dist;
-    } else if (param1 == "gist_10") {
+    } else if (dataset_key == "gist_10") {
         db = "../data/gist/gist_base.fvecs";
         query = "../data/gist/queries.fvecs";
         gtI = "../data/gist/indices-10.fvecs";
         gtD = "../data/gist/distances-10.fvecs";
         max_distance = gist_max_dist;
-    } else if (param1 == "gist_100") {
+    } else if (dataset_key == "gist_100") {
         db = "../data/gist/gist1M.fvecs";
         query = "../data/gist/queries.fvecs";
         gtI = "../data/gist/indices-100.fvecs";
         gtD = "../data/gist/distances-100.fvecs";
         max_distance = gist_max_dist;
-    } else if (param1 == "gist_1000") {
+    } else if (dataset_key == "gist_1000") {
         db = "../data/gist/gist_base.fvecs";
         query = "../data/gist/queries.fvecs";
         gtI = "../data/gist/indices-1000.fvecs";
         gtD = "../data/gist/distances-1000.fvecs";
         max_distance = gist_max_dist;
-    } else if (param1 == "glove_100") {
+    } else if (dataset_key == "glove_100") {
         db = "../data/glove/db.fvecs";
         query = "../data/glove/queries.fvecs";
         gtI = "../data/glove/indices-100.fvecs";
         gtD = "../data/glove/distances-100.fvecs";
         max_distance = glove_max_dist;
-    } else if (param1 == "glove_1000") {
+    } else if (dataset_key == "glove_1000") {
         db = "../data/glove/db.fvecs";
         query = "../data/glove/queries.fvecs";
         gtI = "../data/glove/indices-1000.fvecs";
@@ -215,7 +216,7 @@ int main(int argc, char **argv) {
                index_key, d);
 
         int nlist = 1024; // 1024 as per index_key
-        if (param1.find("bert") != std::string::npos || param1.find("synth") != std::string::npos) {
+        if (dataset_key.find("bert") != std::string::npos || dataset_key.find("synth") != std::string::npos) {
             nlist = 128;
         }
 
@@ -292,7 +293,7 @@ int main(int argc, char **argv) {
     }
 
     printf("[%.3f s] ConANN Calibration\n", elapsed() - t0);
-    auto lamhat = index->calibrate(alpha, k, calib_sz, xq, nq, gt, max_distance);
+    auto lamhat = index->calibrate(alpha, k, calib_sz, xq, nq, gt, max_distance, dataset_key);
     std::cout << "Found lamhat=" << lamhat<< "\n";
     
     // Around half of GT was mem_copied into calib_cx and calib_labels so we can free up this memory here
@@ -309,12 +310,12 @@ int main(int argc, char **argv) {
     //           << ", avg cls searched=" << computeAverage(cls) << std::endl;
 
     // std::ostringstream fnr_filename;
-    // fnr_filename << "../ConANN-error-" << param1 << "-" << k << "-" << alpha <<".log";
+    // fnr_filename << "../ConANN-error-" << dataset_key << "-" << k << "-" << alpha <<".log";
     // write_to_file(fnr, fnr_filename.str());
 
     // std::ostringstream cls_filename;
 
-    // cls_filename << "../ConANN-efficiency-" << param1 << "-" << k << "-"
+    // cls_filename << "../ConANN-efficiency-" << dataset_key << "-" << k << "-"
     //              << alpha << ".log";
     // write_to_file(cls, cls_filename.str());
 
