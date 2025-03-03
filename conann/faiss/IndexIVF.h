@@ -399,6 +399,9 @@ struct IndexIVF : Index, IndexIVFInterface {
     float MAX_DISTANCE = 100000;
     std::vector<std::vector<float>> centroids;
     std::vector<float> centroids_density;
+    std::string dataset_name;
+    bool readFromCache = true;
+    bool writeToCache = true; // can usually leave true (minimal extra latency)
 
     // for convenience
     double elapsed();

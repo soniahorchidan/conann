@@ -1171,18 +1171,20 @@ void IndexIVF::prep_calib(float calib_sz, float *xq, size_t nq,
     // caching block start
     t1 = elapsed();
     std::string cacheKeyDiffScores{conann_cache::create_key(conann_cache::Stage::Calib, ntotal, d, K, "diff_scores")};
-    if (conann_cache::check_cached_file(cacheKeyDiffScores)) {
+    if (readFromCache && conann_cache::check_cached_file(cacheKeyDiffScores)) {
         calib_diffs = conann_cache::read_from_cache<std::vector<float>>(cacheKeyDiffScores);
     } else {
         calib_diffs = compute_difficulty_scores(calib_cx);
-        conann_cache::write_to_cache(cacheKeyDiffScores, calib_diffs);
+        if (writeToCache) {
+            conann_cache::write_to_cache(cacheKeyDiffScores, calib_diffs);
+        }
     }
     std::cout << "Time spent computing difficulty scores: " << elapsed() - t1 << std::endl;
     t1 = elapsed();
-
+    
     std::string cacheKeyNonConf{conann_cache::create_key(conann_cache::Stage::Calib, ntotal, d, K, "nonconf_list")};
     std::string cacheKeyAllPreds{conann_cache::create_key(conann_cache::Stage::Calib, ntotal, d, K, "all_preds")};
-    if (conann_cache::check_cached_file(cacheKeyNonConf) && conann_cache::check_cached_file(cacheKeyAllPreds)) {
+    if (readFromCache && conann_cache::check_cached_file(cacheKeyNonConf) && conann_cache::check_cached_file(cacheKeyAllPreds)) {
         calib_nonconf = conann_cache::read_from_cache<std::vector<std::vector<float>>>(cacheKeyNonConf);
         calib_preds = conann_cache::read_from_cache<std::vector<std::vector<std::vector<faiss::idx_t>>>>(cacheKeyAllPreds);
     } else {
@@ -1190,8 +1192,10 @@ void IndexIVF::prep_calib(float calib_sz, float *xq, size_t nq,
         auto [cn, c_clus] = compute_scores(calib_cx, calib_diffs);
         calib_nonconf = cn;
         calib_preds = c_clus;
-        conann_cache::write_to_cache(cacheKeyNonConf, cn);
-        conann_cache::write_to_cache(cacheKeyAllPreds, c_clus);
+        if (writeToCache) {
+            conann_cache::write_to_cache(cacheKeyNonConf, cn);
+            conann_cache::write_to_cache(cacheKeyAllPreds, c_clus);
+        }
     }
     std::cout << "Time spent computing scores: " << elapsed() - t1 << std::endl;
     // caching block end
@@ -1525,11 +1529,13 @@ IndexIVF::evaluate(float lamhat, const std::vector<std::vector<float>> &queries,
     // caching block start
     std::vector<float> diff_scores;
     std::string cacheKeyDiffScores{conann_cache::create_key(conann_cache::Stage::Eval, ntotal, d, K, "diff_scores")};
-    if (conann_cache::check_cached_file(cacheKeyDiffScores)) {
+    if (readFromCache && conann_cache::check_cached_file(cacheKeyDiffScores)) {
         diff_scores = conann_cache::read_from_cache<std::vector<float>>(cacheKeyDiffScores);
     } else {
         diff_scores = compute_difficulty_scores(queries);
-        conann_cache::write_to_cache(cacheKeyDiffScores, diff_scores);
+        if (writeToCache) {
+            conann_cache::write_to_cache(cacheKeyDiffScores, diff_scores);
+        }
     }
     double t1 = elapsed();
     
@@ -1537,15 +1543,18 @@ IndexIVF::evaluate(float lamhat, const std::vector<std::vector<float>> &queries,
     std::vector<std::vector<std::vector<faiss::idx_t>>> all_preds_per_nprobe{};
     std::string cacheKeyNonConf{conann_cache::create_key(conann_cache::Stage::Eval, ntotal, d, K, "nonconf_list")};
     std::string cacheKeyAllPreds{conann_cache::create_key(conann_cache::Stage::Eval, ntotal, d, K, "all_preds")};
-    if (conann_cache::check_cached_file(cacheKeyNonConf) && conann_cache::check_cached_file(cacheKeyAllPreds)) {
+    if (readFromCache && conann_cache::check_cached_file(cacheKeyNonConf) && conann_cache::check_cached_file(cacheKeyAllPreds)) {
         nonconf = conann_cache::read_from_cache<std::vector<std::vector<float>>>(cacheKeyNonConf);
         all_preds_per_nprobe = conann_cache::read_from_cache<std::vector<std::vector<std::vector<faiss::idx_t>>>>(cacheKeyAllPreds);
     } else {
         auto [nonconf_t, all_preds_per_nprobe_t] = compute_scores(queries, diff_scores);
         nonconf = nonconf_t;
         all_preds_per_nprobe = all_preds_per_nprobe_t;
-        conann_cache::write_to_cache(cacheKeyNonConf, nonconf_t);
-        conann_cache::write_to_cache(cacheKeyAllPreds, all_preds_per_nprobe_t);
+        if (writeToCache) {
+            conann_cache::write_to_cache(cacheKeyNonConf, nonconf_t);
+            conann_cache::write_to_cache(
+                    cacheKeyAllPreds, all_preds_per_nprobe_t);
+        }
     }
     // caching block end
 
