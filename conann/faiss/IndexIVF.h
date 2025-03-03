@@ -399,6 +399,9 @@ struct IndexIVF : Index, IndexIVFInterface {
     float MAX_DISTANCE = 100000;
     std::vector<std::vector<float>> centroids;
     std::vector<float> centroids_density;
+    std::string DATASET_KEY;
+    bool readFromCache = true;
+    bool writeToCache = true; // can usually leave true (minimal extra latency)
 
     // for convenience
     double elapsed();
@@ -409,10 +412,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::vector<std::vector<faiss::idx_t>> calib_labels;
     std::vector<std::vector<faiss::idx_t>> test_labels;
     
-    // TODO(caching):
-    // - cache can be keyed by dataset and k-means seed
-    // - the following three calib_ are computed in prep_calib
-    // - all three can be cached and should be cached together
+    // the following three calib_ are computed in prep_calib
     std::vector<std::vector<float>> calib_nonconf;
     std::vector<std::vector<std::vector<faiss::idx_t>>> calib_preds;
     std::vector<float> calib_diffs;
@@ -452,7 +452,7 @@ struct IndexIVF : Index, IndexIVFInterface {
         const IVFSearchParameters *params = nullptr,
         IndexIVFStats *stats = nullptr) const;
 
-    float calibrate(float alpha, int k, float calib_sz, float *xq, size_t nq, faiss::idx_t *gt, float max_distance);
+    float calibrate(float alpha, int k, float calib_sz, float *xq, size_t nq, faiss::idx_t *gt, float max_distance, std::string dataset_key);
 
     float cosine_similarity(const std::vector<float> &vec1,
                                   const std::vector<float> &vec2) ;
