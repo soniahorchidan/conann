@@ -401,7 +401,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::vector<float> centroids_density;
     std::string DATASET_KEY;
     bool readFromCache = true;
-    bool writeToCache = true; // can usually leave true (minimal extra latency)
+    bool writeToCache = false; // can usually leave true (minimal extra latency)
 
     // for convenience
     double elapsed();

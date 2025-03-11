@@ -97,18 +97,23 @@ void write_to_file(const std::vector<T> &data, const std::string &filename) {
 
 /// Command like this: ./error sift1M 0.5 0.1
 int main(int argc, char **argv) {
-    std::cout << argc << " arguments" << std::endl;
-    if (argc - 1 != 3) {
-        printf("You should at least input 3 params: the dataset name, calib "
-               "size percentage, alpha\n");
+    std::cout << argc - 1 << " arguments" << std::endl;
+    if (argc - 1 < 5) {
+        printf("You should at least input 4 params: the dataset name, calib "
+               "size percentage, alpha, n_list, [k]\n");
         return 0;
     }
     std::string param1 = argv[1];
     std::string param2 = argv[2];
     std::string param3 = argv[3];
-    std::string dataset_key = param1;
+    std::string param4 = argv[4];
+    std::string param5 = argv[5];
+
     float calib_sz = std::stof(param2);
     float alpha = std::stof(param3);
+    int input_nlist = std::stoi(param4);
+    std::string selection_k = param5; // needs to be part of the dataset read in process and will be determined on reading in GTs
+    std::string dataset_key = param1 + "_" + param4 + "_" + selection_k;
 
     float max_distance;
 
@@ -119,73 +124,79 @@ int main(int argc, char **argv) {
     float sift_max_dist = 100000;
 
     std::string db, query, gtI, gtD;
-    if (dataset_key == "bert_10") {
+    if (param1 == "bert") {
+        db = "../data/bert/db.fvecs";
+        query = "../data/bert/queries.fvecs";
+        gtI = "../data/bert/indices-" + selection_k + ".fvecs";
+        gtD = "../data/bert/distances-" + selection_k + ".fvecs";
+        max_distance = bert_max_dist;
+    } else if (param1 == "bert_10") {
         db = "../data/bert/db.fvecs";
         query = "../data/bert/queries.fvecs";
         gtI = "../data/bert/indices-10.fvecs";
         gtD = "../data/bert/distances-10.fvecs";
         max_distance = bert_max_dist;
-    } else if (dataset_key == "bert_100") {
+    } else if (param1 == "bert_100") {
         db = "../data/bert/db.fvecs";
         query = "../data/bert/queries.fvecs";
         gtI = "../data/bert/indices-100.fvecs";
         gtD = "../data/bert/distances-100.fvecs";
         max_distance = bert_max_dist;
-    } else if (dataset_key == "bert_1000") {
+    } else if (param1 == "bert_1000") {
         db = "../data/bert/db.fvecs";
         query = "../data/bert/queries.fvecs";
         gtI = "../data/bert/indices-1000.fvecs";
         gtD = "../data/bert/distances-1000.fvecs";
         max_distance = bert_max_dist;
-    } else if (dataset_key == "synth") {
+    } else if (param1 == "synth") {
         db = "../data/synthetic10/db.fvecs";
         query = "../data/synthetic10/queries.fvecs";
         gtI = "../data/synthetic10/indices-1000.fvecs";
         gtD = "../data/synthetic10/distances-1000.fvecs";
         max_distance = bert_max_dist;
-    } else if (dataset_key == "sift1M") {
+    } else if (param1 == "sift1M") {
         db = "../data/sift1M/sift1M.fvecs";
         query = "../data/sift1M/1M_query.fvecs";
         gtI = "../data/sift1M/idx_1M.ivecs";
         gtD = "../data/sift1M/dis_1M.fvecs";
         max_distance = sift_max_dist;
-    } else if (dataset_key == "sift10M") {
+    } else if (param1 == "sift10M") {
         db = "/workspace/data/sift/sift10M/sift10M.fvecs";
         query = "/workspace/data/sift/sift10M/query.fvecs";
         gtI = "/workspace/data/sift/sift10M/idx.ivecs";
         gtD = "/workspace/data/sift/sift10M/dis.fvecs";
         max_distance = sift_max_dist;
-    } else if (dataset_key == "deep10M") {
+    } else if (param1 == "deep10M") {
         db = "../data/deep/deep10M.fvecs";
         query = "../data/deep/query.fvecs";
         gtI = "../data/deep/idx.ivecs";
         gtD = "../data/deep/dis.fvecs";
         max_distance = deep_max_dist;
-    } else if (dataset_key == "gist_10") {
+    } else if (param1 == "gist_10") {
         db = "../data/gist/gist_base.fvecs";
         query = "../data/gist/queries.fvecs";
         gtI = "../data/gist/indices-10.fvecs";
         gtD = "../data/gist/distances-10.fvecs";
         max_distance = gist_max_dist;
-    } else if (dataset_key == "gist_100") {
+    } else if (param1 == "gist_100") {
         db = "../data/gist/gist1M.fvecs";
         query = "../data/gist/queries.fvecs";
         gtI = "../data/gist/indices-100.fvecs";
         gtD = "../data/gist/distances-100.fvecs";
         max_distance = gist_max_dist;
-    } else if (dataset_key == "gist_1000") {
+    } else if (param1 == "gist_1000") {
         db = "../data/gist/gist_base.fvecs";
         query = "../data/gist/queries.fvecs";
         gtI = "../data/gist/indices-1000.fvecs";
         gtD = "../data/gist/distances-1000.fvecs";
         max_distance = gist_max_dist;
-    } else if (dataset_key == "glove_100") {
+    } else if (param1 == "glove_100") {
         db = "../data/glove/db.fvecs";
         query = "../data/glove/queries.fvecs";
         gtI = "../data/glove/indices-100.fvecs";
         gtD = "../data/glove/distances-100.fvecs";
         max_distance = glove_max_dist;
-    } else if (dataset_key == "glove_1000") {
+    } else if (param1 == "glove_1000") {
         db = "../data/glove/db.fvecs";
         query = "../data/glove/queries.fvecs";
         gtI = "../data/glove/indices-1000.fvecs";
@@ -216,8 +227,8 @@ int main(int argc, char **argv) {
                index_key, d);
 
         int nlist = 1024; // 1024 as per index_key
-        if (dataset_key.find("bert") != std::string::npos || dataset_key.find("synth") != std::string::npos) {
-            nlist = 128;
+        if (param1.find("bert") != std::string::npos || param1.find("synth") != std::string::npos) {
+            nlist = input_nlist; // was 128
         }
 
         faiss::IndexFlatL2 *flat_index = new faiss::IndexFlatL2(d);
@@ -306,18 +317,18 @@ int main(int argc, char **argv) {
     auto [fnr, cls] = index->evaluate_test(lamhat);
     float avg_fnr = std::accumulate(fnr.begin(), fnr.end(), 0.0) / fnr.size();
     printf("[%.3f s] Finished: alpha=%.3f, test fnr=%.3f, avg cls searched=%.3f\n", elapsed() - t0, alpha, avg_fnr, computeAverage(cls));
-    // std::cout << "alpha=" << alpha << ", test fnr=" << avg_fnr
-    //           << ", avg cls searched=" << computeAverage(cls) << std::endl;
+    std::cout << "alpha=" << alpha << ", test fnr=" << avg_fnr
+              << ", avg cls searched=" << computeAverage(cls) << std::endl;
 
-    // std::ostringstream fnr_filename;
-    // fnr_filename << "../ConANN-error-" << dataset_key << "-" << k << "-" << alpha <<".log";
-    // write_to_file(fnr, fnr_filename.str());
+    std::ostringstream fnr_filename;
+    fnr_filename << "../ConANN-error-" << dataset_key << "-" << alpha << "-" << calib_sz << ".log";
+    write_to_file(fnr, fnr_filename.str());
 
-    // std::ostringstream cls_filename;
+    std::ostringstream cls_filename;
 
-    // cls_filename << "../ConANN-efficiency-" << dataset_key << "-" << k << "-"
-    //              << alpha << ".log";
-    // write_to_file(cls, cls_filename.str());
+    cls_filename << "../ConANN-efficiency-" << dataset_key << "-"
+                 << alpha << "-" << calib_sz << ".log";
+    write_to_file(cls, cls_filename.str());
 
     delete index;
     return 0;

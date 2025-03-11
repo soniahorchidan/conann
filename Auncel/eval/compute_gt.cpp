@@ -116,7 +116,7 @@ void write_gt_distances(const std::string &filename, const float *distances,
 /// Command like this: ./compute_gt gist 100
 int main(int argc, char **argv) {
     std::cout << argc << " arguments" << std::endl;
-    if (argc - 1 != 2) {
+    if (argc - 1 <= 2) {
         printf("You should at least input 2 params: the dataset name, k \n");
         return 0;
     }

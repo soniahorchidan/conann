@@ -120,8 +120,17 @@ int main(int argc, char **argv) {
 
     std::string param1 = argv[1];
     std::string param2 = argv[2];
+    std::string param3 = argv[3];
+    std::string param4 = argv[4];
+    std::string param5 = argv[5];
+
+    int input_nlist = std::stoi(param3);
+    std::string selection_k = param4;
+    std::string dataset_key = param1 + "_" + param3 + "_" + selection_k;
+    int starting_nprobe = std::stoi(param5);
+
     std::vector<float> alphas;
-    for (int i = 3; i < argc; i++) {
+    for (int i = 6; i < argc; i++) {
         alphas.push_back(std::stof(argv[i]));
     }
 
@@ -129,7 +138,12 @@ int main(int argc, char **argv) {
     float calib_sz = std::stof(param2);
 
     std::string db, query, gtI, gtD;
-    if (param1 == "bert_10") {
+    if (param1 == "bert") {
+        db = "../data/bert/db.fvecs";
+        query = "../data/bert/queries.fvecs";
+        gtI = "../data/bert/indices-" + selection_k + ".fvecs";
+        gtD = "../data/bert/distances-" + selection_k + ".fvecs";
+    } else if (param1 == "bert_10") {
         db = "../data/bert/db.fvecs";
         query = "../data/bert/queries.fvecs";
         gtI = "../data/bert/indices-10.fvecs";
@@ -206,7 +220,7 @@ int main(int argc, char **argv) {
 
     int nlist = 1024; // 1024 as per index_key
     if (param1.find("bert") != std::string::npos || param1.find("synth") != std::string::npos) {
-        nlist = 128;
+        nlist = input_nlist;
     }
 
     {
@@ -302,7 +316,7 @@ int main(int argc, char **argv) {
 
     auto calib_nq = size_t(calib_sz* nq);
 
-    int optimal_nprobe = 1;
+    int optimal_nprobe = starting_nprobe;
     for (float alpha : alphas) {
         printf("[%.3f s] Processing alpha = %.5f. Starting from nprobe = %d\n", elapsed() - t0, alpha, optimal_nprobe);
 
@@ -337,15 +351,14 @@ int main(int argc, char **argv) {
 
         // Save results
         std::ostringstream filename;
-        filename << "../Faiss-error-" << param1 << "-" << k << "-" << alpha
-                 << "-" << std::time(nullptr) << ".log";
+        filename << "../Faiss-error-" << dataset_key << "-" << alpha << ".log";
         write_to_file(all_fnrs, filename.str());
 
         std::ostringstream filename2;
-        filename2 << "../Faiss-efficiency-" << param1 << "-" << k << "-" << alpha
-                  << "-" << std::time(nullptr) << ".log";
+        filename2 << "../Faiss-efficiency-" << dataset_key << "-" << alpha << ".log";
         write_to_file(std::vector<int>{optimal_nprobe}, filename2.str());
     }
+    std::cout << optimal_nprobe << std::endl;
 
     delete[] xq;
     delete[] gt;
