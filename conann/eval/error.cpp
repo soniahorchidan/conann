@@ -130,6 +130,18 @@ int main(int argc, char **argv) {
         gtI = "../data/bert/indices-" + selection_k + ".fvecs";
         gtD = "../data/bert/distances-" + selection_k + ".fvecs";
         max_distance = bert_max_dist;
+    } else if (param1 == "gist30k") {
+        db = "../data/gist30k/gist30k_base.fvecs";
+        query = "../data/gist30k/queries.fvecs";
+        gtI = "../data/gist30k/indices-" + selection_k + ".fvecs";
+        gtD = "../data/gist30k/distances-" + selection_k + ".fvecs";
+        max_distance = gist_max_dist;
+    } else if (param1 == "glove30k") {
+        db = "../data/glove30k/glove30k_db.fvecs";
+        query = "../data/glove30k/queries.fvecs";
+        gtI = "../data/glove30k/indices-" + selection_k + ".fvecs";
+        gtD = "../data/glove30k/distances-" + selection_k + ".fvecs";
+        max_distance = glove_max_dist;
     } else if (param1 == "bert_10") {
         db = "../data/bert/db.fvecs";
         query = "../data/bert/queries.fvecs";
@@ -226,7 +238,7 @@ int main(int argc, char **argv) {
         printf("[%.3f s] Preparing index \"%s\" d=%ld\n", elapsed() - t0,
                index_key, d);
 
-        int nlist = 1024; // 1024 as per index_key
+        int nlist = input_nlist; // 1024 as per index_key
         if (param1.find("bert") != std::string::npos || param1.find("synth") != std::string::npos) {
             nlist = input_nlist; // was 128
         }

@@ -124,6 +124,7 @@ int main(int argc, char **argv) {
     std::string param4 = argv[4];
     std::string param5 = argv[5];
 
+    float calib_sz = std::stof(param2);
     int input_nlist = std::stoi(param3);
     std::string selection_k = param4;
     std::string dataset_key = param1 + "_" + param3 + "_" + selection_k;
@@ -135,7 +136,6 @@ int main(int argc, char **argv) {
     }
 
     std::sort(alphas.begin(), alphas.end(), std::greater<>()); // Sort in descending order
-    float calib_sz = std::stof(param2);
 
     std::string db, query, gtI, gtD;
     if (param1 == "bert") {
@@ -143,6 +143,16 @@ int main(int argc, char **argv) {
         query = "../data/bert/queries.fvecs";
         gtI = "../data/bert/indices-" + selection_k + ".fvecs";
         gtD = "../data/bert/distances-" + selection_k + ".fvecs";
+    } else if (param1 == "gist30k") {
+        db = "../data/gist30k/gist30k_base.fvecs";
+        query = "../data/gist30k/queries.fvecs";
+        gtI = "../data/gist30k/indices-" + selection_k + ".fvecs";
+        gtD = "../data/gist30k/distances-" + selection_k + ".fvecs";
+    } else if (param1 == "glove30k") {
+        db = "../data/glove30k/glove30k_db.fvecs";
+        query = "../data/glove30k/queries.fvecs";
+        gtI = "../data/glove30k/indices-" + selection_k + ".fvecs";
+        gtD = "../data/glove30k/distances-" + selection_k + ".fvecs";
     } else if (param1 == "bert_10") {
         db = "../data/bert/db.fvecs";
         query = "../data/bert/queries.fvecs";
@@ -218,7 +228,7 @@ int main(int argc, char **argv) {
 
     size_t d;
 
-    int nlist = 1024; // 1024 as per index_key
+    int nlist = input_nlist; // 1024 as per index_key
     if (param1.find("bert") != std::string::npos || param1.find("synth") != std::string::npos) {
         nlist = input_nlist;
     }
