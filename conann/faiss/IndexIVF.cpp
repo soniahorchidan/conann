@@ -27,6 +27,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib> 
 #include <ctime>
 #include <fstream>
 #include <functional>
@@ -1190,6 +1191,13 @@ void IndexIVF::prep_calib(float calib_sz, float *xq, size_t nq,
     } else {
         // previously -1 was passed for lamhat here
         auto [cn, c_clus] = compute_scores(calib_cx, calib_diffs);
+
+        std::cout << "\n\n calib[0]=";
+        for (auto x: cn[0]) {
+            std::cout << x << " ";
+        }
+        std::cout << "\n\n";
+
         calib_nonconf = cn;
         calib_preds = c_clus;
         if (writeToCache) {
@@ -1395,7 +1403,7 @@ double IndexIVF::lamhat_threshold(
     auto [preds, _] =
         compute_predictions(lambda, calib_cx, calib_nonconf, calib_preds);
     float fnr = false_negative_rate(preds, calib_labels);
-    // std::cout << "Optimization: lambda=" << lambda << " fnr=" << fnr << "\n";
+    std::cout << "Optimization: lambda=" << lambda << " fnr=" << fnr << "\n";
     // std::cout << lambda << " " << fnr << "\n";
 
     return fnr - target_fnr;
@@ -1568,6 +1576,123 @@ IndexIVF::evaluate(float lamhat, const std::vector<std::vector<float>> &queries,
     auto fnrs = recall_per_query(test_preds, labels);
     return {fnrs, cl_searched};
 }
+
+// -------
+
+std::vector<std::pair<int, float>> IndexIVF::sortClassesByProbability(const std::vector<float>& classProbabilities) const {
+    std::vector<std::pair<int, float>> sortedClasses;
+    for (int i = 0; i < classProbabilities.size(); ++i) {
+        sortedClasses.emplace_back(i, classProbabilities[i]);
+    }
+    // Sort by probability in descending order
+    std::sort(sortedClasses.begin(), sortedClasses.end(), [](const auto& a, const auto& b) {
+        return b.second < a.second;
+    });
+    return sortedClasses;
+}
+    
+// ρx(y) is the cumulative probability mass of all classes more likely than y
+std::vector<float> IndexIVF::computeRho(const std::vector<std::pair<int, float>>& sortedClasses) const {
+    std::vector<float> rho(sortedClasses.size(), 0.0);
+    float cumulativeProb = 0.0;
+    for (size_t i = 0; i < sortedClasses.size(); ++i) {
+        rho[i] = cumulativeProb;
+        cumulativeProb += sortedClasses[i].second;
+    }
+    return rho;
+}
+
+// ox(y) is the rank of class y based on its predicted probability.
+std::vector<int> IndexIVF::computeOx(const std::vector<std::pair<int, float>>& sortedClasses) const {
+    std::vector<int> ox(sortedClasses.size(), 0);
+    for (size_t i = 0; i < sortedClasses.size(); ++i) {
+        ox[i] = i + 1; // Rank starts at 1
+    }
+    return ox;
+}
+
+// The regularization term is λ * (ox(y) - kreg)+, where (z)+ is the positive part of z
+float IndexIVF::computeRegularization(int ox_y, float lambda, int kreg) const {
+    return lambda * std::max(0, ox_y - kreg);
+}
+
+// std::vector<float> IndexIVF::regularizeScores(
+//     const std::vector<float>& classProbabilities,
+//     const std::vector<float>& rho,
+//     const std::vector<int>& ox,
+//     float u,
+//     float lambda,
+//     int kreg) {
+
+//     std::vector<float> regularized_scores;
+//     for (size_t i = 0; i < classProbabilities.size(); ++i) {
+//         auto regularizationTerm = computeRegularization(ox[i], lambda, kreg);
+//         auto value = rho[i] + classProbabilities[i] * u + regularizationTerm;
+//         regularized_scores.push_back(value);
+//         // if (value <= tau) {
+//         //     predictionSet.push_back(i); // Include class in the prediction set
+//         // }
+//     }
+//     return regularized_scores;
+// }
+
+std::vector<std::vector<int>> IndexIVF::computeSortedIndices(const std::vector<std::vector<float>>& classProbabilities) const {
+    std::vector<std::vector<int>> sortedIndices;
+    // For each example, we sort the class probabilities and store the sorted indices
+    for (const auto& probs : classProbabilities) {
+        std::vector<std::pair<int, float>> indexedClasses;
+        // Create pairs of (index, probability) for each class
+        for (int i = 0; i < probs.size(); ++i) {
+            indexedClasses.emplace_back(i, probs[i]);
+        }
+        // Sort the classes based on their probabilities in descending order
+        std::sort(indexedClasses.begin(), indexedClasses.end(), [](const auto& a, const auto& b) {
+            return b.second < a.second;  // Sort in descending order by probability
+        });
+        // Extract the sorted indices
+        std::vector<int> sortedClassIndices;
+        for (const auto& pair : indexedClasses) {
+            sortedClassIndices.push_back(pair.first); // Add the class index to the sorted list
+        }
+        sortedIndices.push_back(sortedClassIndices); // Add to the result list
+    }
+    return sortedIndices;
+}
+
+
+std::vector<float> IndexIVF::regularizeScores(
+    const std::vector<std::vector<float>>& s,  
+    const std::vector<std::vector<int>>& I, 
+    const std::vector<std::vector<faiss::idx_t>>& y,
+    float lambda, 
+    int kreg, 
+    bool rnd) const {
+    size_t n = s.size();
+    std::vector<float> E(n, 0.0f);
+
+    for (size_t i = 0; i < n; ++i) {
+        auto sortedClasses = sortClassesByProbability(s[i]);
+        auto rho = computeRho(sortedClasses);
+        auto ox = computeOx(sortedClasses);
+        
+        float Ei = 0.0f;
+        int Li = I[i][*max_element(y[i].begin(), y[i].end())];  // Li is the index corresponding to the maximum value in y[i]
+        for (int j = 0; j < Li; ++j) {
+            Ei += s[i][j];
+        }
+        Ei += computeRegularization(ox[Li-1], lambda, kreg);
+        
+        // If rand is true, subtract the randomization term
+        if (rnd) {
+            float U = static_cast<float>(rand()) / static_cast<float>(RAND_MAX); // Uniform random [0, 1]
+            Ei -= U * s[i][Li-1]; // Subtract U * si,Li
+        }
+        E[i] = Ei;
+    }
+    
+    return E;
+}
+// ------------
 
 void IndexIVF::search_conann(idx_t n, const float *x, float lamhat,
                              float *distances, idx_t *labels) {
@@ -1959,14 +2084,46 @@ void IndexIVF::search_preassigned_with_error_quantification(
                         }
                     }
                     std::vector<faiss::idx_t> idxi_copy(idxi, idxi + k);
+                    // std::vector<float> simi_copy(simi, simi + k);
+                    // for (auto x: simi_copy) {
+                    //     x = 1 - x / MAX_DISTANCE;  // higher is better
+                    // }
+                    // // GTS in calib_labels[i] / test_labels[i]
+    
+                    // std::cout << "\n\n calib_labels[i]=";
+                    // for (auto x: calib_labels[i]) {
+                    //     std::cout << x << " ";
+                    // }
+                    // float u = 0.5; // Randomization parameter
+                    // float lambda = 0.1; // Regularization hyperparameter
+                    // int kreg = 2; // Regularization hyperparameter
+                
+                    // auto sortedIndices = computeSortedIndices({std::vector<float>{simi_copy}});
+                    // // TODO: fix! need to pass all calib labels!!
+                    // auto reg = regularizeScores({std::vector<float>{simi_copy}}, sortedIndices, {calib_labels[i]}, lambda, kreg, u);
+            
+                    // // std::cout << "\n\n Len simi_copy=" << simi_copy.size() << "\n";;
+            
+                    // // std::cout << "\n\nRegularized scores=";
+                    // // for (auto x: reg) {
+                    // //     std::cout << x << " ";
+                    // // }
+                    // // std::cout << "\n\n";
+
                     all_preds_list[i][keys[i * nprobe + ik]] = idxi_copy;
 
                     if (score_k > MAX_DISTANCE) {
                         nonconf_list[i][keys[i * nprobe + ik]] = 1.0;
                     } else {
+                        std::random_device rd;
+                        std::mt19937 gen(rd());
+                        float noise_stddev = 0.00001;
+
+                        // Create a normal distribution with mean 0 and standard deviation `noise_stddev`
+                        std::normal_distribution<> dist(0, noise_stddev);
+
                         // auto x = centroids_density[keys[i * nprobe + ik]];
-                        nonconf_list[i][keys[i * nprobe + ik]] = 
-                            (2 * diff_scores[i] + score_k / MAX_DISTANCE) / 3;
+                        nonconf_list[i][keys[i * nprobe + ik]] = score_k / MAX_DISTANCE + dist(gen);
                     }
                 }
 

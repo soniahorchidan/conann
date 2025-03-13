@@ -400,8 +400,8 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::vector<std::vector<float>> centroids;
     std::vector<float> centroids_density;
     std::string DATASET_KEY;
-    bool readFromCache = true;
-    bool writeToCache = true; // can usually leave true (minimal extra latency)
+    bool readFromCache = false;
+    bool writeToCache = false; // can usually leave true (minimal extra latency)
 
     // for convenience
     double elapsed();
@@ -454,6 +454,8 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     float calibrate(float alpha, int k, float calib_sz, float *xq, size_t nq, faiss::idx_t *gt, float max_distance, std::string dataset_key);
 
+    std::vector<double> compute_reg_nonconf(const std::vector<std::vector<float>>& softmax_scores, const std::vector<std::vector<faiss::idx_t>>& labels, double lam_reg, int k_reg);
+
     float cosine_similarity(const std::vector<float> &vec1,
                                   const std::vector<float> &vec2) ;
 
@@ -489,6 +491,21 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::pair<std::vector<float>, std::vector<int>>
     evaluate(float lamhat, const std::vector<std::vector<float>> &queries,
              const std::vector<std::vector<faiss::idx_t>> &labels);
+
+    // --- RAPS
+    std::vector<std::pair<int, float>> sortClassesByProbability(const std::vector<float>& classProbabilities) const;
+    std::vector<float> computeRho(const std::vector<std::pair<int, float>>& sortedClasses) const;
+    std::vector<int> computeOx(const std::vector<std::pair<int, float>>& sortedClasses) const;
+    float computeRegularization(int ox_y, float lambda, int kreg) const;
+    std::vector<std::vector<int>> computeSortedIndices(const std::vector<std::vector<float>>& classProbabilities) const;
+    std::vector<float> regularizeScores(
+        const std::vector<std::vector<float>>& s, //scores  
+        const std::vector<std::vector<int>>& I,
+        const std::vector<std::vector<faiss::idx_t>>& y,   // Ground truth labels
+        float lambda, 
+        int kreg, 
+        bool rand) const;
+    // ------
     // ----------------------------
 };
 
