@@ -1450,9 +1450,9 @@ IndexIVF::compute_predictions(
         int index = indexed_sc.size();
         int num_cls_searched = 0;
         for (size_t i = 0; i < indexed_sc.size(); ++i) {
-            num_cls_searched++;
             if (indexed_sc[i].first == optimal_sc) {
                 index = indexed_sc[i].second;
+                num_cls_searched = i;
                 break;
             } 
         }
@@ -1692,7 +1692,7 @@ std::vector<std::vector<float>> IndexIVF::regularizeScores(
             }
 
             // Assign the score to the correct class
-            E[i][originalClassIndex] = Eij / 20;
+            E[i][originalClassIndex] = Eij / 500;
         }
     }
 

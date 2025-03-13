@@ -508,7 +508,6 @@ struct IndexIVF : Index, IndexIVFInterface {
         int kreg, 
         bool rand) const;
 
-
     // ------
     // ----------------------------
 };
