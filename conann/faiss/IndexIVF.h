@@ -420,8 +420,9 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     void prep_calib(float calib_sz, float *xq, size_t nq, faiss::idx_t *gt);
 
-    std::pair<std::vector<std::vector<float>>,
-              std::vector<std::vector<std::vector<faiss::idx_t>>>>
+    std::tuple<std::vector<std::vector<float>>,
+              std::vector<std::vector<std::vector<faiss::idx_t>>>,
+              std::vector<std::vector<int>>>
     compute_scores(const std::vector<std::vector<float>> &queries, const std::vector<float> &diff_scores);
 
     std::pair<std::vector<std::vector<faiss::idx_t>>, std::vector<int>>
@@ -436,6 +437,7 @@ struct IndexIVF : Index, IndexIVFInterface {
         std::unordered_map<faiss::idx_t, std::vector<float>> &nonconf_list,
         std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>
             &all_preds_list,
+        std::vector<std::vector<int>>& gt_cls,
         const SearchParameters *params = nullptr) const;
 
     void search_conann(idx_t n, const float *x, float lamhat, float *distances,
@@ -501,7 +503,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::vector<float> regularizeScores(
         const std::vector<std::vector<float>>& s, //scores  
         const std::vector<std::vector<int>>& I,
-        const std::vector<std::vector<faiss::idx_t>>& y,   // Ground truth labels
+        const std::vector<std::vector<int>>& y,   // Ground truth labels
         float lambda, 
         int kreg, 
         bool rand) const;
