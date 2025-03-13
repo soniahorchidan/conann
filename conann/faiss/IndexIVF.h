@@ -500,13 +500,15 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::vector<int> computeOx(const std::vector<std::pair<int, float>>& sortedClasses) const;
     float computeRegularization(int ox_y, float lambda, int kreg) const;
     std::vector<std::vector<int>> computeSortedIndices(const std::vector<std::vector<float>>& classProbabilities) const;
-    std::vector<float> regularizeScores(
+    std::vector<std::vector<float>> regularizeScores(
         const std::vector<std::vector<float>>& s, //scores  
         const std::vector<std::vector<int>>& I,
-        const std::vector<std::vector<int>>& y,   // Ground truth labels
+        // const std::vector<std::vector<int>>& y,   // Ground truth labels
         float lambda, 
         int kreg, 
         bool rand) const;
+
+
     // ------
     // ----------------------------
 };

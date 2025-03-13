@@ -82,7 +82,9 @@ template <typename T> double computeAverage(const std::vector<T> &numbers) {
             ++negativeCount;
         }
     }
-    // std::cout << "Number of negative values: " << negativeCount << std::endl;
+    if (negativeCount > 0) {
+        std::cout << "WARNING! Number of negative values: " << negativeCount << std::endl;
+    }
     return sum / (numbers.size() - negativeCount);
 }
 
@@ -144,10 +146,10 @@ int main(int argc, char **argv) {
         gtD = "../data/synthetic10/distances-1000.fvecs";
         max_distance = bert_max_dist;
     } else if (dataset_key == "sift1M") {
-        db = "../data/sift1M/sift1M.fvecs";
-        query = "../data/sift1M/1M_query.fvecs";
-        gtI = "../data/sift1M/idx_1M.ivecs";
-        gtD = "../data/sift1M/dis_1M.fvecs";
+        db = "../data/sift1M/sift_base.fvecs";
+        query = "../data/sift1M/sift_query.fvecs";
+        gtI = "../data/sift1M/sift_gt_index.ivecs";
+        gtD = "../data/sift1M/sift_gt_dis.fvecs";
         max_distance = sift_max_dist;
     } else if (dataset_key == "sift10M") {
         db = "/workspace/data/sift/sift10M/sift10M.fvecs";
@@ -191,6 +193,12 @@ int main(int argc, char **argv) {
         gtI = "../data/glove/indices-1000.fvecs";
         gtD = "../data/glove/distances-1000.fvecs";
         max_distance = glove_max_dist;
+    } else if (param1 == "gauss05") {
+        db = "../data/gauss-05/db.fvecs";
+        query = "../data/gauss-05/queries.fvecs";
+        gtI = "../data/gauss-05/indices-100.fvecs";
+        gtD = "../data/gauss-05/distances-100.fvecs";
+        max_distance = sift_max_dist;
     } else {
         printf("Your dataset name is illegal\n");
         return 0;
@@ -306,18 +314,18 @@ int main(int argc, char **argv) {
     auto [fnr, cls] = index->evaluate_test(lamhat);
     float avg_fnr = std::accumulate(fnr.begin(), fnr.end(), 0.0) / fnr.size();
     printf("[%.3f s] Finished: alpha=%.3f, test fnr=%.3f, avg cls searched=%.3f\n", elapsed() - t0, alpha, avg_fnr, computeAverage(cls));
-    // std::cout << "alpha=" << alpha << ", test fnr=" << avg_fnr
-    //           << ", avg cls searched=" << computeAverage(cls) << std::endl;
+    std::cout << "alpha=" << alpha << ", test fnr=" << avg_fnr
+              << ", avg cls searched=" << computeAverage(cls) << std::endl;
 
-    // std::ostringstream fnr_filename;
-    // fnr_filename << "../ConANN-error-" << dataset_key << "-" << k << "-" << alpha <<".log";
-    // write_to_file(fnr, fnr_filename.str());
+    std::ostringstream fnr_filename;
+    fnr_filename << "../ConANN-error-" << dataset_key << "-" << k << "-" << alpha <<".log";
+    write_to_file(fnr, fnr_filename.str());
 
-    // std::ostringstream cls_filename;
+    std::ostringstream cls_filename;
 
-    // cls_filename << "../ConANN-efficiency-" << dataset_key << "-" << k << "-"
-    //              << alpha << ".log";
-    // write_to_file(cls, cls_filename.str());
+    cls_filename << "../ConANN-efficiency-" << dataset_key << "-" << k << "-"
+                 << alpha << ".log";
+    write_to_file(cls, cls_filename.str());
 
     delete index;
     return 0;

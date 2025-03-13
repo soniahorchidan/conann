@@ -1198,21 +1198,21 @@ void IndexIVF::prep_calib(float calib_sz, float *xq, size_t nq,
         }
         std::cout << "\n\n";
 
-        calib_nonconf = cn;
-        calib_preds = c_clus;
 
         float u = 0.5; // Randomization parameter
         float lambda = 0.1; // Regularization hyperparameter
         int kreg = 2; // Regularization hyperparameter
                 
         auto sortedIndices = computeSortedIndices(cn);
-        // TODO: fix! need to pass all calib labels!!
-        auto reg = regularizeScores(cn, sortedIndices, c_classes_gt, lambda, kreg, u);
+        // TODO: fix! need to pass all calib labels!! c_classes_gt
+        auto reg = regularizeScores(cn, sortedIndices, lambda, kreg, u);
             
+        calib_nonconf = reg;
+        calib_preds = c_clus;
         // std::cout << "\n\n Len simi_copy=" << simi_copy.size() << "\n";;
             
         std::cout << "\n\nRegularized scores=";
-        for (auto x: reg) {
+        for (auto x: reg[0]) {
             std::cout << x << " ";
         }
         std::cout << "\n\n";
@@ -1436,11 +1436,11 @@ IndexIVF::compute_predictions(
         }
 
         std::sort(indexed_sc.begin(), indexed_sc.end(),
-                  std::greater<>()); // Sort by value in descending order
+                  std::less<>()); // Sort by value in ascending order
 
         float optimal_sc = -1;
         for (size_t i = 0; i < indexed_sc.size(); ++i) {
-            if (indexed_sc[i].first >= lambda) {
+            if (indexed_sc[i].first <= lambda) {
                 optimal_sc = indexed_sc[i].first;
             } else {
                 break;
@@ -1450,15 +1450,12 @@ IndexIVF::compute_predictions(
         int index = indexed_sc.size();
         int num_cls_searched = 0;
         for (size_t i = 0; i < indexed_sc.size(); ++i) {
-            if (indexed_sc[i].first >= optimal_sc) {
-                num_cls_searched++;
-                if (indexed_sc[i].first == optimal_sc) {
-                    index = indexed_sc[i].second;
-                    break;
-                }
-            }
+            num_cls_searched++;
+            if (indexed_sc[i].first == optimal_sc) {
+                index = indexed_sc[i].second;
+                break;
+            } 
         }
-
         if (index < sc.size() && num_cls_searched > 0) {
             test_preds.push_back({p[index]});
             cl_searched.push_back(num_cls_searched);
@@ -1562,8 +1559,16 @@ IndexIVF::evaluate(float lamhat, const std::vector<std::vector<float>> &queries,
         nonconf = conann_cache::read_from_cache<std::vector<std::vector<float>>>(cacheKeyNonConf);
         all_preds_per_nprobe = conann_cache::read_from_cache<std::vector<std::vector<std::vector<faiss::idx_t>>>>(cacheKeyAllPreds);
     } else {
-        auto [nonconf_t, all_preds_per_nprobe_t, gt] = compute_scores(queries, diff_scores);
-        nonconf = nonconf_t;
+        auto [nonconf_t, all_preds_per_nprobe_t, _] = compute_scores(queries, diff_scores);
+
+        float u = 0.5; // Randomization parameter
+        float lambda = 0.1; // Regularization hyperparameter
+        int kreg = 2; // Regularization hyperparameter
+                
+        auto sortedIndices = computeSortedIndices(nonconf_t);
+        auto reg = regularizeScores(nonconf_t, sortedIndices, lambda, kreg, u);
+        nonconf = reg;
+
         all_preds_per_nprobe = all_preds_per_nprobe_t;
         if (writeToCache) {
             conann_cache::write_to_cache(cacheKeyNonConf, nonconf_t);
@@ -1646,38 +1651,55 @@ std::vector<std::vector<int>> IndexIVF::computeSortedIndices(const std::vector<s
 }
 
 
-std::vector<float> IndexIVF::regularizeScores(
+std::vector<std::vector<float>> IndexIVF::regularizeScores(
     const std::vector<std::vector<float>>& s,  
     const std::vector<std::vector<int>>& I, 
-    const std::vector<std::vector<int>>& y,
+    // const std::vector<std::vector<int>>& y,
     float lambda, 
     int kreg, 
     bool rnd) const {
+    
     size_t n = s.size();
-    std::vector<float> E(n, 0.0f);
+    size_t K = s[0].size();  // Number of classes
+    std::vector<std::vector<float>> E(n, std::vector<float>(K, 0.0f));
 
     for (size_t i = 0; i < n; ++i) {
-        auto sortedClasses = sortClassesByProbability(s[i]);
+        // Sort classes by softmax probability, keeping track of the original indices
+        std::vector<std::pair<int, float>> sortedClasses;  // Changed the pair order
+        for (int j = 0; j < K; ++j) {
+            sortedClasses.push_back({j, s[i][j]});  // {class_index, probability}
+        }
+        std::sort(sortedClasses.rbegin(), sortedClasses.rend(), 
+                  [](const std::pair<int, float>& a, const std::pair<int, float>& b) {
+                      return a.second < b.second;  // Sort by probability in descending order
+                  });
+
         auto rho = computeRho(sortedClasses);
         auto ox = computeOx(sortedClasses);
-        
-        float Ei = 0.0f;
-        int Li = I[i][*max_element(y[i].begin(), y[i].end())];  // Li is the index corresponding to the maximum value in y[i]
-        for (int j = 0; j < Li; ++j) {
-            Ei += s[i][j];
+
+        // Now, compute the nonconformity scores and assign them to the original class indices
+        for (size_t j = 0; j < K; ++j) {
+            int originalClassIndex = sortedClasses[j].first;  // Retrieve original class index
+            float Eij = 1.0f - s[i][originalClassIndex]; // Basic nonconformity score for the class
+
+            // Add regularization
+            Eij += computeRegularization(ox[j], lambda, kreg);
+
+            // Randomization if enabled
+            if (rnd) {
+                float U = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+                Eij -= U * s[i][originalClassIndex]; 
+            }
+
+            // Assign the score to the correct class
+            E[i][originalClassIndex] = Eij / 20;
         }
-        Ei += computeRegularization(ox[Li-1], lambda, kreg);
-        
-        // If rand is true, subtract the randomization term
-        if (rnd) {
-            float U = static_cast<float>(rand()) / static_cast<float>(RAND_MAX); // Uniform random [0, 1]
-            Ei -= U * s[i][Li-1]; // Subtract U * si,Li
-        }
-        E[i] = Ei;
     }
-    
+
     return E;
 }
+
+
 // ------------
 
 void IndexIVF::search_conann(idx_t n, const float *x, float lamhat,
