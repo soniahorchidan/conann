@@ -116,7 +116,7 @@ void write_gt_distances(const std::string &filename, const float *distances,
 /// Command like this: ./compute_gt gist 100
 int main(int argc, char **argv) {
     std::cout << argc << " arguments" << std::endl;
-    if (argc - 1 != 2) {
+    if (argc - 1 <= 2) {
         printf("You should at least input 2 params: the dataset name, k \n");
         return 0;
     }
@@ -146,6 +146,12 @@ int main(int argc, char **argv) {
     } else if (param1 == "glove") {
         db = "../../data/glove/db.fvecs";
         query = "../../data/glove/queries.fvecs";
+    } else if (param1 == "gist30k") {
+        db = "../../data/gist30k/gist30k_base.fvecs";
+        query = "../../data/gist30k/queries.fvecs";
+    } else if (param1 == "glove30k") {
+        db = "../../data/glove30k/glove30k_db.fvecs";
+        query = "../../data/glove30k/queries.fvecs";
     } else if (param1 == "deep10M") {
         db = "../../data/deep10M/deep10M.fvecs";
         query = "../../data/deep10M/queries.fvecs";

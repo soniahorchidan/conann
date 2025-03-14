@@ -92,17 +92,18 @@ void write_queries(const std::string &filename, const float *vectors,
 /// Command like this: ./sample_queries ./sift1M/db.fvecs 0.15
 int main(int argc, char **argv) {
     std::cout << argc << " arguments" << std::endl;
-    if (argc - 1 != 2) {
-        printf("You should at least input 2 params: the dataset path, sample size fraction \n");
+    if (argc - 1 != 3) {
+        printf("You should at least input 2 params: the dataset path, sample size, output filename (with .fvecs ending)\n");
         return 0;
     }
     std::string param1 = argv[1];
     std::string param2 = argv[2];
+    std::string param3 = argv[3];
 
     std::string db = param1;
     std::string base = db.substr(0, db.find_last_of("/\\"));
-    std::string output_filepath = base + "/queries.fvecs";
-    float sample_fraction = std::stof(param2);
+    std::string output_filepath = base + "/" + param3;
+    int sample_size = std::stoi(param2);
 
     // std::string db, query, gtI, gtD;
     // if (param1 == "sift10k") {
@@ -131,7 +132,8 @@ int main(int argc, char **argv) {
     printf("[%.3f s] Query not set, sampling queries from the database\n", elapsed() - t0);
 
     // Sample nq random queries from the database
-    int nq = nb * sample_fraction;
+    // int nq = nb * sample_fraction;
+    int nq = sample_size;
     if (nq > nb) {
         printf("Error: Cannot sample more queries than available vectors\n");
         return 1;
