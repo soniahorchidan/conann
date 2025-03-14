@@ -82,7 +82,9 @@ template <typename T> double computeAverage(const std::vector<T> &numbers) {
             ++negativeCount;
         }
     }
-    // std::cout << "Number of negative values: " << negativeCount << std::endl;
+    if (negativeCount > 0) {
+        std::cout << "WARNING! Number of negative values: " << negativeCount << std::endl;
+    }
     return sum / (numbers.size() - negativeCount);
 }
 
@@ -113,7 +115,7 @@ int main(int argc, char **argv) {
     float alpha = std::stof(param3);
     int input_nlist = std::stoi(param4);
     std::string selection_k = param5; // needs to be part of the dataset read in process and will be determined on reading in GTs
-    std::string dataset_key = param1 + "_" + param4 + "_" + selection_k;
+    std::string dataset_key = param1 + "-" + param4 + "-" + selection_k;
 
     float max_distance;
 
@@ -166,11 +168,11 @@ int main(int argc, char **argv) {
         gtI = "../data/synthetic10/indices-1000.fvecs";
         gtD = "../data/synthetic10/distances-1000.fvecs";
         max_distance = bert_max_dist;
-    } else if (param1 == "sift1M") {
-        db = "../data/sift1M/sift1M.fvecs";
-        query = "../data/sift1M/1M_query.fvecs";
-        gtI = "../data/sift1M/idx_1M.ivecs";
-        gtD = "../data/sift1M/dis_1M.fvecs";
+    } else if (dataset_key == "sift1M") {
+        db = "../data/sift1M/sift_base.fvecs";
+        query = "../data/sift1M/sift_query.fvecs";
+        gtI = "../data/sift1M/sift_gt_index.ivecs";
+        gtD = "../data/sift1M/sift_gt_dis.fvecs";
         max_distance = sift_max_dist;
     } else if (param1 == "sift10M") {
         db = "/workspace/data/sift/sift10M/sift10M.fvecs";
@@ -214,6 +216,12 @@ int main(int argc, char **argv) {
         gtI = "../data/glove/indices-1000.fvecs";
         gtD = "../data/glove/distances-1000.fvecs";
         max_distance = glove_max_dist;
+    } else if (param1 == "gauss05") {
+        db = "../data/gauss-05/db.fvecs";
+        query = "../data/gauss-05/queries.fvecs";
+        gtI = "../data/gauss-05/indices-100.fvecs";
+        gtD = "../data/gauss-05/distances-100.fvecs";
+        max_distance = sift_max_dist;
     } else {
         printf("Your dataset name is illegal\n");
         return 0;
