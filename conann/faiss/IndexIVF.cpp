@@ -27,6 +27,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib> 
 #include <ctime>
 #include <fstream>
 #include <functional>
@@ -1189,9 +1190,33 @@ void IndexIVF::prep_calib(float calib_sz, float *xq, size_t nq,
         calib_preds = conann_cache::read_from_cache<std::vector<std::vector<std::vector<faiss::idx_t>>>>(cacheKeyAllPreds);
     } else {
         // previously -1 was passed for lamhat here
-        auto [cn, c_clus] = compute_scores(calib_cx, calib_diffs);
-        calib_nonconf = cn;
+        auto [cn, c_clus, c_classes_gt] = compute_scores(calib_cx, calib_diffs);
+
+        std::cout << "\n\n cn[0]=";
+        for (auto x: cn[0]) {
+            std::cout << x << " ";
+        }
+        std::cout << "\n\n";
+
+
+        float u = 0.5; // Randomization parameter
+        float lambda = 0.1; // Regularization hyperparameter
+        int kreg = 2; // Regularization hyperparameter
+                
+        auto sortedIndices = computeSortedIndices(cn);
+        // TODO: fix! need to pass all calib labels!! c_classes_gt
+        auto reg = regularizeScores(cn, sortedIndices, lambda, kreg, u);
+            
+        calib_nonconf = reg;
         calib_preds = c_clus;
+        // std::cout << "\n\n Len simi_copy=" << simi_copy.size() << "\n";;
+            
+        std::cout << "\n\nRegularized scores=";
+        for (auto x: reg[0]) {
+            std::cout << x << " ";
+        }
+        std::cout << "\n\n";
+
         if (writeToCache) {
             conann_cache::write_to_cache(cacheKeyNonConf, cn);
             conann_cache::write_to_cache(cacheKeyAllPreds, c_clus);
@@ -1202,14 +1227,16 @@ void IndexIVF::prep_calib(float calib_sz, float *xq, size_t nq,
 }
 
 // had unused lamdba passed in previously
-std::pair<std::vector<std::vector<float>>,
-          std::vector<std::vector<std::vector<faiss::idx_t>>>>
+std::tuple<std::vector<std::vector<float>>,
+              std::vector<std::vector<std::vector<faiss::idx_t>>>,
+              std::vector<std::vector<int>>>
 IndexIVF::compute_scores(const std::vector<std::vector<float>> &queries,
                          const std::vector<float> &diff_scores) {
     int num_queries = queries.size();
     std::unordered_map<faiss::idx_t, std::vector<float>> nonconf_list;
     std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>
         all_preds_list;
+    std::vector<std::vector<int>> gt_cls;
 
     std::vector<faiss::idx_t> nns(K * num_queries);
     std::vector<float> dis(K * num_queries);
@@ -1222,7 +1249,7 @@ IndexIVF::compute_scores(const std::vector<std::vector<float>> &queries,
 
     search_with_error_quantification(num_queries, flattened.data(), K,
                                      dis.data(), nns.data(),
-                                     diff_scores, nonconf_list, all_preds_list);
+                                     diff_scores, nonconf_list, all_preds_list, gt_cls);
 
     // Convert to simpler format
     std::vector<std::vector<float>> n_vec(nonconf_list.size());
@@ -1230,26 +1257,13 @@ IndexIVF::compute_scores(const std::vector<std::vector<float>> &queries,
         n_vec[key] = value;
     }
 
-    // // apply temperature scaling
-    // float temperature = 0.4;
-    // for (auto& scores : n_vec) {
-    //     double sum_exp = 0.0;
-    //     for (float score : scores) {
-    //         sum_exp += std::exp(score / temperature);
-    //     }
-    //     for (float& score : scores) {
-    //         score = std::exp(score / temperature) / sum_exp;
-    //     }
-    // }
-
     std::vector<std::vector<std::vector<faiss::idx_t>>> preds_vec(
         all_preds_list.size());
 
     for (const auto &[key, value] : all_preds_list) {
         preds_vec[key] = value;
     }
-
-    return {n_vec, preds_vec};
+    return std::make_tuple(n_vec, preds_vec, gt_cls);
 }
 
 float IndexIVF::cosine_similarity(const std::vector<float> &vec1,
@@ -1395,7 +1409,7 @@ double IndexIVF::lamhat_threshold(
     auto [preds, _] =
         compute_predictions(lambda, calib_cx, calib_nonconf, calib_preds);
     float fnr = false_negative_rate(preds, calib_labels);
-    // std::cout << "Optimization: lambda=" << lambda << " fnr=" << fnr << "\n";
+    std::cout << "Optimization: lambda=" << lambda << " fnr=" << fnr << "\n";
     // std::cout << lambda << " " << fnr << "\n";
 
     return fnr - target_fnr;
@@ -1422,11 +1436,11 @@ IndexIVF::compute_predictions(
         }
 
         std::sort(indexed_sc.begin(), indexed_sc.end(),
-                  std::greater<>()); // Sort by value in descending order
+                  std::less<>()); // Sort by value in ascending order
 
         float optimal_sc = -1;
         for (size_t i = 0; i < indexed_sc.size(); ++i) {
-            if (indexed_sc[i].first >= lambda) {
+            if (indexed_sc[i].first <= lambda) {
                 optimal_sc = indexed_sc[i].first;
             } else {
                 break;
@@ -1436,15 +1450,12 @@ IndexIVF::compute_predictions(
         int index = indexed_sc.size();
         int num_cls_searched = 0;
         for (size_t i = 0; i < indexed_sc.size(); ++i) {
-            if (indexed_sc[i].first >= optimal_sc) {
-                num_cls_searched++;
-                if (indexed_sc[i].first == optimal_sc) {
-                    index = indexed_sc[i].second;
-                    break;
-                }
-            }
+            if (indexed_sc[i].first == optimal_sc) {
+                index = indexed_sc[i].second;
+                num_cls_searched = i;
+                break;
+            } 
         }
-
         if (index < sc.size() && num_cls_searched > 0) {
             test_preds.push_back({p[index]});
             cl_searched.push_back(num_cls_searched);
@@ -1548,8 +1559,16 @@ IndexIVF::evaluate(float lamhat, const std::vector<std::vector<float>> &queries,
         nonconf = conann_cache::read_from_cache<std::vector<std::vector<float>>>(cacheKeyNonConf);
         all_preds_per_nprobe = conann_cache::read_from_cache<std::vector<std::vector<std::vector<faiss::idx_t>>>>(cacheKeyAllPreds);
     } else {
-        auto [nonconf_t, all_preds_per_nprobe_t] = compute_scores(queries, diff_scores);
-        nonconf = nonconf_t;
+        auto [nonconf_t, all_preds_per_nprobe_t, _] = compute_scores(queries, diff_scores);
+
+        float u = 0.5; // Randomization parameter
+        float lambda = 0.1; // Regularization hyperparameter
+        int kreg = 2; // Regularization hyperparameter
+                
+        auto sortedIndices = computeSortedIndices(nonconf_t);
+        auto reg = regularizeScores(nonconf_t, sortedIndices, lambda, kreg, u);
+        nonconf = reg;
+
         all_preds_per_nprobe = all_preds_per_nprobe_t;
         if (writeToCache) {
             conann_cache::write_to_cache(cacheKeyNonConf, nonconf_t);
@@ -1569,6 +1588,120 @@ IndexIVF::evaluate(float lamhat, const std::vector<std::vector<float>> &queries,
     return {fnrs, cl_searched};
 }
 
+// -------
+
+std::vector<std::pair<int, float>> IndexIVF::sortClassesByProbability(const std::vector<float>& classProbabilities) const {
+    std::vector<std::pair<int, float>> sortedClasses;
+    for (int i = 0; i < classProbabilities.size(); ++i) {
+        sortedClasses.emplace_back(i, classProbabilities[i]);
+    }
+    // Sort by probability in descending order
+    std::sort(sortedClasses.begin(), sortedClasses.end(), [](const auto& a, const auto& b) {
+        return b.second < a.second;
+    });
+    return sortedClasses;
+}
+    
+// ρx(y) is the cumulative probability mass of all classes more likely than y
+std::vector<float> IndexIVF::computeRho(const std::vector<std::pair<int, float>>& sortedClasses) const {
+    std::vector<float> rho(sortedClasses.size(), 0.0);
+    float cumulativeProb = 0.0;
+    for (size_t i = 0; i < sortedClasses.size(); ++i) {
+        rho[i] = cumulativeProb;
+        cumulativeProb += sortedClasses[i].second;
+    }
+    return rho;
+}
+
+// ox(y) is the rank of class y based on its predicted probability.
+std::vector<int> IndexIVF::computeOx(const std::vector<std::pair<int, float>>& sortedClasses) const {
+    std::vector<int> ox(sortedClasses.size(), 0);
+    for (size_t i = 0; i < sortedClasses.size(); ++i) {
+        ox[i] = i + 1; // Rank starts at 1
+    }
+    return ox;
+}
+
+// The regularization term is λ * (ox(y) - kreg)+, where (z)+ is the positive part of z
+float IndexIVF::computeRegularization(int ox_y, float lambda, int kreg) const {
+    return lambda * std::max(0, ox_y - kreg);
+}
+
+std::vector<std::vector<int>> IndexIVF::computeSortedIndices(const std::vector<std::vector<float>>& classProbabilities) const {
+    std::vector<std::vector<int>> sortedIndices;
+    // For each example, we sort the class probabilities and store the sorted indices
+    for (const auto& probs : classProbabilities) {
+        std::vector<std::pair<int, float>> indexedClasses;
+        // Create pairs of (index, probability) for each class
+        for (int i = 0; i < probs.size(); ++i) {
+            indexedClasses.emplace_back(i, probs[i]);
+        }
+        // Sort the classes based on their probabilities in descending order
+        std::sort(indexedClasses.begin(), indexedClasses.end(), [](const auto& a, const auto& b) {
+            return b.second < a.second;  // Sort in descending order by probability
+        });
+        // Extract the sorted indices
+        std::vector<int> sortedClassIndices;
+        for (const auto& pair : indexedClasses) {
+            sortedClassIndices.push_back(pair.first); // Add the class index to the sorted list
+        }
+        sortedIndices.push_back(sortedClassIndices); // Add to the result list
+    }
+    return sortedIndices;
+}
+
+
+std::vector<std::vector<float>> IndexIVF::regularizeScores(
+    const std::vector<std::vector<float>>& s,  
+    const std::vector<std::vector<int>>& I, 
+    // const std::vector<std::vector<int>>& y,
+    float lambda, 
+    int kreg, 
+    bool rnd) const {
+    
+    size_t n = s.size();
+    size_t K = s[0].size();  // Number of classes
+    std::vector<std::vector<float>> E(n, std::vector<float>(K, 0.0f));
+
+    for (size_t i = 0; i < n; ++i) {
+        // Sort classes by softmax probability, keeping track of the original indices
+        std::vector<std::pair<int, float>> sortedClasses;  // Changed the pair order
+        for (int j = 0; j < K; ++j) {
+            sortedClasses.push_back({j, s[i][j]});  // {class_index, probability}
+        }
+        std::sort(sortedClasses.rbegin(), sortedClasses.rend(), 
+                  [](const std::pair<int, float>& a, const std::pair<int, float>& b) {
+                      return a.second < b.second;  // Sort by probability in descending order
+                  });
+
+        auto rho = computeRho(sortedClasses);
+        auto ox = computeOx(sortedClasses);
+
+        // Now, compute the nonconformity scores and assign them to the original class indices
+        for (size_t j = 0; j < K; ++j) {
+            int originalClassIndex = sortedClasses[j].first;  // Retrieve original class index
+            float Eij = 1.0f - s[i][originalClassIndex]; // Basic nonconformity score for the class
+
+            // Add regularization
+            Eij += computeRegularization(ox[j], lambda, kreg);
+
+            // Randomization if enabled
+            if (rnd) {
+                float U = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+                Eij -= U * s[i][originalClassIndex]; 
+            }
+
+            // Assign the score to the correct class
+            E[i][originalClassIndex] = Eij / 500;
+        }
+    }
+
+    return E;
+}
+
+
+// ------------
+
 void IndexIVF::search_conann(idx_t n, const float *x, float lamhat,
                              float *distances, idx_t *labels) {
     std::vector<std::vector<float>> queries(n, std::vector<float>(d));
@@ -1578,7 +1711,7 @@ void IndexIVF::search_conann(idx_t n, const float *x, float lamhat,
         }
     }
     std::vector<float> diff_scores = compute_difficulty_scores(queries);
-    auto [nonconf, all_preds_per_nprobe] = compute_scores(queries, diff_scores);
+    auto [nonconf, all_preds_per_nprobe, gt] = compute_scores(queries, diff_scores);
     auto [test_preds, cl_searched] =
         compute_predictions(lamhat, queries, nonconf, all_preds_per_nprobe);
 
@@ -1603,6 +1736,7 @@ void IndexIVF::search_with_error_quantification(
     std::unordered_map<faiss::idx_t, std::vector<float>> &nonconf_list,
     std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>
         &all_preds_list,
+    std::vector<std::vector<int>>& gt_cls,
     const SearchParameters *params_in) const {
 
     FAISS_THROW_IF_NOT(k > 0);
@@ -1696,20 +1830,21 @@ void IndexIVF::search_with_error_quantification(
                         }
                     }
 
-                    // // post-processing to add 0s.
-                    // // TODO: optimize.
-                    // for (auto &entry : nonconf_list) {
-                    //     auto &vec = entry.second;
-                    //     if (vec.empty())
-                    //         continue;
+                    // post-processing to compute GT classes
+                    for (auto &entry : nonconf_list) {
+                        auto &vec = entry.second;
+                        if (vec.empty())
+                            continue;
 
-                    //     float last_value = vec.back();
-                    //     for (int i = vec.size(); i >= 0; --i) {
-                    //         if (vec[i] == last_value) {
-                    //             vec[i] = 0;
-                    //         }
-                    //     }
-                    // }
+                        std::vector<int> classes(nlist, 0);
+                        float last_value = vec.back();
+                        for (int i = 0; i < vec.size(); ++i) {
+                            if (vec[i] != last_value) {
+                                classes[i] = 1;
+                            }
+                        }
+                        gt_cls.push_back(classes);
+                    }
 
                 } catch (const std::exception &e) {
                     std::lock_guard<std::mutex> lock(exception_mutex);
@@ -1965,8 +2100,7 @@ void IndexIVF::search_preassigned_with_error_quantification(
                         nonconf_list[i][keys[i * nprobe + ik]] = 1.0;
                     } else {
                         // auto x = centroids_density[keys[i * nprobe + ik]];
-                        nonconf_list[i][keys[i * nprobe + ik]] = 
-                            (2 * diff_scores[i] + score_k / MAX_DISTANCE) / 3;
+                        nonconf_list[i][keys[i * nprobe + ik]] = score_k / MAX_DISTANCE;
                     }
                 }
 
