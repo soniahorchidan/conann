@@ -409,16 +409,23 @@ struct IndexIVF : Index, IndexIVFInterface {
     // declared here but later a memcpy of half the GT
     std::vector<std::vector<float>> calib_cx;
     std::vector<std::vector<float>> test_cx;
+    std::vector<std::vector<float>> tune_cx;
     std::vector<std::vector<faiss::idx_t>> calib_labels;
+    std::vector<std::vector<faiss::idx_t>> tune_labels;
     std::vector<std::vector<faiss::idx_t>> test_labels;
     
+    // the following three tune_ are computed in prep_calib
+    std::vector<std::vector<float>> tune_nonconf;
+    std::vector<std::vector<std::vector<faiss::idx_t>>> tune_preds;
+    std::vector<float> tune_diffs;
+
     // the following three calib_ are computed in prep_calib
     std::vector<std::vector<float>> calib_nonconf;
     std::vector<std::vector<std::vector<faiss::idx_t>>> calib_preds;
     std::vector<float> calib_diffs;
 
 
-    void prep_calib(float calib_sz, float *xq, size_t nq, faiss::idx_t *gt);
+    std::pair<int, float> prep_calib(float alpha, float calib_sz, float tune_sz,  float *xq, size_t nq, faiss::idx_t *gt);
 
     std::tuple<std::vector<std::vector<float>>,
               std::vector<std::vector<std::vector<faiss::idx_t>>>,
@@ -454,7 +461,13 @@ struct IndexIVF : Index, IndexIVFInterface {
         const IVFSearchParameters *params = nullptr,
         IndexIVFStats *stats = nullptr) const;
 
-    float calibrate(float alpha, int k, float calib_sz, float *xq, size_t nq, faiss::idx_t *gt, float max_distance, std::string dataset_key);
+    struct CalibrationResults{
+        float lamhat;
+        int kreg;
+        float regLambda;
+    };
+
+    CalibrationResults calibrate(float alpha, int k, float calib_sz, float tune_sz, float *xq, size_t nq, faiss::idx_t *gt, float max_distance, std::string dataset_key);
 
     std::vector<double> compute_reg_nonconf(const std::vector<std::vector<float>>& softmax_scores, const std::vector<std::vector<faiss::idx_t>>& labels, double lam_reg, int k_reg);
 
@@ -487,11 +500,11 @@ struct IndexIVF : Index, IndexIVFInterface {
         const std::vector<std::vector<float>> &calib_nonconf,
         const std::vector<std::vector<std::vector<faiss::idx_t>>> &calib_preds);
 
-    std::pair<std::vector<float>, std::vector<int>> evaluate_test(float lamhat);
+    std::pair<std::vector<float>, std::vector<int>> evaluate_test(CalibrationResults params);
 
 
     std::pair<std::vector<float>, std::vector<int>>
-    evaluate(float lamhat, const std::vector<std::vector<float>> &queries,
+    evaluate(CalibrationResults params, const std::vector<std::vector<float>> &queries,
              const std::vector<std::vector<faiss::idx_t>> &labels);
 
     // --- RAPS
@@ -508,8 +521,11 @@ struct IndexIVF : Index, IndexIVFInterface {
         int kreg, 
         bool rand) const;
 
-    // ------
-    // ----------------------------
+    int pickKreg(
+        const std::vector<std::vector<float>>& s, //scores  
+        float alpha
+        // const std::vector<std::vector<int>>& y,   // Ground truth labels
+        ) const; 
 };
 
 struct RangeQueryResult;

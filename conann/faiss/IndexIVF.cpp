@@ -1142,16 +1142,26 @@ void IndexIVF::train(idx_t n, const float *x) {
     is_trained = true;
 }
 
-void IndexIVF::prep_calib(float calib_sz, float *xq, size_t nq,
+std::pair<int, float> IndexIVF::prep_calib(float alpha, float calib_sz, float tune_sz, float *xq, size_t nq,
                           faiss::idx_t *gt) {
-    size_t half_nq = size_t(calib_sz * nq);
+    size_t calib_nq = size_t(calib_sz * nq);
+    size_t tune_nq = size_t(tune_sz * nq);
+    size_t test_nq = nq - calib_nq - tune_nq;
+    std::cout << "Calibration query size: " << calib_nq 
+              << "\nTune query size: " << tune_nq 
+              << "\nTest query size: " << test_nq << std::endl;
     double t1 = elapsed();
-    calib_cx.resize(half_nq);
-    calib_labels.resize(half_nq);
-    test_cx.resize(nq - half_nq);
-    test_labels.resize(nq - half_nq);
 
-    for (size_t i = 0; i < half_nq; ++i) {
+    // Resize containers for all three parts
+    calib_cx.resize(calib_nq);
+    calib_labels.resize(calib_nq);
+    tune_cx.resize(tune_nq);
+    tune_labels.resize(tune_nq);
+    test_cx.resize(test_nq);
+    test_labels.resize(test_nq);
+
+    // Copy calibration data
+    for (size_t i = 0; i < calib_nq; ++i) {
         calib_cx[i].resize(d);
         std::memcpy(calib_cx[i].data(), xq + i * d, d * sizeof(float));
 
@@ -1159,71 +1169,88 @@ void IndexIVF::prep_calib(float calib_sz, float *xq, size_t nq,
         std::memcpy(calib_labels[i].data(), gt + i * K,
                     K * sizeof(faiss::idx_t));
     }
-    for (size_t i = half_nq; i < nq; ++i) {
-        test_cx[i - half_nq].resize(d);
-        std::memcpy(test_cx[i - half_nq].data(), xq + i * d, d * sizeof(float));
 
-        test_labels[i - half_nq].resize(K);
-        std::memcpy(test_labels[i - half_nq].data(), gt + i * K,
+    // Copy tuning data
+    for (size_t i = 0; i < tune_nq; ++i) {
+        tune_cx[i].resize(d);
+        std::memcpy(tune_cx[i].data(), xq + (i + calib_nq) * d, d * sizeof(float));
+
+        tune_labels[i].resize(K);
+        std::memcpy(tune_labels[i].data(), gt + (i + calib_nq) * K,
+                    K * sizeof(faiss::idx_t));
+    }
+
+    // Copy testing data
+    for (size_t i = 0; i < test_nq; ++i) {
+        test_cx[i].resize(d);
+        std::memcpy(test_cx[i].data(), xq + (i + calib_nq + tune_nq) * d, d * sizeof(float));
+
+        test_labels[i].resize(K);
+        std::memcpy(test_labels[i].data(), gt + (i + calib_nq + tune_nq) * K,
                     K * sizeof(faiss::idx_t));
     }
     std::cout << "Time spent doing memcpy: " << elapsed() - t1 << std::endl;
 
-    // caching block start
+        
     t1 = elapsed();
-    std::string cacheKeyDiffScores{conann_cache::create_key(conann_cache::Stage::Calib, DATASET_KEY, "diff_scores")};
-    if (readFromCache && conann_cache::check_cached_file(cacheKeyDiffScores)) {
-        calib_diffs = conann_cache::read_from_cache<std::vector<float>>(cacheKeyDiffScores);
-    } else {
-        calib_diffs = compute_difficulty_scores(calib_cx);
-        if (writeToCache) {
-            conann_cache::write_to_cache(cacheKeyDiffScores, calib_diffs);
-        }
-    }
+    calib_diffs = compute_difficulty_scores(calib_cx);
+    tune_diffs = compute_difficulty_scores(tune_cx);
     std::cout << "Time spent computing difficulty scores: " << elapsed() - t1 << std::endl;
+
+    // TODO(fabi): re-think caching strategy - e.g. by ignoring the stages and computing scores once for calib, tune and eval
+    // std::string cacheKeyNonConf{conann_cache::create_key(conann_cache::Stage::Calib, DATASET_KEY, "nonconf_list")};
+    // std::string cacheKeyAllPreds{conann_cache::create_key(conann_cache::Stage::Calib, DATASET_KEY, "all_preds")};
+    // if (readFromCache && conann_cache::check_cached_file(cacheKeyNonConf) && conann_cache::check_cached_file(cacheKeyAllPreds)) {
+    //     calib_nonconf = conann_cache::read_from_cache<std::vector<std::vector<float>>>(cacheKeyNonConf);
+    //     calib_preds = conann_cache::read_from_cache<std::vector<std::vector<std::vector<faiss::idx_t>>>>(cacheKeyAllPreds);
+    // } else {
+    //     // previously -1 was passed for lamhat here
+    //     auto [cn, c_clus, c_classes_gt] = compute_scores(calib_cx, calib_diffs);
+        
+    //     calib_nonconf = cn;
+    //     calib_preds = c_clus;
+
+    //     if (writeToCache) {
+    //         conann_cache::write_to_cache(cacheKeyNonConf, cn);
+    //         conann_cache::write_to_cache(cacheKeyAllPreds, c_clus);
+    //     }
+    // }
+
     t1 = elapsed();
-    
-    std::string cacheKeyNonConf{conann_cache::create_key(conann_cache::Stage::Calib, DATASET_KEY, "nonconf_list")};
-    std::string cacheKeyAllPreds{conann_cache::create_key(conann_cache::Stage::Calib, DATASET_KEY, "all_preds")};
-    if (readFromCache && conann_cache::check_cached_file(cacheKeyNonConf) && conann_cache::check_cached_file(cacheKeyAllPreds)) {
-        calib_nonconf = conann_cache::read_from_cache<std::vector<std::vector<float>>>(cacheKeyNonConf);
-        calib_preds = conann_cache::read_from_cache<std::vector<std::vector<std::vector<faiss::idx_t>>>>(cacheKeyAllPreds);
-    } else {
-        // previously -1 was passed for lamhat here
-        auto [cn, c_clus, c_classes_gt] = compute_scores(calib_cx, calib_diffs);
-
-        std::cout << "\n\n cn[0]=";
-        for (auto x: cn[0]) {
-            std::cout << x << " ";
-        }
-        std::cout << "\n\n";
-
-
-        float u = 0.5; // Randomization parameter
-        float lambda = 0.1; // Regularization hyperparameter
-        int kreg = 2; // Regularization hyperparameter
-                
-        auto sortedIndices = computeSortedIndices(cn);
-        // TODO: fix! need to pass all calib labels!! c_classes_gt
-        auto reg = regularizeScores(cn, sortedIndices, lambda, kreg, u);
-            
-        calib_nonconf = reg;
-        calib_preds = c_clus;
-        // std::cout << "\n\n Len simi_copy=" << simi_copy.size() << "\n";;
-            
-        std::cout << "\n\nRegularized scores=";
-        for (auto x: reg[0]) {
-            std::cout << x << " ";
-        }
-        std::cout << "\n\n";
-
-        if (writeToCache) {
-            conann_cache::write_to_cache(cacheKeyNonConf, cn);
-            conann_cache::write_to_cache(cacheKeyAllPreds, c_clus);
-        }
-    }
+    auto [cn, c_clus, c_classes_gt] = compute_scores(calib_cx, calib_diffs);
+    auto [tune_scores, _, _] = compute_scores(tune_cx, tune_diffs);
     std::cout << "Time spent computing scores: " << elapsed() - t1 << std::endl;
-    // caching block end
+
+    std::cout << "\n\n cn[0]=";
+    for (auto x: cn[0]) {
+        std::cout << x << " ";
+    }
+    std::cout << "\n\n";
+
+
+    int kstar{pickKreg(tune_scores, alpha)};
+    float u = 0.5; // Randomization parameter
+    float lambda = 0.01; // Regularization hyperparameter
+    int kreg = kstar; // Regularization hyperparameter
+    std::cout << "calib hyperparameters: kreg=" << kreg << " reg-lambda=" << lambda << "\n"; 
+            
+    t1 = elapsed();
+    auto sortedIndices = computeSortedIndices(cn);
+    // TODO: fix! need to pass all calib labels!! c_classes_gt
+    auto reg = regularizeScores(cn, sortedIndices, lambda, kreg, u);
+    std::cout << "Time spent regularizing scores: " << elapsed() - t1 << std::endl;
+        
+    calib_nonconf = reg;
+    calib_preds = c_clus;
+    // std::cout << "\n\n Len simi_copy=" << simi_copy.size() << "\n";;
+        
+    std::cout << "\n\nRegularized scores=";
+    for (auto x: reg[0]) {
+        std::cout << x << " ";
+    }
+    std::cout << "\n\n";
+
+    return std::make_pair(kreg, lambda);
 }
 
 // had unused lamdba passed in previously
@@ -1312,7 +1339,7 @@ double IndexIVF::elapsed() {
     return tv.tv_sec + tv.tv_usec * 1e-6;
 }
 
-float IndexIVF::calibrate(float alpha, int k, float calib_sz, float *xq,
+IndexIVF::CalibrationResults IndexIVF::calibrate(float alpha, int k, float calib_sz, float tune_sz, float *xq,
                           size_t nq, faiss::idx_t *gt, float max_distance, std::string dataset_key) {
     std::cout << "CONANN WARNING! Add back early stopping!\n";
     K = k;
@@ -1320,13 +1347,15 @@ float IndexIVF::calibrate(float alpha, int k, float calib_sz, float *xq,
     DATASET_KEY = dataset_key;
 
     // double t1 = elapsed();
-    prep_calib(calib_sz, xq, nq, gt);
+    auto [kreg, regLambda] = prep_calib(alpha, calib_sz, tune_sz, xq, nq, gt);
     // std::cout << "Time spent preparing calibration: " << elapsed() - t1 << std::endl;
     double t1 = elapsed();
     auto lamhat =
         optimization(alpha, calib_cx, calib_labels, calib_diffs, calib_nonconf, calib_preds);
     std::cout << "Time spent optimizing: " << elapsed() - t1 << std::endl;
-    return lamhat;
+    return CalibrationResults{
+        lamhat, kreg, regLambda
+    };
 }
 
 float IndexIVF::optimization(
@@ -1530,12 +1559,12 @@ double IndexIVF::false_negative_rate(
 }
 
 std::pair<std::vector<float>, std::vector<int>>
-IndexIVF::evaluate_test(float lamhat) {
-    return evaluate(lamhat, test_cx, test_labels);
+IndexIVF::evaluate_test(CalibrationResults params) {
+    return evaluate(params, test_cx, test_labels);
 }
 
 std::pair<std::vector<float>, std::vector<int>>
-IndexIVF::evaluate(float lamhat, const std::vector<std::vector<float>> &queries,
+IndexIVF::evaluate(CalibrationResults params, const std::vector<std::vector<float>> &queries,
                    const std::vector<std::vector<faiss::idx_t>> &labels) {
 
     // caching block start
@@ -1562,8 +1591,9 @@ IndexIVF::evaluate(float lamhat, const std::vector<std::vector<float>> &queries,
         auto [nonconf_t, all_preds_per_nprobe_t, _] = compute_scores(queries, diff_scores);
 
         float u = 0.5; // Randomization parameter
-        float lambda = 0.1; // Regularization hyperparameter
-        int kreg = 2; // Regularization hyperparameter
+        float lambda = params.regLambda; // Regularization hyperparameter
+        int kreg = params.kreg; // Regularization hyperparameter
+        std::cout << "eval hyperparameters: kreg=" << kreg << " reg-lambda=" << lambda << "\n"; 
                 
         auto sortedIndices = computeSortedIndices(nonconf_t);
         auto reg = regularizeScores(nonconf_t, sortedIndices, lambda, kreg, u);
@@ -1581,7 +1611,7 @@ IndexIVF::evaluate(float lamhat, const std::vector<std::vector<float>> &queries,
     std::cout << "Time spent computing scores: " << elapsed() - t1 << std::endl;
     t1 = elapsed();
     auto [test_preds, cl_searched] =
-        compute_predictions(lamhat, queries, nonconf, all_preds_per_nprobe);
+        compute_predictions(params.lamhat, queries, nonconf, all_preds_per_nprobe);
     std::cout << "Time spent computing predictions: " << elapsed() - t1 << std::endl;
 
     auto fnrs = recall_per_query(test_preds, labels);
@@ -1648,6 +1678,34 @@ std::vector<std::vector<int>> IndexIVF::computeSortedIndices(const std::vector<s
         sortedIndices.push_back(sortedClassIndices); // Add to the result list
     }
     return sortedIndices;
+}
+
+// intuition: the estimate of the smallest fixed size set that achieves coverage
+int IndexIVF::pickKreg(
+    const std::vector<std::vector<float>>& scores_per_q,  
+float alpha ) const {
+
+    size_t n{scores_per_q.size()};
+    std::vector<int> rank_per_query;
+    
+    for (const auto& row : scores_per_q) {
+        std::set<float> unique_scores;
+        for (float score : row) {
+            unique_scores.insert(score);
+        }
+        int highest_rank{unique_scores.size()};
+        // solution one: using the largest score
+        rank_per_query.push_back(highest_rank);
+        // solution two: using the average score (more aggressive regularization)
+        // rank_per_query.push_back(((highest_rank * (highest_rank + 1))/2)/highest_rank);
+    }
+
+    // Get conservative (1-alpha)-quantile of ranks
+    std::vector<int> sorted_ranks = rank_per_query;
+    std::sort(sorted_ranks.begin(), sorted_ranks.end());
+    int kstar_idx = std::ceil((1.0f - alpha) * (n + 1));
+    int kstar = sorted_ranks[kstar_idx];
+    return kstar;
 }
 
 
@@ -1831,20 +1889,20 @@ void IndexIVF::search_with_error_quantification(
                     }
 
                     // post-processing to compute GT classes
-                    for (auto &entry : nonconf_list) {
-                        auto &vec = entry.second;
-                        if (vec.empty())
-                            continue;
+                    // for (auto &entry : nonconf_list) {
+                    //     auto &vec = entry.second;
+                    //     if (vec.empty())
+                    //         continue;
 
-                        std::vector<int> classes(nlist, 0);
-                        float last_value = vec.back();
-                        for (int i = 0; i < vec.size(); ++i) {
-                            if (vec[i] != last_value) {
-                                classes[i] = 1;
-                            }
-                        }
-                        gt_cls.push_back(classes);
-                    }
+                    //     std::vector<int> classes(nlist, 0);
+                    //     float last_value = vec.back();
+                    //     for (int i = 0; i < vec.size(); ++i) {
+                    //         if (vec[i] != last_value) {
+                    //             classes[i] = 1;
+                    //         }
+                    //     }
+                    //     gt_cls.push_back(classes);
+                    // }
 
                 } catch (const std::exception &e) {
                     std::lock_guard<std::mutex> lock(exception_mutex);

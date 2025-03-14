@@ -108,6 +108,7 @@ bool check_cached_file(std::string key) {
 
 enum class Stage {
     Calib,
+    Tune,
     Eval
 };
 

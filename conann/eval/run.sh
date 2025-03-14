@@ -1,9 +1,6 @@
 #!/bin/sh
 
-# ./build/eval/error bert_100 0.5 0.1
-# ./build/eval/error bert_100 0.5 0.2
+# dataset, calibration size, alpha, nlist, k
 ./build/eval/error bert 0.5 0.1 128 100
-./build/eval/error bert 0.5 0.1 128 2000
-# ./build/eval/error glove_100 0.5 0.2 0.1 0.05
-# ./build/eval/error gist 0.5 0.2 0.1 0.05
-# ./build/eval/error deep10M 0.5 0.2 0.1 0.05
+# k is optional, can also run with previous dataset identifiers and will read k out of the GT
+./build/eval/error bert_100 0.5 0.1 128

@@ -247,9 +247,9 @@ int main(int argc, char **argv) {
                index_key, d);
 
         int nlist = input_nlist; // 1024 as per index_key
-        if (param1.find("bert") != std::string::npos || param1.find("synth") != std::string::npos) {
-            nlist = input_nlist; // was 128
-        }
+        // if (param1.find("bert") != std::string::npos || param1.find("synth") != std::string::npos) {
+        //     nlist = input_nlist; // was 128
+        // }
 
         faiss::IndexFlatL2 *flat_index = new faiss::IndexFlatL2(d);
         index = new faiss::IndexIVFFlat(flat_index, d, nlist, faiss::METRIC_L2);
@@ -324,8 +324,9 @@ int main(int argc, char **argv) {
     }
 
     printf("[%.3f s] ConANN Calibration\n", elapsed() - t0);
-    auto lamhat = index->calibrate(alpha, k, calib_sz, xq, nq, gt, max_distance, dataset_key);
-    std::cout << "Found lamhat=" << lamhat<< "\n";
+    float tune_sz = 0.2;
+    auto calib_res = index->calibrate(alpha, k, calib_sz, tune_sz, xq, nq, gt, max_distance, dataset_key);
+    std::cout << "Found lamhat=" << calib_res.lamhat << "\n";
     
     // Around half of GT was mem_copied into calib_cx and calib_labels so we can free up this memory here
     delete[] xq;
@@ -334,7 +335,7 @@ int main(int argc, char **argv) {
 
     
     printf("[%.3f s] ConANN Evaluation\n", elapsed() - t0);
-    auto [fnr, cls] = index->evaluate_test(lamhat);
+    auto [fnr, cls] = index->evaluate_test(calib_res);
     float avg_fnr = std::accumulate(fnr.begin(), fnr.end(), 0.0) / fnr.size();
     printf("[%.3f s] Finished: alpha=%.3f, test fnr=%.3f, avg cls searched=%.3f\n", elapsed() - t0, alpha, avg_fnr, computeAverage(cls));
     std::cout << "alpha=" << alpha << ", test fnr=" << avg_fnr
