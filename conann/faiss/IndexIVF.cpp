@@ -1218,39 +1218,19 @@ std::pair<int, float> IndexIVF::prep_calib(float alpha, float calib_sz, float tu
 
     t1 = elapsed();
     auto [cn, c_clus, c_classes_gt] = compute_scores(calib_cx, calib_diffs);
-    auto [tune_scores, _, _] = compute_scores(tune_cx, tune_diffs);
+    calib_nonconf = cn;
+    calib_preds = c_clus;
+    auto [tn, t_clus, _] = compute_scores(tune_cx, tune_diffs);
+    tune_nonconf = tn;
+    tune_preds = t_clus;
     std::cout << "Time spent computing scores: " << elapsed() - t1 << std::endl;
 
-    std::cout << "\n\n cn[0]=";
-    for (auto x: cn[0]) {
-        std::cout << x << " ";
-    }
-    std::cout << "\n\n";
+    // NOTE: randomization disabled. Can enable easier by having a class-level boolean.
+    int kreg = pickKreg(tune_nonconf, alpha); // Regularization hyperparameter
+    float lambdaReg = pickLambdaReg(alpha, kreg);
+    std::cout << "Calib hyperparameters: kreg=" << kreg << " reg-lambda=" << lambdaReg << "\n"; 
 
-
-    int kstar{pickKreg(tune_scores, alpha)};
-    float u = 0.5; // Randomization parameter
-    float lambda = 0.01; // Regularization hyperparameter
-    int kreg = kstar; // Regularization hyperparameter
-    std::cout << "calib hyperparameters: kreg=" << kreg << " reg-lambda=" << lambda << "\n"; 
-            
-    t1 = elapsed();
-    auto sortedIndices = computeSortedIndices(cn);
-    // TODO: fix! need to pass all calib labels!! c_classes_gt
-    auto reg = regularizeScores(cn, sortedIndices, lambda, kreg, u);
-    std::cout << "Time spent regularizing scores: " << elapsed() - t1 << std::endl;
-        
-    calib_nonconf = reg;
-    calib_preds = c_clus;
-    // std::cout << "\n\n Len simi_copy=" << simi_copy.size() << "\n";;
-        
-    std::cout << "\n\nRegularized scores=";
-    for (auto x: reg[0]) {
-        std::cout << x << " ";
-    }
-    std::cout << "\n\n";
-
-    return std::make_pair(kreg, lambda);
+    return std::make_pair(kreg, lambdaReg);
 }
 
 // had unused lamdba passed in previously
@@ -1351,7 +1331,7 @@ IndexIVF::CalibrationResults IndexIVF::calibrate(float alpha, int k, float calib
     // std::cout << "Time spent preparing calibration: " << elapsed() - t1 << std::endl;
     double t1 = elapsed();
     auto lamhat =
-        optimization(alpha, calib_cx, calib_labels, calib_diffs, calib_nonconf, calib_preds);
+        optimization(alpha, kreg, regLambda, calib_cx, calib_labels, calib_diffs, calib_nonconf, calib_preds);
     std::cout << "Time spent optimizing: " << elapsed() - t1 << std::endl;
     return CalibrationResults{
         lamhat, kreg, regLambda
@@ -1359,11 +1339,16 @@ IndexIVF::CalibrationResults IndexIVF::calibrate(float alpha, int k, float calib
 }
 
 float IndexIVF::optimization(
-    float alpha, const std::vector<std::vector<float>> &calib_cx,
+    float alpha, int kreg, float lambdaReg, 
+    const std::vector<std::vector<float>> &calib_cx,
     const std::vector<std::vector<faiss::idx_t>> &calib_labels,
     const std::vector<float> &calib_diffs,
     const std::vector<std::vector<float>> &calib_nonconf,
     const std::vector<std::vector<std::vector<faiss::idx_t>>> &calib_preds) {
+
+    auto sorthed_indices_cn = computeSortedIndices(calib_nonconf);
+    auto reg_scores = regularizeScores(calib_nonconf, sorthed_indices_cn, lambdaReg, kreg);
+
     int n = calib_cx.size();
     float target_fnr =
         (static_cast<float>(n) + 1.0f) / n * alpha - 1.0f / (n + 1.0f);
@@ -1393,7 +1378,7 @@ float IndexIVF::optimization(
             *(args->calib_preds));
     };
     LamhatParams params = {this,          target_fnr,   &calib_cx,
-                           &calib_labels, &calib_diffs, &calib_nonconf,
+                           &calib_labels, &calib_diffs, &reg_scores,
                            &calib_preds};
     F.params = &params;
 
@@ -1590,13 +1575,13 @@ IndexIVF::evaluate(CalibrationResults params, const std::vector<std::vector<floa
     } else {
         auto [nonconf_t, all_preds_per_nprobe_t, _] = compute_scores(queries, diff_scores);
 
-        float u = 0.5; // Randomization parameter
-        float lambda = params.regLambda; // Regularization hyperparameter
+        float u = 0; // Randomization parameter
+        float regLambda = params.regLambda; // Regularization hyperparameter
         int kreg = params.kreg; // Regularization hyperparameter
-        std::cout << "eval hyperparameters: kreg=" << kreg << " reg-lambda=" << lambda << "\n"; 
+        std::cout << "eval hyperparameters: kreg=" << kreg << " reg-lambda=" << regLambda << "\n"; 
                 
         auto sortedIndices = computeSortedIndices(nonconf_t);
-        auto reg = regularizeScores(nonconf_t, sortedIndices, lambda, kreg, u);
+        auto reg = regularizeScores(nonconf_t, sortedIndices, regLambda, kreg);
         nonconf = reg;
 
         all_preds_per_nprobe = all_preds_per_nprobe_t;
@@ -1682,8 +1667,7 @@ std::vector<std::vector<int>> IndexIVF::computeSortedIndices(const std::vector<s
 
 // intuition: the estimate of the smallest fixed size set that achieves coverage
 int IndexIVF::pickKreg(
-    const std::vector<std::vector<float>>& scores_per_q,  
-float alpha ) const {
+    const std::vector<std::vector<float>>& scores_per_q, float alpha ) const {
 
     size_t n{scores_per_q.size()};
     std::vector<int> rank_per_query;
@@ -1693,11 +1677,13 @@ float alpha ) const {
         for (float score : row) {
             unique_scores.insert(score);
         }
-        int highest_rank{unique_scores.size()};
+        int highest_rank = unique_scores.size();
         // solution one: using the largest score
         rank_per_query.push_back(highest_rank);
         // solution two: using the average score (more aggressive regularization)
         // rank_per_query.push_back(((highest_rank * (highest_rank + 1))/2)/highest_rank);
+        // solution three: return 1
+        // rank_per_query.push_back(1);
     }
 
     // Get conservative (1-alpha)-quantile of ranks
@@ -1709,13 +1695,36 @@ float alpha ) const {
 }
 
 
+int IndexIVF::pickLambdaReg(
+    float alpha, int kreg) const {
+    int best_size = nlist;
+    float lambda_star = 0.001;
+    
+    std::vector<float> lambda_values = {0.001, 0.01, 0.1, 0.2, 0.5};
+    for (float temp_lambda : lambda_values) {
+        auto lamhat = const_cast<faiss::IndexIVF*>(this)->optimization(alpha, kreg, temp_lambda, tune_cx, tune_labels, tune_diffs, tune_nonconf, tune_preds);
+
+        auto params = CalibrationResults{
+            lamhat, kreg, temp_lambda
+        };
+
+        auto [_, cls] = const_cast<faiss::IndexIVF*>(this)->evaluate(params, tune_cx, test_labels);
+        float avg_cls_searched = std::accumulate(cls.begin(), cls.end(), 0.0) / cls.size();
+        if (avg_cls_searched < best_size) {
+            lambda_star = temp_lambda;
+            best_size = avg_cls_searched;
+            std::cout << "Found better lambdaReg=" << lambda_star << "\n";
+        }
+    }
+    return lambda_star;
+}
+
+
 std::vector<std::vector<float>> IndexIVF::regularizeScores(
     const std::vector<std::vector<float>>& s,  
     const std::vector<std::vector<int>>& I, 
-    // const std::vector<std::vector<int>>& y,
     float lambda, 
-    int kreg, 
-    bool rnd) const {
+    int kreg) const {
     
     size_t n = s.size();
     size_t K = s[0].size();  // Number of classes
@@ -1743,11 +1752,11 @@ std::vector<std::vector<float>> IndexIVF::regularizeScores(
             // Add regularization
             Eij += computeRegularization(ox[j], lambda, kreg);
 
-            // Randomization if enabled
-            if (rnd) {
-                float U = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
-                Eij -= U * s[i][originalClassIndex]; 
-            }
+            // // Randomization if enabled
+            // if (RAPS_RANDOMIZATION_ENABLED) {
+            //     float U = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+            //     Eij -= U * s[i][originalClassIndex]; 
+            // }
 
             // Assign the score to the correct class
             E[i][originalClassIndex] = Eij / 500;

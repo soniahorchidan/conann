@@ -478,7 +478,8 @@ struct IndexIVF : Index, IndexIVFInterface {
         const std::vector<std::vector<float>> &queries);
 
     float optimization(
-        float alpha, const std::vector<std::vector<float>> &calib_cx,
+        float alpha, int kreg, float lambdaReg, 
+        const std::vector<std::vector<float>> &calib_cx,
         const std::vector<std::vector<faiss::idx_t>> &calib_labels,
         const std::vector<float> &calib_diffs,
         const std::vector<std::vector<float>> &calib_nonconf,
@@ -516,16 +517,13 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::vector<std::vector<float>> regularizeScores(
         const std::vector<std::vector<float>>& s, //scores  
         const std::vector<std::vector<int>>& I,
-        // const std::vector<std::vector<int>>& y,   // Ground truth labels
         float lambda, 
-        int kreg, 
-        bool rand) const;
-
+        int kreg) const;
     int pickKreg(
         const std::vector<std::vector<float>>& s, //scores  
         float alpha
-        // const std::vector<std::vector<int>>& y,   // Ground truth labels
         ) const; 
+    int pickLambdaReg(float alpha, int kreg) const;
 };
 
 struct RangeQueryResult;

@@ -1,0 +1,111 @@
+Running dataset: gauss2
+4 arguments
+[0.000 s] Loading train set
+[0.034 s] Preparing index "IVF1024,Flat" d=128
+[0.034 s] Training on 250000 vectors
+[5.445 s] Loading database
+[5.475 s] Indexing database, size 500000*128
+[7.291 s] Loading queries
+[7.291 s] Loading ground truth for 10000 queries
+[7.293 s] Loading groud truth vector
+[7.294 s] ConANN Calibration
+Time spent doing memcpy: 0.0144038
+Time spent computing difficulty scores: 4.15596
+Time spent computing scores: 75.9536
+Optimization: lambda=0 fnr=1
+Optimization: lambda=1 fnr=3e-05
+Optimization: lambda=0.900207 fnr=0.999844
+Optimization: lambda=0.99004 fnr=0.973808
+Optimization: lambda=0.998979 fnr=3e-05
+Optimization: lambda=0.99451 fnr=3e-05
+Optimization: lambda=0.992275 fnr=0.10768
+Optimization: lambda=0.992438 fnr=0.062574
+Optimization: lambda=0.992303 fnr=0.0983159
+Optimization: lambda=0.992299 fnr=0.0997339
+Optimization: lambda=0.992298 fnr=0.0998139
+Optimization: lambda=0.992298 fnr=0.0998139
+Optimization: lambda=0.992286 fnr=0.1036
+Optimization: lambda=0.992298 fnr=0.0998139
+Optimization: lambda=0.992292 fnr=0.10175
+Optimization: lambda=0.992298 fnr=0.0998279
+Time spent optimizing: 4.17579
+Found lamhat=0.992298
+[91.594 s] ConANN Evaluation
+Time spent computing scores: 76.4849
+Time spent computing predictions: 0.0196049
+[175.222 s] Finished: alpha=0.100, test fnr=0.093, avg cls searched=8.653
+alpha=0.1, test fnr=0.093236, avg cls searched=8.65257
+
+Running dataset: gauss3
+4 arguments
+[0.000 s] Loading train set
+[0.045 s] Preparing index "IVF1024,Flat" d=128
+[0.045 s] Training on 250000 vectors
+[5.602 s] Loading database
+[5.633 s] Indexing database, size 500000*128
+[7.500 s] Loading queries
+[7.503 s] Loading ground truth for 10000 queries
+[7.506 s] Loading groud truth vector
+[7.507 s] ConANN Calibration
+Time spent doing memcpy: 0.01423
+Time spent computing difficulty scores: 4.23223
+Time spent computing scores: 75.9375
+Optimization: lambda=0 fnr=1
+Optimization: lambda=1 fnr=2e-06
+Optimization: lambda=0.900182 fnr=0.99979
+Optimization: lambda=0.990034 fnr=2e-06
+Optimization: lambda=0.945108 fnr=0.99979
+Optimization: lambda=0.985549 fnr=2e-06
+Optimization: lambda=0.965328 fnr=0.99979
+Optimization: lambda=0.98353 fnr=0.022426
+Optimization: lambda=0.977114 fnr=0.985732
+Optimization: lambda=0.983015 fnr=0.057802
+Optimization: lambda=0.98243 fnr=0.132946
+Optimization: lambda=0.982688 fnr=0.0954581
+Optimization: lambda=0.982658 fnr=0.099546
+Optimization: lambda=0.982656 fnr=0.099752
+Optimization: lambda=0.982655 fnr=0.099836
+Time spent optimizing: 3.5984
+Found lamhat=0.982655
+[91.290 s] ConANN Evaluation
+Time spent computing scores: 76.4716
+Time spent computing predictions: 0.0146239
+[174.634 s] Finished: alpha=0.100, test fnr=0.101, avg cls searched=8.369
+alpha=0.1, test fnr=0.100936, avg cls searched=8.36933
+
+Running dataset: gauss5
+4 arguments
+[0.000 s] Loading train set
+[0.044 s] Preparing index "IVF1024,Flat" d=128
+[0.044 s] Training on 250000 vectors
+[6.186 s] Loading database
+[6.218 s] Indexing database, size 500000*128
+[8.270 s] Loading queries
+[8.272 s] Loading ground truth for 10000 queries
+[8.275 s] Loading groud truth vector
+[8.276 s] ConANN Calibration
+Time spent doing memcpy: 0.0142729
+Time spent computing difficulty scores: 4.24589
+Time spent computing scores: 77.2391
+Optimization: lambda=0 fnr=1
+Optimization: lambda=1 fnr=0.000984002
+Optimization: lambda=0.901067 fnr=0.999694
+Optimization: lambda=0.990209 fnr=0.999694
+Optimization: lambda=0.999031 fnr=0.999694
+Optimization: lambda=0.999904 fnr=0.000984002
+Optimization: lambda=0.999468 fnr=0.507838
+Optimization: lambda=0.999819 fnr=0.000984002
+Optimization: lambda=0.999643 fnr=0.000984002
+Optimization: lambda=0.999555 fnr=0.00887997
+Optimization: lambda=0.999512 fnr=0.138596
+Optimization: lambda=0.999525 fnr=0.071338
+Optimization: lambda=0.999519 fnr=0.0958422
+Optimization: lambda=0.999518 fnr=0.0999282
+Time spent optimizing: 4.21567
+Found lamhat=0.999518
+[93.991 s] ConANN Evaluation
+Time spent computing scores: 75.0598
+Time spent computing predictions: 0.0162041
+[175.889 s] Finished: alpha=0.100, test fnr=0.108, avg cls searched=141.679
+alpha=0.1, test fnr=0.107624, avg cls searched=141.679
+
