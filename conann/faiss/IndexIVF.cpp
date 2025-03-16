@@ -1190,7 +1190,6 @@ std::pair<int, float> IndexIVF::prep_calib(float alpha, float calib_sz, float tu
                     K * sizeof(faiss::idx_t));
     }
     std::cout << "Time spent doing memcpy: " << elapsed() - t1 << std::endl;
-
         
     t1 = elapsed();
     calib_diffs = compute_difficulty_scores(calib_cx);
@@ -1592,7 +1591,6 @@ IndexIVF::evaluate(CalibrationResults params, const std::vector<std::vector<floa
         }
     }
     // caching block end
-
     std::cout << "Time spent computing scores: " << elapsed() - t1 << std::endl;
     t1 = elapsed();
     auto [test_preds, cl_searched] =
@@ -1679,11 +1677,11 @@ int IndexIVF::pickKreg(
         }
         int highest_rank = unique_scores.size();
         // solution one: using the largest score
-        rank_per_query.push_back(highest_rank);
+        // rank_per_query.push_back(highest_rank);
         // solution two: using the average score (more aggressive regularization)
         // rank_per_query.push_back(((highest_rank * (highest_rank + 1))/2)/highest_rank);
         // solution three: return 1
-        // rank_per_query.push_back(1);
+        rank_per_query.push_back(1);
     }
 
     // Get conservative (1-alpha)-quantile of ranks
@@ -1695,12 +1693,12 @@ int IndexIVF::pickKreg(
 }
 
 
-int IndexIVF::pickLambdaReg(
+float IndexIVF::pickLambdaReg(
     float alpha, int kreg) const {
-    int best_size = nlist;
+    int best_size = n_list;
     float lambda_star = 0.001;
     
-    std::vector<float> lambda_values = {0.001, 0.01, 0.1, 0.2, 0.5};
+    std::vector<float> lambda_values = {0.0, 0.001, 0.01, 0.1, 0.2, 0.5};
     for (float temp_lambda : lambda_values) {
         auto lamhat = const_cast<faiss::IndexIVF*>(this)->optimization(alpha, kreg, temp_lambda, tune_cx, tune_labels, tune_diffs, tune_nonconf, tune_preds);
 
@@ -1710,12 +1708,14 @@ int IndexIVF::pickLambdaReg(
 
         auto [_, cls] = const_cast<faiss::IndexIVF*>(this)->evaluate(params, tune_cx, test_labels);
         float avg_cls_searched = std::accumulate(cls.begin(), cls.end(), 0.0) / cls.size();
+        std::cout << "Avg cls searched="<< avg_cls_searched << "\n";
         if (avg_cls_searched < best_size) {
             lambda_star = temp_lambda;
             best_size = avg_cls_searched;
-            std::cout << "Found better lambdaReg=" << lambda_star << "\n";
+            std::cout << "Found better lambdaReg=" << lambda_star << ". Updating.\n";
         }
     }
+    std::cout << "Best lambdaReg found=" << lambda_star << "\n";
     return lambda_star;
 }
 

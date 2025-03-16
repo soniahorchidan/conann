@@ -523,7 +523,7 @@ struct IndexIVF : Index, IndexIVFInterface {
         const std::vector<std::vector<float>>& s, //scores  
         float alpha
         ) const; 
-    int pickLambdaReg(float alpha, int kreg) const;
+    float pickLambdaReg(float alpha, int kreg) const;
 };
 
 struct RangeQueryResult;
