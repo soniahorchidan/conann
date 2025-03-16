@@ -510,7 +510,6 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     // --- RAPS
     std::vector<std::pair<int, float>> sortClassesByProbability(const std::vector<float>& classProbabilities) const;
-    std::vector<float> computeRho(const std::vector<std::pair<int, float>>& sortedClasses) const;
     std::vector<int> computeOx(const std::vector<std::pair<int, float>>& sortedClasses) const;
     float computeRegularization(int ox_y, float lambda, int kreg) const;
     std::vector<std::vector<int>> computeSortedIndices(const std::vector<std::vector<float>>& classProbabilities) const;

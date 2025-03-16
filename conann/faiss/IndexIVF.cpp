@@ -1614,17 +1614,7 @@ std::vector<std::pair<int, float>> IndexIVF::sortClassesByProbability(const std:
     });
     return sortedClasses;
 }
-    
-// ρx(y) is the cumulative probability mass of all classes more likely than y
-std::vector<float> IndexIVF::computeRho(const std::vector<std::pair<int, float>>& sortedClasses) const {
-    std::vector<float> rho(sortedClasses.size(), 0.0);
-    float cumulativeProb = 0.0;
-    for (size_t i = 0; i < sortedClasses.size(); ++i) {
-        rho[i] = cumulativeProb;
-        cumulativeProb += sortedClasses[i].second;
-    }
-    return rho;
-}
+
 
 // ox(y) is the rank of class y based on its predicted probability.
 std::vector<int> IndexIVF::computeOx(const std::vector<std::pair<int, float>>& sortedClasses) const {
@@ -1723,12 +1713,15 @@ float IndexIVF::pickLambdaReg(
 std::vector<std::vector<float>> IndexIVF::regularizeScores(
     const std::vector<std::vector<float>>& s,  
     const std::vector<std::vector<int>>& I, 
-    float lambda, 
+    float lambdaReg, 
     int kreg) const {
     
     size_t n = s.size();
     size_t K = s[0].size();  // Number of classes
     std::vector<std::vector<float>> E(n, std::vector<float>(K, 0.0f));
+
+    float max_reg_val = (1 + lambdaReg * (n_list - kreg)) + 10;
+    std::cout << "Maximum regularization value possible with this config: " << max_reg_val << "\n";
 
     for (size_t i = 0; i < n; ++i) {
         // Sort classes by softmax probability, keeping track of the original indices
@@ -1741,7 +1734,6 @@ std::vector<std::vector<float>> IndexIVF::regularizeScores(
                       return a.second < b.second;  // Sort by probability in descending order
                   });
 
-        auto rho = computeRho(sortedClasses);
         auto ox = computeOx(sortedClasses);
 
         // Now, compute the nonconformity scores and assign them to the original class indices
@@ -1750,7 +1742,7 @@ std::vector<std::vector<float>> IndexIVF::regularizeScores(
             float Eij = 1.0f - s[i][originalClassIndex]; // Basic nonconformity score for the class
 
             // Add regularization
-            Eij += computeRegularization(ox[j], lambda, kreg);
+            Eij += computeRegularization(ox[j], lambdaReg, kreg);
 
             // // Randomization if enabled
             // if (RAPS_RANDOMIZATION_ENABLED) {
@@ -1759,7 +1751,7 @@ std::vector<std::vector<float>> IndexIVF::regularizeScores(
             // }
 
             // Assign the score to the correct class
-            E[i][originalClassIndex] = Eij / 500;
+            E[i][originalClassIndex] = Eij / max_reg_val;
         }
     }
 
