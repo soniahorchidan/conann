@@ -170,7 +170,7 @@ int main(int argc, char **argv) {
         gtI = "../data/synthetic10/indices-1000.fvecs";
         gtD = "../data/synthetic10/distances-1000.fvecs";
         max_distance = bert_max_dist;
-    } else if (dataset_key == "sift1M") {
+    } else if (param1 == "sift1M") {
         db = "../data/sift1M/sift_base.fvecs";
         query = "../data/sift1M/sift_query.fvecs";
         gtI = "../data/sift1M/sift_gt_index.ivecs";
