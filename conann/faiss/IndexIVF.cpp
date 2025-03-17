@@ -1667,11 +1667,11 @@ int IndexIVF::pickKreg(
         }
         int highest_rank = unique_scores.size();
         // solution one: using the largest score
-        // rank_per_query.push_back(highest_rank);
+        rank_per_query.push_back(highest_rank);
         // solution two: using the average score (more aggressive regularization)
         // rank_per_query.push_back(((highest_rank * (highest_rank + 1))/2)/highest_rank);
         // solution three: return 1
-        rank_per_query.push_back(1);
+        // rank_per_query.push_back(1);
     }
 
     // Get conservative (1-alpha)-quantile of ranks
@@ -1696,7 +1696,7 @@ float IndexIVF::pickLambdaReg(
             lamhat, kreg, temp_lambda
         };
 
-        auto [_, cls] = const_cast<faiss::IndexIVF*>(this)->evaluate(params, tune_cx, test_labels);
+        auto [_, cls] = const_cast<faiss::IndexIVF*>(this)->evaluate(params, tune_cx, tune_labels);
         float avg_cls_searched = std::accumulate(cls.begin(), cls.end(), 0.0) / cls.size();
         std::cout << "Avg cls searched="<< avg_cls_searched << "\n";
         if (avg_cls_searched < best_size) {

@@ -100,22 +100,24 @@ void write_to_file(const std::vector<T> &data, const std::string &filename) {
 /// Command like this: ./error sift1M 0.5 0.1
 int main(int argc, char **argv) {
     std::cout << argc - 1 << " arguments" << std::endl;
-    if (argc - 1 < 5) {
-        printf("You should at least input 4 params: the dataset name, calib "
-               "size percentage, alpha, n_list, [k]\n");
+    if (argc - 1 <= 5) {
+        printf("You should at least input 5 params: the dataset name, calib "
+               "size (%), tune size (%), alpha, nlist, [k]\n");
         return 0;
     }
-    std::string param1 = argv[1];
-    std::string param2 = argv[2];
-    std::string param3 = argv[3];
-    std::string param4 = argv[4];
-    std::string param5 = argv[5];
+    std::string param1 = argv[1]; // dataset
+    std::string param2 = argv[2]; // calibration size (%)
+    std::string param3 = argv[3]; // tuning size (%)
+    std::string param4 = argv[4]; // alpha
+    std::string param5 = argv[5]; // nlist value
+    std::string param6 = argv[6]; // optional: k
 
     float calib_sz = std::stof(param2);
-    float alpha = std::stof(param3);
-    int input_nlist = std::stoi(param4);
-    std::string selection_k = param5; // needs to be part of the dataset read in process and will be determined on reading in GTs
-    std::string dataset_key = param1 + "-" + param4 + "-" + selection_k;
+    float tune_sz = std::stof(param3);
+    float alpha = std::stof(param4);
+    int input_nlist = std::stoi(param5);
+    std::string selection_k = param6; // needs to be part of the dataset read in process and will be determined on reading in GTs
+    std::string dataset_key = param1 + "-" + std::to_string(input_nlist) + "-" + selection_k;
 
     float max_distance;
 
@@ -246,16 +248,13 @@ int main(int argc, char **argv) {
         printf("[%.3f s] Preparing index \"%s\" d=%ld\n", elapsed() - t0,
                index_key, d);
 
-        int nlist = input_nlist; // 1024 as per index_key
-        // if (param1.find("bert") != std::string::npos || param1.find("synth") != std::string::npos) {
-        //     nlist = input_nlist; // was 128
-        // }
+        int nlist = input_nlist; // 1024 originally
 
         faiss::IndexFlatL2 *flat_index = new faiss::IndexFlatL2(d);
         index = new faiss::IndexIVFFlat(flat_index, d, nlist, faiss::METRIC_L2);
         // Make clustering seed explicit
         index->cp.seed = 420;
-        // index->pq.cp.seed = 666 
+        // index->pq.cp.seed = 420; // Use this when testing with quantization
 
         index->nprobe = nlist;
         // train on half the dataset
@@ -324,7 +323,6 @@ int main(int argc, char **argv) {
     }
 
     printf("[%.3f s] ConANN Calibration\n", elapsed() - t0);
-    float tune_sz = 0.2;
     auto calib_res = index->calibrate(alpha, k, calib_sz, tune_sz, xq, nq, gt, max_distance, dataset_key);
     std::cout << "Found lamhat=" << calib_res.lamhat << "\n";
     
