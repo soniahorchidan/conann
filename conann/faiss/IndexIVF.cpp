@@ -1225,7 +1225,8 @@ std::pair<int, float> IndexIVF::prep_calib(float alpha, float calib_sz, float tu
     std::cout << "Time spent computing scores: " << elapsed() - t1 << std::endl;
 
     // NOTE: randomization disabled. Can enable easier by having a class-level boolean.
-    int kreg = pickKreg(tune_nonconf, alpha); // Regularization hyperparameter
+    // int kreg = pickKreg(tune_nonconf, alpha); // Regularization hyperparameter
+    int kreg = 1;
     float lambdaReg = pickLambdaReg(alpha, kreg);
     std::cout << "Calib hyperparameters: kreg=" << kreg << " reg-lambda=" << lambdaReg << "\n"; 
 
@@ -1671,7 +1672,9 @@ int IndexIVF::pickKreg(
         // solution two: using the average score (more aggressive regularization)
         // rank_per_query.push_back(((highest_rank * (highest_rank + 1))/2)/highest_rank);
         // solution three: return 1
-        // rank_per_query.push_back(1);
+        rank_per_query.push_back(1);
+        // solution three: return 0
+        // rank_per_query.push_back(0);
     }
 
     // Get conservative (1-alpha)-quantile of ranks
@@ -1686,7 +1689,7 @@ int IndexIVF::pickKreg(
 float IndexIVF::pickLambdaReg(
     float alpha, int kreg) const {
     int best_size = n_list;
-    float lambda_star = 0.001;
+    float lambda_star = 0;
     
     std::vector<float> lambda_values = {0.0, 0.001, 0.01, 0.1, 0.2, 0.5};
     for (float temp_lambda : lambda_values) {
