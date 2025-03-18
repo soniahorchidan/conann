@@ -258,6 +258,7 @@ int main(int argc, char **argv) {
 
         index->nprobe = nlist;
         // train on half the dataset
+        // TODO: Are we sure the data is shuffled otherwise we train K-means out of distribution.
         auto ntt = size_t(0.5 * nt);
         printf("[%.3f s] Training on %ld vectors\n", elapsed() - t0, ntt);
 

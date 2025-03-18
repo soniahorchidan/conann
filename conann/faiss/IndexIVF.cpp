@@ -1216,10 +1216,10 @@ std::pair<int, float> IndexIVF::prep_calib(float alpha, float calib_sz, float tu
     // }
 
     t1 = elapsed();
-    auto [cn, c_clus, c_classes_gt] = compute_scores(calib_cx, calib_diffs);
+    auto [cn, c_clus] = compute_scores(calib_cx, calib_diffs);
     calib_nonconf = cn;
     calib_preds = c_clus;
-    auto [tn, t_clus, _] = compute_scores(tune_cx, tune_diffs);
+    auto [tn, t_clus] = compute_scores(tune_cx, tune_diffs);
     tune_nonconf = tn;
     tune_preds = t_clus;
     std::cout << "Time spent computing scores: " << elapsed() - t1 << std::endl;
@@ -1235,15 +1235,13 @@ std::pair<int, float> IndexIVF::prep_calib(float alpha, float calib_sz, float tu
 
 // had unused lamdba passed in previously
 std::tuple<std::vector<std::vector<float>>,
-              std::vector<std::vector<std::vector<faiss::idx_t>>>,
-              std::vector<std::vector<int>>>
+              std::vector<std::vector<std::vector<faiss::idx_t>>>>
 IndexIVF::compute_scores(const std::vector<std::vector<float>> &queries,
                          const std::vector<float> &diff_scores) {
     int num_queries = queries.size();
     std::unordered_map<faiss::idx_t, std::vector<float>> nonconf_list;
     std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>
         all_preds_list;
-    std::vector<std::vector<int>> gt_cls;
 
     std::vector<faiss::idx_t> nns(K * num_queries);
     std::vector<float> dis(K * num_queries);
@@ -1256,21 +1254,24 @@ IndexIVF::compute_scores(const std::vector<std::vector<float>> &queries,
 
     search_with_error_quantification(num_queries, flattened.data(), K,
                                      dis.data(), nns.data(),
-                                     diff_scores, nonconf_list, all_preds_list, gt_cls);
+                                     diff_scores, nonconf_list, all_preds_list);
 
     // Convert to simpler format
+    // TODO: (fabi) This can be avoided with the use of pointer arithemetic except for hashmaps when parallelizing 
+    // non-conformity scores
     std::vector<std::vector<float>> n_vec(nonconf_list.size());
     for (const auto &[key, value] : nonconf_list) {
         n_vec[key] = value;
     }
 
+    // predictions
     std::vector<std::vector<std::vector<faiss::idx_t>>> preds_vec(
         all_preds_list.size());
 
     for (const auto &[key, value] : all_preds_list) {
         preds_vec[key] = value;
     }
-    return std::make_tuple(n_vec, preds_vec, gt_cls);
+    return std::make_tuple(n_vec, preds_vec);
 }
 
 float IndexIVF::cosine_similarity(const std::vector<float> &vec1,
@@ -1573,7 +1574,7 @@ IndexIVF::evaluate(CalibrationResults params, const std::vector<std::vector<floa
         nonconf = conann_cache::read_from_cache<std::vector<std::vector<float>>>(cacheKeyNonConf);
         all_preds_per_nprobe = conann_cache::read_from_cache<std::vector<std::vector<std::vector<faiss::idx_t>>>>(cacheKeyAllPreds);
     } else {
-        auto [nonconf_t, all_preds_per_nprobe_t, _] = compute_scores(queries, diff_scores);
+        auto [nonconf_t, all_preds_per_nprobe_t] = compute_scores(queries, diff_scores);
 
         float u = 0; // Randomization parameter
         float regLambda = params.regLambda; // Regularization hyperparameter
@@ -1764,33 +1765,33 @@ std::vector<std::vector<float>> IndexIVF::regularizeScores(
 
 // ------------
 
-void IndexIVF::search_conann(idx_t n, const float *x, float lamhat,
-                             float *distances, idx_t *labels) {
-    std::vector<std::vector<float>> queries(n, std::vector<float>(d));
-    for (size_t i = 0; i < n; ++i) {
-        for (size_t j = 0; j < d; ++j) {
-            queries[i][j] = x[i * d + j];
-        }
-    }
-    std::vector<float> diff_scores = compute_difficulty_scores(queries);
-    auto [nonconf, all_preds_per_nprobe, gt] = compute_scores(queries, diff_scores);
-    auto [test_preds, cl_searched] =
-        compute_predictions(lamhat, queries, nonconf, all_preds_per_nprobe);
+// void IndexIVF::search_conann(idx_t n, const float *x, float lamhat,
+//                              float *distances, idx_t *labels) {
+//     std::vector<std::vector<float>> queries(n, std::vector<float>(d));
+//     for (size_t i = 0; i < n; ++i) {
+//         for (size_t j = 0; j < d; ++j) {
+//             queries[i][j] = x[i * d + j];
+//         }
+//     }
+//     std::vector<float> diff_scores = compute_difficulty_scores(queries);
+//     auto [nonconf, all_preds_per_nprobe, gt] = compute_scores(queries, diff_scores);
+//     auto [test_preds, cl_searched] =
+//         compute_predictions(lamhat, queries, nonconf, all_preds_per_nprobe);
 
-    // Move results
-    // TODO: optimize
-    int nq = queries.size();
-    for (int i = 0; i < nq; ++i) {
-        if (test_preds[i].empty()) {
-            std::fill(labels + i * K, labels + (i + 1) * K, 0);
-        } else {
-            for (int j = 0; j < K; ++j) {
-                labels[i * K + j] = test_preds[i][j];
-            }
-        }
-    }
-    // TODO: maintain distances too
-}
+//     // Move results
+//     // TODO: optimize
+//     int nq = queries.size();
+//     for (int i = 0; i < nq; ++i) {
+//         if (test_preds[i].empty()) {
+//             std::fill(labels + i * K, labels + (i + 1) * K, 0);
+//         } else {
+//             for (int j = 0; j < K; ++j) {
+//                 labels[i * K + j] = test_preds[i][j];
+//             }
+//         }
+//     }
+//     // TODO: maintain distances too
+// }
 
 // had unused lambda passed in previously
 void IndexIVF::search_with_error_quantification(
@@ -1798,7 +1799,6 @@ void IndexIVF::search_with_error_quantification(
     std::unordered_map<faiss::idx_t, std::vector<float>> &nonconf_list,
     std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>
         &all_preds_list,
-    std::vector<std::vector<int>>& gt_cls,
     const SearchParameters *params_in) const {
 
     FAISS_THROW_IF_NOT(k > 0);
@@ -1821,7 +1821,9 @@ void IndexIVF::search_with_error_quantification(
             std::unordered_map<faiss::idx_t,
                                std::vector<std::vector<faiss::idx_t>>>
                 &all_preds_list) {
+            // flattened list of the cluster ids of each cluster to incrementally search for current list of queries
             std::unique_ptr<idx_t[]> idx(new idx_t[n * nprobe]);
+            // flattened list of the distances to each cluster to incrementally search for current list of queries
             std::unique_ptr<float[]> coarse_dis(new float[n * nprobe]);
 
             double t0 = getmillisecs();
@@ -1875,6 +1877,8 @@ void IndexIVF::search_with_error_quantification(
                                            diff_scores.begin() + i1),
                         local_nonconf_list, local_all_preds_list);
 
+                    // TODO: (fabi) in order to avoid the hashmaps and this bit of ugliness we can use pointer arthimetic.
+                    // If we follow the lead of faiss this should be safe and fairly easy to do.
                     // Use pragma critical to ensure thread-safe merging
 #pragma omp critical
                     {
@@ -1891,22 +1895,6 @@ void IndexIVF::search_with_error_quantification(
                                 pair.second.begin(), pair.second.end());
                         }
                     }
-
-                    // post-processing to compute GT classes
-                    // for (auto &entry : nonconf_list) {
-                    //     auto &vec = entry.second;
-                    //     if (vec.empty())
-                    //         continue;
-
-                    //     std::vector<int> classes(nlist, 0);
-                    //     float last_value = vec.back();
-                    //     for (int i = 0; i < vec.size(); ++i) {
-                    //         if (vec[i] != last_value) {
-                    //             classes[i] = 1;
-                    //         }
-                    //     }
-                    //     gt_cls.push_back(classes);
-                    // }
 
                 } catch (const std::exception &e) {
                     std::lock_guard<std::mutex> lock(exception_mutex);

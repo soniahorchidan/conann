@@ -394,8 +394,8 @@ struct IndexIVF : Index, IndexIVFInterface {
     IndexIVF();
 
     // ConANN block
-    int n_list;
-    int K;
+    int n_list; // number of clusters
+    int K; // number of neighbors to search for
     float MAX_DISTANCE = 100000;
     std::vector<std::vector<float>> centroids;
     std::vector<float> centroids_density;
@@ -406,30 +406,35 @@ struct IndexIVF : Index, IndexIVFInterface {
     // for convenience
     double elapsed();
 
-    // declared here but later a memcpy of half the GT
+    // query vectors nq * d
     std::vector<std::vector<float>> calib_cx;
     std::vector<std::vector<float>> test_cx;
     std::vector<std::vector<float>> tune_cx;
+    // query ground truths nq * k
     std::vector<std::vector<faiss::idx_t>> calib_labels;
     std::vector<std::vector<faiss::idx_t>> tune_labels;
     std::vector<std::vector<faiss::idx_t>> test_labels;
     
-    // the following three tune_ are computed in prep_calib
-    std::vector<std::vector<float>> tune_nonconf;
-    std::vector<std::vector<std::vector<faiss::idx_t>>> tune_preds;
+    // The following datastructures are computed in prep_calib.
+    // Difficulty score for each query depending on location relative to cluster borders.
+    std::vector<float> calib_diffs;
     std::vector<float> tune_diffs;
 
-    // the following three calib_ are computed in prep_calib
+    // The nonconformity scores assigned to all clusters per query (nq * nlist).
     std::vector<std::vector<float>> calib_nonconf;
+    std::vector<std::vector<float>> tune_nonconf;
+    
+    // The predicted vector ids of all K neighbors for each query for increasing nprobe values.
+    // This stores all incremental search results as nprobe is increased from 1 to nlist.
+    // shape: nq * nlist * k
     std::vector<std::vector<std::vector<faiss::idx_t>>> calib_preds;
-    std::vector<float> calib_diffs;
+    std::vector<std::vector<std::vector<faiss::idx_t>>> tune_preds;
 
 
     std::pair<int, float> prep_calib(float alpha, float calib_sz, float tune_sz,  float *xq, size_t nq, faiss::idx_t *gt);
 
     std::tuple<std::vector<std::vector<float>>,
-              std::vector<std::vector<std::vector<faiss::idx_t>>>,
-              std::vector<std::vector<int>>>
+              std::vector<std::vector<std::vector<faiss::idx_t>>>>
     compute_scores(const std::vector<std::vector<float>> &queries, const std::vector<float> &diff_scores);
 
     std::pair<std::vector<std::vector<faiss::idx_t>>, std::vector<int>>
@@ -444,11 +449,10 @@ struct IndexIVF : Index, IndexIVFInterface {
         std::unordered_map<faiss::idx_t, std::vector<float>> &nonconf_list,
         std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>
             &all_preds_list,
-        std::vector<std::vector<int>>& gt_cls,
         const SearchParameters *params = nullptr) const;
 
-    void search_conann(idx_t n, const float *x, float lamhat, float *distances,
-                       idx_t *labels);
+    // void search_conann(idx_t n, const float *x, float lamhat, float *distances,
+                    //    idx_t *labels);
 
     // if in calibration mode, lamhat needs to be -1.
     void search_preassigned_with_error_quantification(
