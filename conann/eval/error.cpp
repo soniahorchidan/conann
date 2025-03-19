@@ -232,9 +232,6 @@ int main(int argc, char **argv) {
     omp_set_num_threads(8);
     double t0 = elapsed();
 
-    // this is typically the fastest one.
-    const char *index_key = "IVF1024,Flat";
-
     faiss::IndexIVFFlat *index;
 
     size_t d;
@@ -245,8 +242,8 @@ int main(int argc, char **argv) {
         size_t nt;
         float *xt = fvecs_read(db.c_str(), &d, &nt);
 
-        printf("[%.3f s] Preparing index \"%s\" d=%ld\n", elapsed() - t0,
-               index_key, d);
+        printf("[%.3f s] Preparing index IVFFlat_%i d=%ld\n", elapsed() - t0,
+               input_nlist, d);
 
         int nlist = input_nlist; // 1024 originally
 

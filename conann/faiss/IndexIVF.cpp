@@ -1142,7 +1142,7 @@ void IndexIVF::train(idx_t n, const float *x) {
     is_trained = true;
 }
 
-std::pair<int, float> IndexIVF::prep_calib(float alpha, float calib_sz, float tune_sz, float *xq, size_t nq,
+void IndexIVF::prep_execution(float alpha, float calib_sz, float tune_sz, float *queries, size_t nq,
                           faiss::idx_t *gt) {
     size_t calib_nq = size_t(calib_sz * nq);
     size_t tune_nq = size_t(tune_sz * nq);
@@ -1163,7 +1163,7 @@ std::pair<int, float> IndexIVF::prep_calib(float alpha, float calib_sz, float tu
     // Copy calibration data
     for (size_t i = 0; i < calib_nq; ++i) {
         calib_cx[i].resize(d);
-        std::memcpy(calib_cx[i].data(), xq + i * d, d * sizeof(float));
+        std::memcpy(calib_cx[i].data(), queries + i * d, d * sizeof(float));
 
         calib_labels[i].resize(K);
         std::memcpy(calib_labels[i].data(), gt + i * K,
@@ -1173,7 +1173,7 @@ std::pair<int, float> IndexIVF::prep_calib(float alpha, float calib_sz, float tu
     // Copy tuning data
     for (size_t i = 0; i < tune_nq; ++i) {
         tune_cx[i].resize(d);
-        std::memcpy(tune_cx[i].data(), xq + (i + calib_nq) * d, d * sizeof(float));
+        std::memcpy(tune_cx[i].data(), queries + (i + calib_nq) * d, d * sizeof(float));
 
         tune_labels[i].resize(K);
         std::memcpy(tune_labels[i].data(), gt + (i + calib_nq) * K,
@@ -1183,7 +1183,7 @@ std::pair<int, float> IndexIVF::prep_calib(float alpha, float calib_sz, float tu
     // Copy testing data
     for (size_t i = 0; i < test_nq; ++i) {
         test_cx[i].resize(d);
-        std::memcpy(test_cx[i].data(), xq + (i + calib_nq + tune_nq) * d, d * sizeof(float));
+        std::memcpy(test_cx[i].data(), queries + (i + calib_nq + tune_nq) * d, d * sizeof(float));
 
         test_labels[i].resize(K);
         std::memcpy(test_labels[i].data(), gt + (i + calib_nq + tune_nq) * K,
@@ -1194,6 +1194,7 @@ std::pair<int, float> IndexIVF::prep_calib(float alpha, float calib_sz, float tu
     t1 = elapsed();
     calib_diffs = compute_difficulty_scores(calib_cx);
     tune_diffs = compute_difficulty_scores(tune_cx);
+    test_diffs = compute_difficulty_scores(test_cx);
     std::cout << "Time spent computing difficulty scores: " << elapsed() - t1 << std::endl;
 
     // TODO(fabi): re-think caching strategy - e.g. by ignoring the stages and computing scores once for calib, tune and eval
@@ -1215,22 +1216,17 @@ std::pair<int, float> IndexIVF::prep_calib(float alpha, float calib_sz, float tu
     //     }
     // }
 
+    // std::tie is faily important to avoid copy of large amounts of memory
+    std::cout << "Starting to compute scores: " << std::endl;
     t1 = elapsed();
-    auto [cn, c_clus] = compute_scores(calib_cx, calib_diffs);
-    calib_nonconf = cn;
-    calib_preds = c_clus;
-    auto [tn, t_clus] = compute_scores(tune_cx, tune_diffs);
-    tune_nonconf = tn;
-    tune_preds = t_clus;
-    std::cout << "Time spent computing scores: " << elapsed() - t1 << std::endl;
-
-    // NOTE: randomization disabled. Can enable easier by having a class-level boolean.
-    // int kreg = pickKreg(tune_nonconf, alpha); // Regularization hyperparameter
-    int kreg = 1;
-    float lambdaReg = pickLambdaReg(alpha, kreg);
-    std::cout << "Calib hyperparameters: kreg=" << kreg << " reg-lambda=" << lambdaReg << "\n"; 
-
-    return std::make_pair(kreg, lambdaReg);
+    std::tie(calib_nonconf, calib_preds) = compute_scores(calib_cx, calib_diffs);
+    std::cout << "Time spent computing calib scores: " << elapsed() - t1 << std::endl;
+    t1 = elapsed();
+    std::tie(tune_nonconf, tune_preds) = compute_scores(tune_cx, tune_diffs);
+    std::cout << "Time spent computing tune scores: " << elapsed() - t1 << std::endl;
+    t1 = elapsed();
+    std::tie(test_nonconf, test_preds) = compute_scores(test_cx, test_diffs);
+    std::cout << "Time spent computing test scores: " << elapsed() - t1 << std::endl;
 }
 
 // had unused lamdba passed in previously
@@ -1321,14 +1317,20 @@ IndexIVF::CalibrationResults IndexIVF::calibrate(float alpha, int k, float calib
     DATASET_KEY = dataset_key;
 
     // double t1 = elapsed();
-    auto [kreg, regLambda] = prep_calib(alpha, calib_sz, tune_sz, xq, nq, gt);
+    prep_execution(alpha, calib_sz, tune_sz, xq, nq, gt);
     // std::cout << "Time spent preparing calibration: " << elapsed() - t1 << std::endl;
-    double t1 = elapsed();
+
+    // NOTE: randomization disabled. Can enable easier by having a class-level boolean.
+    // int kreg = pickKreg(tune_nonconf, alpha); // Regularization hyperparameter
+    int kreg = 1;
+    float lambdaReg = pickLambdaReg(alpha, kreg);
+    std::cout << "Calib hyperparameters: kreg=" << kreg << " reg-lambda=" << lambdaReg << "\n"; 
+    // double t1 = elapsed();
     auto lamhat =
-        optimization(alpha, kreg, regLambda, calib_cx, calib_labels, calib_diffs, calib_nonconf, calib_preds);
-    std::cout << "Time spent optimizing: " << elapsed() - t1 << std::endl;
+        optimization(alpha, kreg, lambdaReg, calib_cx, calib_labels, calib_diffs, calib_nonconf, calib_preds);
+    // std::cout << "Time spent optimizing: " << elapsed() - t1 << std::endl;
     return CalibrationResults{
-        lamhat, kreg, regLambda
+        lamhat, kreg, lambdaReg
     };
 }
 
@@ -1417,7 +1419,7 @@ double IndexIVF::lamhat_threshold(
     auto [preds, _] =
         compute_predictions(lambda, queries, nonconf_scores, all_preds);
     float fnr = false_negative_rate(preds, labels);
-    std::cout << "Optimization: lambda=" << lambda << " fnr=" << fnr << "\n";
+    // std::cout << "Optimization: lambda=" << lambda << " fnr=" << fnr << "\n";
     // std::cout << lambda << " " << fnr << "\n";
 
     return fnr - target_fnr;
@@ -1539,57 +1541,26 @@ double IndexIVF::false_negative_rate(
 
 std::pair<std::vector<float>, std::vector<int>>
 IndexIVF::evaluate_test(CalibrationResults params) {
-    return evaluate(params, test_cx, test_labels);
+    return evaluate(params, test_cx, test_labels, test_nonconf, test_preds);
 }
 
 std::pair<std::vector<float>, std::vector<int>>
 IndexIVF::evaluate(CalibrationResults params, const std::vector<std::vector<float>> &queries,
-                   const std::vector<std::vector<faiss::idx_t>> &labels) {
+                   const std::vector<std::vector<faiss::idx_t>> &labels, const std::vector<std::vector<float>> &nonconf_scores,
+                   const std::vector<std::vector<std::vector<faiss::idx_t>>> &all_preds) {
 
-    // caching block start
-    std::vector<float> diff_scores;
-    std::string cacheKeyDiffScores{conann_cache::create_key(conann_cache::Stage::Eval, DATASET_KEY, "diff_scores")};
-    if (readFromCache && conann_cache::check_cached_file(cacheKeyDiffScores)) {
-        diff_scores = conann_cache::read_from_cache<std::vector<float>>(cacheKeyDiffScores);
-    } else {
-        diff_scores = compute_difficulty_scores(queries);
-        if (writeToCache) {
-            conann_cache::write_to_cache(cacheKeyDiffScores, diff_scores);
-        }
-    }
-    double t1 = elapsed();
+    float regLambda = params.regLambda; // Regularization hyperparameter
+    int kreg = params.kreg; // Regularization hyperparameter
+    std::cout << "eval hyperparameters: kreg=" << kreg << " reg-lambda=" << regLambda << "\n"; 
+            
+    auto t1 = elapsed();
+    auto sortedIndices = computeSortedIndices(nonconf_scores);
+    auto reg_nonconf_scores = regularizeScores(nonconf_scores, sortedIndices, regLambda, kreg);
+    std::cout << "Time spent regularizing scores: " << elapsed() - t1 << std::endl;
     
-    std::vector<std::vector<float>> nonconf{};
-    std::vector<std::vector<std::vector<faiss::idx_t>>> all_preds_per_nprobe{};
-    std::string cacheKeyNonConf{conann_cache::create_key(conann_cache::Stage::Eval, DATASET_KEY, "nonconf_list")};
-    std::string cacheKeyAllPreds{conann_cache::create_key(conann_cache::Stage::Eval, DATASET_KEY, "all_preds")};
-    if (readFromCache && conann_cache::check_cached_file(cacheKeyNonConf) && conann_cache::check_cached_file(cacheKeyAllPreds)) {
-        nonconf = conann_cache::read_from_cache<std::vector<std::vector<float>>>(cacheKeyNonConf);
-        all_preds_per_nprobe = conann_cache::read_from_cache<std::vector<std::vector<std::vector<faiss::idx_t>>>>(cacheKeyAllPreds);
-    } else {
-        auto [nonconf_t, all_preds_per_nprobe_t] = compute_scores(queries, diff_scores);
-
-        float u = 0; // Randomization parameter
-        float regLambda = params.regLambda; // Regularization hyperparameter
-        int kreg = params.kreg; // Regularization hyperparameter
-        std::cout << "eval hyperparameters: kreg=" << kreg << " reg-lambda=" << regLambda << "\n"; 
-                
-        auto sortedIndices = computeSortedIndices(nonconf_t);
-        auto reg = regularizeScores(nonconf_t, sortedIndices, regLambda, kreg);
-        nonconf = reg;
-
-        all_preds_per_nprobe = all_preds_per_nprobe_t;
-        if (writeToCache) {
-            conann_cache::write_to_cache(cacheKeyNonConf, nonconf_t);
-            conann_cache::write_to_cache(
-                    cacheKeyAllPreds, all_preds_per_nprobe_t);
-        }
-    }
-    // caching block end
-    std::cout << "Time spent computing scores: " << elapsed() - t1 << std::endl;
     t1 = elapsed();
     auto [test_preds, cl_searched] =
-        compute_predictions(params.lamhat, queries, nonconf, all_preds_per_nprobe);
+        compute_predictions(params.lamhat, queries, reg_nonconf_scores, all_preds);
     std::cout << "Time spent computing predictions: " << elapsed() - t1 << std::endl;
 
     auto fnrs = recall_per_query(test_preds, labels);
@@ -1693,7 +1664,7 @@ float IndexIVF::pickLambdaReg(
             lamhat, kreg, temp_lambda
         };
 
-        auto [_, cls] = const_cast<faiss::IndexIVF*>(this)->evaluate(params, tune_cx, tune_labels);
+        auto [_, cls] = const_cast<faiss::IndexIVF*>(this)->evaluate(params, tune_cx, tune_labels, tune_nonconf, tune_preds);
         float avg_cls_searched = std::accumulate(cls.begin(), cls.end(), 0.0) / cls.size();
         std::cout << "Avg cls searched="<< avg_cls_searched << "\n";
         if (avg_cls_searched < best_size) {

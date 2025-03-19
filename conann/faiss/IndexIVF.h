@@ -406,6 +406,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     // for convenience
     double elapsed();
 
+    // The following datastructures are assigned and computed in prep_execution.
     // query vectors nq * d
     std::vector<std::vector<float>> calib_cx;
     std::vector<std::vector<float>> test_cx;
@@ -415,23 +416,25 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::vector<std::vector<faiss::idx_t>> tune_labels;
     std::vector<std::vector<faiss::idx_t>> test_labels;
     
-    // The following datastructures are computed in prep_calib.
     // Difficulty score for each query depending on location relative to cluster borders.
     std::vector<float> calib_diffs;
     std::vector<float> tune_diffs;
+    std::vector<float> test_diffs;
 
     // The nonconformity scores assigned to all clusters per query (nq * nlist).
     std::vector<std::vector<float>> calib_nonconf;
     std::vector<std::vector<float>> tune_nonconf;
+    std::vector<std::vector<float>> test_nonconf;
     
     // The predicted vector ids of all K neighbors for each query for increasing nprobe values.
     // This stores all incremental search results as nprobe is increased from 1 to nlist.
     // shape: nq * nlist * k
     std::vector<std::vector<std::vector<faiss::idx_t>>> calib_preds;
     std::vector<std::vector<std::vector<faiss::idx_t>>> tune_preds;
+    std::vector<std::vector<std::vector<faiss::idx_t>>> test_preds;
 
-
-    std::pair<int, float> prep_calib(float alpha, float calib_sz, float tune_sz,  float *xq, size_t nq, faiss::idx_t *gt);
+    // performance heavy pre-computation of scores, uses cache if possible
+    void prep_execution(float alpha, float calib_sz, float tune_sz,  float *queries, size_t nq, faiss::idx_t *labels);
 
     std::tuple<std::vector<std::vector<float>>,
               std::vector<std::vector<std::vector<faiss::idx_t>>>>
@@ -504,7 +507,8 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     std::pair<std::vector<float>, std::vector<int>>
     evaluate(CalibrationResults params, const std::vector<std::vector<float>> &queries,
-             const std::vector<std::vector<faiss::idx_t>> &labels);
+             const std::vector<std::vector<faiss::idx_t>> &labels, const std::vector<std::vector<float>> &nonconf_scores,
+                   const std::vector<std::vector<std::vector<faiss::idx_t>>> &all_preds);
 
     // --- RAPS
     std::vector<std::pair<int, float>> sortClassesByProbability(const std::vector<float>& classProbabilities) const;
