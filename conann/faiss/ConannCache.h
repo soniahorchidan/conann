@@ -106,31 +106,6 @@ bool check_cached_file(std::string key) {
     return file.good();
 }
 
-enum class Stage {
-    Calib,
-    Tune,
-    Eval
-};
-
-// I am hoping that dataset_size, dimension and k are enough to uniquely identify one dataset
-// Stage is used do differentiate between calibration and evaluation
-// Variable to identify the data we are storing
-std::string create_key(Stage stage, const std::string& dataset_key, const std::string& variable_name) {
-    std::string key{dataset_key + "_" + variable_name};
-    switch (stage)
-    {
-    case Stage::Calib:
-        key += "_calib";
-        break;
-    case Stage::Eval:
-        key += "_eval";
-        break;
-    default:
-        break;
-    }
-    return key;
-}
-
 void test_cache_io() {
     // Test 1: Simple vector<float>
     {
@@ -203,12 +178,6 @@ void test_cache_io() {
 
         auto shouldNotBeCached = faiss::conann_cache::check_cached_file("unknown");
         assert(!shouldNotBeCached);
-    }
-    
-    // Test 6: Test key
-    {
-        auto key = faiss::conann_cache::create_key(conann_cache::Stage::Calib, "databert", "test");
-        assert(key == "databert_test_calib");
     }
     
     // Cleanup

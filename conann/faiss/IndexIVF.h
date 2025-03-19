@@ -399,9 +399,9 @@ struct IndexIVF : Index, IndexIVFInterface {
     float MAX_DISTANCE = 100000;
     std::vector<std::vector<float>> centroids;
     std::vector<float> centroids_density;
-    std::string DATASET_KEY;
-    bool readFromCache = false;
-    bool writeToCache = false; // can usually leave true (minimal extra latency)
+    std::string dataset_name;
+    bool readFromCache = true;
+    bool writeToCache = true; // can usually leave true (minimal extra latency)
 
     // for convenience
     double elapsed();
@@ -434,11 +434,11 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::vector<std::vector<std::vector<faiss::idx_t>>> test_preds;
 
     // performance heavy pre-computation of scores, uses cache if possible
-    void prep_execution(float alpha, float calib_sz, float tune_sz,  float *queries, size_t nq, faiss::idx_t *labels);
+    void prep_execution(float alpha, float calib_sz, float tune_sz, const float *queries, size_t nq, const faiss::idx_t *gt);
 
     std::tuple<std::vector<std::vector<float>>,
               std::vector<std::vector<std::vector<faiss::idx_t>>>>
-    compute_scores(const std::vector<std::vector<float>> &queries, const std::vector<float> &diff_scores);
+    compute_scores(faiss::idx_t num_queries, const float *queries, const std::vector<float> &diff_scores);
 
     std::pair<std::vector<std::vector<faiss::idx_t>>, std::vector<int>>
     compute_predictions(
@@ -470,13 +470,13 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     CalibrationResults calibrate(float alpha, int k, float calib_sz, float tune_sz, float *xq, size_t nq, faiss::idx_t *gt, float max_distance, std::string dataset_key);
 
-    std::vector<double> compute_reg_nonconf(const std::vector<std::vector<float>>& softmax_scores, const std::vector<std::vector<faiss::idx_t>>& labels, double lam_reg, int k_reg);
+    // std::vector<double> compute_reg_nonconf(const std::vector<std::vector<float>>& softmax_scores, const std::vector<std::vector<faiss::idx_t>>& labels, double lam_reg, int k_reg);
 
     float cosine_similarity(const std::vector<float> &vec1,
                                   const std::vector<float> &vec2) ;
 
     std::vector<float> compute_difficulty_scores(
-        const std::vector<std::vector<float>> &queries);
+        faiss::idx_t nq, const float *queries);
 
     float optimization(
         float alpha, int kreg, float lambdaReg, 

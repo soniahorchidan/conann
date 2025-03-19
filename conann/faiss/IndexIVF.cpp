@@ -1142,15 +1142,56 @@ void IndexIVF::train(idx_t n, const float *x) {
     is_trained = true;
 }
 
-void IndexIVF::prep_execution(float alpha, float calib_sz, float tune_sz, float *queries, size_t nq,
-                          faiss::idx_t *gt) {
+void IndexIVF::prep_execution(float alpha, float calib_sz, float tune_sz, const float *queries, size_t nq,
+                          const faiss::idx_t *gt) {
+    
+    std::cout << "Starting to prep execution: " << std::endl;
+    // Difficulty score for each query depending on location relative to cluster borders.
+    std::vector<float> all_diffs;
+    // The nonconformity scores assigned to all clusters per query (nq * nlist).
+    std::vector<std::vector<float>> all_nonconf_scores;
+    // The predicted vector ids of all K neighbors for each query for increasing nprobe values.
+    // This stores all incremental search results as nprobe is increased from 1 to nlist.
+    // shape: nq * nlist * k
+    std::vector<std::vector<std::vector<faiss::idx_t>>> all_preds;
+
+    std::string cacheKeyDiffs{dataset_name + "_" + std::to_string(n_list) + "_" + "diffs"};
+    if (readFromCache && conann_cache::check_cached_file(cacheKeyDiffs)) {
+        all_diffs = conann_cache::read_from_cache<std::vector<float>>(cacheKeyDiffs);
+    } else {
+        double t1 = elapsed();
+        all_diffs = compute_difficulty_scores(nq, queries);
+        std::cout << "Time spent computing difficulty scores: " << elapsed() - t1 << std::endl;
+        
+        if (writeToCache) {
+            conann_cache::write_to_cache(cacheKeyDiffs, all_diffs);
+        }
+    }
+
+    std::string cacheKeyNonConf{dataset_name + "_" + std::to_string(n_list) + "_" + std::to_string(K) + "_" + "nonconf_scores"};
+    std::string cacheKeyAllPreds{dataset_name + "_" + std::to_string(n_list) + "_" + std::to_string(K) + "_" + "all_preds"};
+    if (readFromCache && conann_cache::check_cached_file(cacheKeyNonConf) && conann_cache::check_cached_file(cacheKeyAllPreds)) {
+        all_nonconf_scores = conann_cache::read_from_cache<std::vector<std::vector<float>>>(cacheKeyNonConf);
+        all_preds = conann_cache::read_from_cache<std::vector<std::vector<std::vector<faiss::idx_t>>>>(cacheKeyAllPreds);
+    } else {
+        double t1 = elapsed();
+        std::tie(all_nonconf_scores, all_preds) = compute_scores(nq, queries, all_diffs);
+        std::cout << "Time spent computing scores: " << elapsed() - t1 << std::endl;
+
+        if (writeToCache) {
+            conann_cache::write_to_cache(cacheKeyNonConf, all_nonconf_scores);
+            conann_cache::write_to_cache(cacheKeyAllPreds, all_preds);
+        }
+    }
+
+    double t1 = elapsed();
+    // slice computed data and store on index
     size_t calib_nq = size_t(calib_sz * nq);
     size_t tune_nq = size_t(tune_sz * nq);
     size_t test_nq = nq - calib_nq - tune_nq;
     std::cout << "Calibration query size: " << calib_nq 
               << "\nTune query size: " << tune_nq 
               << "\nTest query size: " << test_nq << std::endl;
-    double t1 = elapsed();
 
     // Resize containers for all three parts
     calib_cx.resize(calib_nq);
@@ -1169,6 +1210,9 @@ void IndexIVF::prep_execution(float alpha, float calib_sz, float tune_sz, float 
         std::memcpy(calib_labels[i].data(), gt + i * K,
                     K * sizeof(faiss::idx_t));
     }
+    calib_diffs = std::vector<float>(all_diffs.begin(), all_diffs.begin() + calib_nq);
+    calib_nonconf= std::vector<std::vector<float>>(all_nonconf_scores.begin(), all_nonconf_scores.begin() + calib_nq);
+    calib_preds = std::vector<std::vector<std::vector<faiss::idx_t>>>(all_preds.begin(), all_preds.begin() + calib_nq);
 
     // Copy tuning data
     for (size_t i = 0; i < tune_nq; ++i) {
@@ -1179,6 +1223,9 @@ void IndexIVF::prep_execution(float alpha, float calib_sz, float tune_sz, float 
         std::memcpy(tune_labels[i].data(), gt + (i + calib_nq) * K,
                     K * sizeof(faiss::idx_t));
     }
+    tune_diffs = std::vector<float>(all_diffs.begin() + calib_nq, all_diffs.begin() + calib_nq + tune_nq);
+    tune_nonconf= std::vector<std::vector<float>>(all_nonconf_scores.begin() + calib_nq, all_nonconf_scores.begin() + calib_nq + tune_nq);
+    tune_preds = std::vector<std::vector<std::vector<faiss::idx_t>>>(all_preds.begin() + calib_nq, all_preds.begin() + calib_nq + tune_nq);
 
     // Copy testing data
     for (size_t i = 0; i < test_nq; ++i) {
@@ -1189,52 +1236,19 @@ void IndexIVF::prep_execution(float alpha, float calib_sz, float tune_sz, float 
         std::memcpy(test_labels[i].data(), gt + (i + calib_nq + tune_nq) * K,
                     K * sizeof(faiss::idx_t));
     }
+    test_diffs = std::vector<float>(all_diffs.begin() + calib_nq + tune_nq, all_diffs.end());
+    test_nonconf= std::vector<std::vector<float>>(all_nonconf_scores.begin() + calib_nq + tune_nq, all_nonconf_scores.end());
+    test_preds = std::vector<std::vector<std::vector<faiss::idx_t>>>(all_preds.begin() + calib_nq + tune_nq, all_preds.end());
+
     std::cout << "Time spent doing memcpy: " << elapsed() - t1 << std::endl;
-        
-    t1 = elapsed();
-    calib_diffs = compute_difficulty_scores(calib_cx);
-    tune_diffs = compute_difficulty_scores(tune_cx);
-    test_diffs = compute_difficulty_scores(test_cx);
-    std::cout << "Time spent computing difficulty scores: " << elapsed() - t1 << std::endl;
-
-    // TODO(fabi): re-think caching strategy - e.g. by ignoring the stages and computing scores once for calib, tune and eval
-    // std::string cacheKeyNonConf{conann_cache::create_key(conann_cache::Stage::Calib, DATASET_KEY, "nonconf_list")};
-    // std::string cacheKeyAllPreds{conann_cache::create_key(conann_cache::Stage::Calib, DATASET_KEY, "all_preds")};
-    // if (readFromCache && conann_cache::check_cached_file(cacheKeyNonConf) && conann_cache::check_cached_file(cacheKeyAllPreds)) {
-    //     calib_nonconf = conann_cache::read_from_cache<std::vector<std::vector<float>>>(cacheKeyNonConf);
-    //     calib_preds = conann_cache::read_from_cache<std::vector<std::vector<std::vector<faiss::idx_t>>>>(cacheKeyAllPreds);
-    // } else {
-    //     // previously -1 was passed for lamhat here
-    //     auto [cn, c_clus, c_classes_gt] = compute_scores(calib_cx, calib_diffs);
-        
-    //     calib_nonconf = cn;
-    //     calib_preds = c_clus;
-
-    //     if (writeToCache) {
-    //         conann_cache::write_to_cache(cacheKeyNonConf, cn);
-    //         conann_cache::write_to_cache(cacheKeyAllPreds, c_clus);
-    //     }
-    // }
-
-    // std::tie is faily important to avoid copy of large amounts of memory
-    std::cout << "Starting to compute scores: " << std::endl;
-    t1 = elapsed();
-    std::tie(calib_nonconf, calib_preds) = compute_scores(calib_cx, calib_diffs);
-    std::cout << "Time spent computing calib scores: " << elapsed() - t1 << std::endl;
-    t1 = elapsed();
-    std::tie(tune_nonconf, tune_preds) = compute_scores(tune_cx, tune_diffs);
-    std::cout << "Time spent computing tune scores: " << elapsed() - t1 << std::endl;
-    t1 = elapsed();
-    std::tie(test_nonconf, test_preds) = compute_scores(test_cx, test_diffs);
-    std::cout << "Time spent computing test scores: " << elapsed() - t1 << std::endl;
 }
 
 // had unused lamdba passed in previously
 std::tuple<std::vector<std::vector<float>>,
               std::vector<std::vector<std::vector<faiss::idx_t>>>>
-IndexIVF::compute_scores(const std::vector<std::vector<float>> &queries,
+IndexIVF::compute_scores(faiss::idx_t num_queries, const float* queries,
                          const std::vector<float> &diff_scores) {
-    int num_queries = queries.size();
+    // int num_queries = queries.size();
 
     // result vector for nearest neighbor ids
     std::vector<faiss::idx_t> nns(K * num_queries);
@@ -1251,12 +1265,12 @@ IndexIVF::compute_scores(const std::vector<std::vector<float>> &queries,
         num_queries, std::vector<std::vector<faiss::idx_t>>(n_list, std::vector<faiss::idx_t>(K)));
 
     // TODO(sonia): keep as flat queries from the beginning.
-    std::vector<float> flattened;
-    for (const auto &query : queries) {
-        flattened.insert(flattened.end(), query.begin(), query.end());
-    }
+    // std::vector<float> flattened;
+    // for (const auto &query : queries) {
+    //     flattened.insert(flattened.end(), query.begin(), query.end());
+    // }
 
-    search_with_error_quantification(num_queries, flattened.data(), K,
+    search_with_error_quantification(num_queries, queries, K,
                                      dis.data(), nns.data(),
                                      diff_scores, nonconf_list.data(), all_preds_list.data());
 
@@ -1277,12 +1291,14 @@ float IndexIVF::cosine_similarity(const std::vector<float> &vec1,
 }
 
 std::vector<float> IndexIVF::compute_difficulty_scores(
-    const std::vector<std::vector<float>> &queries) {
+    faiss::idx_t nq, const float *queries) {
     std::vector<float> diff_scores;
-    for (const auto &query : queries) {
+    for (size_t i = 0; i < nq * d; i = i + d) {
         std::vector<float> similarities;
         for (const auto &centroid : centroids) {
             // Compute the cosine similarity between the query and centroid
+
+            std::vector<float> query{queries + i, queries + i + d};
             float similarity = cosine_similarity(query, centroid);
             similarities.push_back(similarity);
         }
@@ -1310,11 +1326,11 @@ double IndexIVF::elapsed() {
 }
 
 IndexIVF::CalibrationResults IndexIVF::calibrate(float alpha, int k, float calib_sz, float tune_sz, float *xq,
-                          size_t nq, faiss::idx_t *gt, float max_distance, std::string dataset_key) {
+                          size_t nq, faiss::idx_t *gt, float max_distance, std::string dataset) {
     std::cout << "CONANN WARNING! Add back early stopping!\n";
     K = k;
     MAX_DISTANCE = max_distance;
-    DATASET_KEY = dataset_key;
+    dataset_name = dataset;
 
     // double t1 = elapsed();
     prep_execution(alpha, calib_sz, tune_sz, xq, nq, gt);
