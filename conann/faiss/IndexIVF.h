@@ -446,22 +446,16 @@ struct IndexIVF : Index, IndexIVFInterface {
     void search_with_error_quantification(
         idx_t n, const float *x, idx_t k, float *distances, idx_t *labels, 
         const std::vector<float> &diff_scores,
-        std::unordered_map<faiss::idx_t, std::vector<float>> &nonconf_list,
-        std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>
-            &all_preds_list,
+        std::vector<float> *nonconf_list,
+        std::vector<std::vector<faiss::idx_t>> *all_preds_list,
         const SearchParameters *params = nullptr) const;
 
-    // void search_conann(idx_t n, const float *x, float lamhat, float *distances,
-                    //    idx_t *labels);
-
-    // if in calibration mode, lamhat needs to be -1.
     void search_preassigned_with_error_quantification(
         idx_t n, const float *x, idx_t k, const idx_t *assign,
         const float *centroid_dis, float *distances, idx_t *labels,
         bool store_pairs, const std::vector<float> &diff_scores,
-        std::unordered_map<faiss::idx_t, std::vector<float>> &nonconf_list,
-        std::unordered_map<faiss::idx_t, std::vector<std::vector<faiss::idx_t>>>
-            &all_preds_list,
+        std::vector<float> *nonconf_list,
+        std::vector<std::vector<faiss::idx_t>> *all_preds_list,
         const IVFSearchParameters *params = nullptr,
         IndexIVFStats *stats = nullptr) const;
 
