@@ -153,61 +153,26 @@ int main(int argc, char **argv) {
         query = "../data/glove30k/queries.fvecs";
         gtI = "../data/glove30k/indices-" + selection_k + ".fvecs";
         gtD = "../data/glove30k/distances-" + selection_k + ".fvecs";
-    } else if (param1 == "bert_10") {
-        db = "../data/bert/db.fvecs";
-        query = "../data/bert/queries.fvecs";
-        gtI = "../data/bert/indices-10.fvecs";
-        gtD = "../data/bert/distances-10.fvecs";
-    }  else if (param1 == "bert_100") {
-        db = "../data/bert/db.fvecs";
-        query = "../data/bert/queries.fvecs";
-        gtI = "../data/bert/indices-100.fvecs";
-        gtD = "../data/bert/distances-100.fvecs";
-    } else if (param1 == "bert_1000") {
-        db = "../data/bert/db.fvecs";
-        query = "../data/bert/queries.fvecs";
-        gtI = "../data/bert/indices-1000.fvecs";
-        gtD = "../data/bert/distances-1000.fvecs";
     } else if (param1 == "sift1M") {
-        db = "../data/sift1M/sift1M.fvecs";
-        query = "../data/sift1M/1M_query.fvecs";
-        gtI = "../data/sift1M/idx_1M.ivecs";
-        gtD = "../data/sift1M/dis_1M.fvecs";
-    } else if (param1 == "sift10M") {
-        db = "/workspace/data/sift/sift10M/sift10M.fvecs";
-        query = "/workspace/data/sift/sift10M/query.fvecs";
-        gtI = "/workspace/data/sift/sift10M/idx.ivecs";
-        gtD = "/workspace/data/sift/sift10M/dis.fvecs";
+        db = "../data/sift1M/sift_base.fvecs";
+        query = "../data/sift1M/sift_query.fvecs";
+        gtI = "../data/sift1M/sift_gt_index.ivecs";
+        gtD = "../data/sift1M/sift_gt_dis.fvecs";
     } else if (param1 == "deep10M") {
         db = "../data/deep/deep10M.fvecs";
         query = "../data/deep/query.fvecs";
         gtI = "../data/deep/idx.ivecs";
         gtD = "../data/deep/dis.fvecs";
-    } else if (param1 == "gist_10") {
+    } else if (param1 == "gist") {
         db = "../data/gist/gist_base.fvecs";
         query = "../data/gist/queries.fvecs";
-        gtI = "../data/gist/indices-10.fvecs";
-        gtD = "../data/gist/distances-10.fvecs";
-    } else if (param1 == "gist_100") {
-        db = "../data/gist/gist_base.fvecs";
-        query = "../data/gist/queries.fvecs";
-        gtI = "../data/gist/indices-100.fvecs";
-        gtD = "../data/gist/distances-100.fvecs";
-    } else if (param1 == "gist_1000") {
-        db = "../data/gist/gist_base.fvecs";
-        query = "../data/gist/queries.fvecs";
-        gtI = "../data/gist/indices-1000.fvecs";
-        gtD = "../data/gist/distances-1000.fvecs";
-    } else if (param1 == "glove_100") {
+        gtI = "../data/gist/indices-" + selection_k + ".fvecs";
+        gtD = "../data/gist/distances-" + selection_k + ".fvecs";
+    } else if (param1 == "glove") {
         db = "../data/glove/db.fvecs";
         query = "../data/glove/queries.fvecs";
-        gtI = "../data/glove/indices-100.fvecs";
-        gtD = "../data/glove/distances-100.fvecs";
-    } else if (param1 == "glove_1000") {
-        db = "../data/glove/db.fvecs";
-        query = "../data/glove/queries.fvecs";
-        gtI = "../data/glove/indices-1000.fvecs";
-        gtD = "../data/glove/distances-1000.fvecs";
+        gtI = "../data/glove/indices-" + selection_k + ".fvecs";
+        gtD = "../data/glove/distances-" + selection_k + ".fvecs";
     } else if (param1 == "synth") {
         db = "../data/synthetic10/db.fvecs";
         query = "../data/synthetic10/queries.fvecs";
@@ -215,23 +180,17 @@ int main(int argc, char **argv) {
         gtD = "../data/synthetic10/distances-1000.fvecs";
     } else {
         printf("Your dataset name is illegal\n");
-        return 0;
+        return 1;
     }
 
     omp_set_num_threads(8);
     double t0 = elapsed();
 
-    // this is typically the fastest one.
-    const char *index_key = "IVF1024,Flat";
-
     faiss::IndexIVFFlat *index;
 
     size_t d;
 
-    int nlist = input_nlist; // 1024 as per index_key
-    if (param1.find("bert") != std::string::npos || param1.find("synth") != std::string::npos) {
-        nlist = input_nlist;
-    }
+    int nlist = input_nlist; // 1024 originally
 
     {
         printf("[%.3f s] Loading train set\n", elapsed() - t0);
@@ -239,8 +198,8 @@ int main(int argc, char **argv) {
         size_t nt;
         float *xt = fvecs_read(db.c_str(), &d, &nt);
 
-        printf("[%.3f s] Preparing index \"%s\" d=%ld\n", elapsed() - t0,
-               index_key, d);
+        printf("[%.3f s] Preparing index IndexIVF_%i d=%ld\n", elapsed() - t0,
+               nlist, d);
 
         faiss::IndexFlatL2 *flat_index = new faiss::IndexFlatL2(d);
         index = new faiss::IndexIVFFlat(flat_index, d, nlist, faiss::METRIC_L2);

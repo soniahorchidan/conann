@@ -146,29 +146,11 @@ int main(int argc, char **argv) {
         gtI = "../data/glove30k/indices-" + selection_k + ".fvecs";
         gtD = "../data/glove30k/distances-" + selection_k + ".fvecs";
         max_distance = glove_max_dist;
-    } else if (dataset_name == "bert_10") {
-        db = "../data/bert/db.fvecs";
-        query = "../data/bert/queries.fvecs";
-        gtI = "../data/bert/indices-10.fvecs";
-        gtD = "../data/bert/distances-10.fvecs";
-        max_distance = bert_max_dist;
-    } else if (dataset_name == "bert_100") {
-        db = "../data/bert/db.fvecs";
-        query = "../data/bert/queries.fvecs";
-        gtI = "../data/bert/indices-100.fvecs";
-        gtD = "../data/bert/distances-100.fvecs";
-        max_distance = bert_max_dist;
-    } else if (dataset_name == "bert_1000") {
-        db = "../data/bert/db.fvecs";
-        query = "../data/bert/queries.fvecs";
-        gtI = "../data/bert/indices-1000.fvecs";
-        gtD = "../data/bert/distances-1000.fvecs";
-        max_distance = bert_max_dist;
     } else if (dataset_name == "synth") {
         db = "../data/synthetic10/db.fvecs";
         query = "../data/synthetic10/queries.fvecs";
-        gtI = "../data/synthetic10/indices-1000.fvecs";
-        gtD = "../data/synthetic10/distances-1000.fvecs";
+        gtI = "../data/synthetic10/indices-" + selection_k + ".fvecs";
+        gtD = "../data/synthetic10/distances-" + selection_k + ".fvecs";
         max_distance = bert_max_dist;
     } else if (dataset_name == "sift1M") {
         db = "../data/sift1M/sift_base.fvecs";
@@ -176,57 +158,33 @@ int main(int argc, char **argv) {
         gtI = "../data/sift1M/sift_gt_index.ivecs";
         gtD = "../data/sift1M/sift_gt_dis.fvecs";
         max_distance = sift_max_dist;
-    } else if (dataset_name == "sift10M") {
-        db = "/workspace/data/sift/sift10M/sift10M.fvecs";
-        query = "/workspace/data/sift/sift10M/query.fvecs";
-        gtI = "/workspace/data/sift/sift10M/idx.ivecs";
-        gtD = "/workspace/data/sift/sift10M/dis.fvecs";
-        max_distance = sift_max_dist;
     } else if (dataset_name == "deep10M") {
         db = "../data/deep/deep10M.fvecs";
         query = "../data/deep/query.fvecs";
         gtI = "../data/deep/idx.ivecs";
         gtD = "../data/deep/dis.fvecs";
         max_distance = deep_max_dist;
-    } else if (dataset_name == "gist_10") {
+        } else if (param1 == "gist") {
         db = "../data/gist/gist_base.fvecs";
         query = "../data/gist/queries.fvecs";
-        gtI = "../data/gist/indices-10.fvecs";
-        gtD = "../data/gist/distances-10.fvecs";
+        gtI = "../data/gist/indices-" + selection_k + ".fvecs";
+        gtD = "../data/gist/distances-" + selection_k + ".fvecs";
         max_distance = gist_max_dist;
-    } else if (dataset_name == "gist_100") {
-        db = "../data/gist/gist1M.fvecs";
-        query = "../data/gist/queries.fvecs";
-        gtI = "../data/gist/indices-100.fvecs";
-        gtD = "../data/gist/distances-100.fvecs";
-        max_distance = gist_max_dist;
-    } else if (dataset_name == "gist_1000") {
-        db = "../data/gist/gist_base.fvecs";
-        query = "../data/gist/queries.fvecs";
-        gtI = "../data/gist/indices-1000.fvecs";
-        gtD = "../data/gist/distances-1000.fvecs";
-        max_distance = gist_max_dist;
-    } else if (dataset_name == "glove_100") {
+    } else if (param1 == "glove") {
         db = "../data/glove/db.fvecs";
         query = "../data/glove/queries.fvecs";
-        gtI = "../data/glove/indices-100.fvecs";
-        gtD = "../data/glove/distances-100.fvecs";
-        max_distance = glove_max_dist;
-    } else if (dataset_name == "glove_1000") {
-        db = "../data/glove/db.fvecs";
-        query = "../data/glove/queries.fvecs";
-        gtI = "../data/glove/indices-1000.fvecs";
-        gtD = "../data/glove/distances-1000.fvecs";
+        gtI = "../data/glove/indices-" + selection_k + ".fvecs";
+        gtD = "../data/glove/distances-" + selection_k + ".fvecs";
         max_distance = glove_max_dist;
     } else if (dataset_name == "gauss05") {
         db = "../data/gauss-05/db.fvecs";
         query = "../data/gauss-05/queries.fvecs";
-        gtI = "../data/gauss-05/indices-100.fvecs";
-        gtD = "../data/gauss-05/distances-100.fvecs";
+        gtI = "../data/gauss-05/indices-" + selection_k + ".fvecs";
+        gtD = "../data/gauss-05/distances-" + selection_k + " .fvecs";
         max_distance = sift_max_dist;
     } else {
         printf("Your dataset name is illegal\n");
-        return 0;
+        return 1;
     }
 
     omp_set_num_threads(8);
