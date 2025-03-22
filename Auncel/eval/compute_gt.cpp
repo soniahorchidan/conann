@@ -116,7 +116,7 @@ void write_gt_distances(const std::string &filename, const float *distances,
 /// Command like this: ./compute_gt gist 100
 int main(int argc, char **argv) {
     std::cout << argc << " arguments" << std::endl;
-    if (argc - 1 <= 2) {
+    if (argc - 1 < 2) {
         printf("You should at least input 2 params: the dataset name, k \n");
         return 0;
     }
@@ -132,35 +132,58 @@ int main(int argc, char **argv) {
 
     std::string db, query, gtI, gtD;
     if (param1 == "sift10k") {
-        db = "../../data/sift10k/siftsmall_base.fvecs";
-        query = "../../data/sift10k/siftsmall_query.fvecs";
+        db = "../data/sift10k/siftsmall_base.fvecs";
+        query = "../data/sift10k/siftsmall_query.fvecs";
     } else if (param1 == "sift1M") {
-        db = "../../data/sift1M/sift_base.fvecs";
-        query = "../../data/sift1M/sift_query.fvecs";
+        db = "../data/sift1M/sift_base.fvecs";
+        query = "../data/sift1M/queries.fvecs";
     } else if (param1 == "bert") {
-        db = "../../data/bert/db.fvecs";
-        query = "../../data/bert/queries.fvecs";
+        db = "../data/bert/db.fvecs";
+        query = "../data/bert/queries.fvecs";
     } else if (param1 == "gist") {
-        db = "../../data/gist/gist_base.fvecs";
-        query = "../../data/gist/queries.fvecs";
+        db = "../data/gist/gist_base.fvecs";
+        query = "../data/gist/queries.fvecs";
     } else if (param1 == "glove") {
-        db = "../../data/glove/db.fvecs";
-        query = "../../data/glove/queries.fvecs";
+        db = "../data/glove/db.fvecs";
+        query = "../data/glove/queries.fvecs";
     } else if (param1 == "gist30k") {
-        db = "../../data/gist30k/gist30k_base.fvecs";
-        query = "../../data/gist30k/queries.fvecs";
+        db = "../data/gist30k/gist30k_base.fvecs";
+        query = "../data/gist30k/queries.fvecs";
     } else if (param1 == "glove30k") {
-        db = "../../data/glove30k/glove30k_db.fvecs";
-        query = "../../data/glove30k/queries.fvecs";
+        db = "../data/glove30k/glove30k_db.fvecs";
+        query = "../data/glove30k/queries.fvecs";
     } else if (param1 == "deep10M") {
-        db = "../../data/deep10M/deep10M.fvecs";
-        query = "../../data/deep10M/queries.fvecs";
+        db = "../data/deep/deep10M.fvecs";
+        query = "../data/deep/queries.fvecs";
+    } else if (param1 == "synth") {
+        db = "../data/synthetic10/db.fvecs";
+        query = "../data/synthetic10/queries.fvecs";
+    } else if (param1 == "gauss05") {
+        db = "../data/gauss-05/db.fvecs";
+        query = "../data/gauss-05/queries.fvecs";
+    } else if (param1 == "gauss10") {
+        db = "../data/gauss-10/db.fvecs";
+        query = "../data/gauss-10/queries.fvecs";
     } else {
         printf("Your dataset name is illegal\n");
         return 0;
     }
 
     omp_set_num_threads(32);
+
+
+    // ------- hacky section to read number of queries:
+    if (output_ks[0] == -1) {
+        size_t numberq;
+        float *queries;
+        size_t dqueries;
+        queries = fvecs_read(query.c_str(), &dqueries, &numberq);
+        printf("[%d queries]\n", (int)numberq);
+        // assert(d == d2 || !"query does not have same dimension as train set");
+        return 0;
+    }
+    // -------- end
+
     double t0 = elapsed();
 
     // this is typically the fastest one.

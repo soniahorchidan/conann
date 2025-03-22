@@ -155,14 +155,14 @@ int main(int argc, char **argv) {
         gtD = "../data/glove30k/distances-" + selection_k + ".fvecs";
     } else if (param1 == "sift1M") {
         db = "../data/sift1M/sift_base.fvecs";
-        query = "../data/sift1M/sift_query.fvecs";
-        gtI = "../data/sift1M/sift_gt_index.ivecs";
-        gtD = "../data/sift1M/sift_gt_dis.fvecs";
+        query = "../data/sift1M/queries.fvecs";
+        gtI = "../data/sift1M/indices-" + selection_k + ".fvecs";
+        gtD = "../data/sift1M/distances-" + selection_k + ".fvecs";
     } else if (param1 == "deep10M") {
         db = "../data/deep/deep10M.fvecs";
-        query = "../data/deep/query.fvecs";
-        gtI = "../data/deep/idx.ivecs";
-        gtD = "../data/deep/dis.fvecs";
+        query = "../data/deep/queries.fvecs";
+        gtI = "../data/deep/indices-" + selection_k + ".fvecs";
+        gtD = "../data/deep/distances-" + selection_k + ".fvecs";
     } else if (param1 == "gist") {
         db = "../data/gist/gist_base.fvecs";
         query = "../data/gist/queries.fvecs";
@@ -176,8 +176,18 @@ int main(int argc, char **argv) {
     } else if (param1 == "synth") {
         db = "../data/synthetic10/db.fvecs";
         query = "../data/synthetic10/queries.fvecs";
-        gtI = "../data/synthetic10/indices-1000.fvecs";
-        gtD = "../data/synthetic10/distances-1000.fvecs";
+        gtI = "../data/synthetic10/indices-" + selection_k + ".fvecs";
+        gtD = "../data/synthetic10/distances-" + selection_k + ".fvecs";
+    } else if (param1 == "gauss05") {
+        db = "../data/gauss-05/db.fvecs";
+        query = "../data/gauss-05/queries.fvecs";
+        gtI = "../data/gauss-05/indices-" + selection_k + ".fvecs";
+        gtD = "../data/gauss-05/distances-" + selection_k + " .fvecs";
+    } else if (param1 == "gauss10") {
+        db = "../data/gauss-10/db.fvecs";
+        query = "../data/gauss-10/queries.fvecs";
+        gtI = "../data/gauss-10/indices-" + selection_k + ".fvecs";
+        gtD = "../data/gauss-10/distances-" + selection_k + " .fvecs";
     } else {
         printf("Your dataset name is illegal\n");
         return 1;

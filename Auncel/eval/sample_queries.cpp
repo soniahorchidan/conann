@@ -89,7 +89,7 @@ void write_queries(const std::string &filename, const float *vectors,
     fclose(f);
 }
 
-/// Command like this: ./sample_queries ./sift1M/db.fvecs 0.15
+/// Command like this: ./sample_queries ./sift1M/db.fvecs 10000 queries.fvecs
 int main(int argc, char **argv) {
     std::cout << argc << " arguments" << std::endl;
     if (argc - 1 != 3) {
@@ -120,7 +120,7 @@ int main(int argc, char **argv) {
     //     return 0;
     // }
 
-    omp_set_num_threads(32);
+    omp_set_num_threads(8);
     double t0 = elapsed();
 
     printf("[%.3f s] Loading database\n", elapsed() - t0);
@@ -140,18 +140,13 @@ int main(int argc, char **argv) {
     }
 
     float* xq = new float[nq * d];
-    std::unordered_set<size_t> used_indices;
+    // sampling with replacement to produce valid i.i.d. data
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<size_t> dis(0, nb - 1);
 
     for (size_t i = 0; i < nq; ++i) {
-        size_t random_index;
-        // avoid drawing duplicates
-        do {
-            random_index = dis(gen);
-        } while (!used_indices.insert(random_index).second);
-        
+        size_t random_index = dis(gen);
         std::memcpy(xq + i * d, xb + random_index * d, d * sizeof(float));
     }
 
