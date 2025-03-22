@@ -62,7 +62,7 @@ def compute_gt(dataset, ks: tuple):
     except subprocess.CalledProcessError as e:
         print(f"Failed compute_gt run with params: {dataset}, {ks}\n")
         with open(f"Failed_compute_gt_{dataset}.log", "a") as f:
-            f.write(f"Error running faiss with params: {dataset}, {ks}\n")
+            f.write(f"Error running compute_gt with params: {dataset}, {ks}\n")
             f.write(f"Timestamp: {datetime.datetime.now()}\n")
             f.write(f"Return code: {e.returncode}\n")
             f.write(f"stdout: {e.stdout}\n")
@@ -107,7 +107,7 @@ def run_faiss(dataset, calib_sz, nlist, k, starting_nprobe, alphas: tuple):
 
 
 # PARAMETERS:
-datasets = ("bert", "glove", "sift1M", "deep10M", "gist")
+datasets = ("bert", "glove", "sift1M", "deep10M", "gist") # gauss05, gauss10
 alphas = (0.5, 0.4, 0.3, 0.2, 0.1, 0.05)
 ks = (10, 100, 1000)
 calib_sz = 0.5
