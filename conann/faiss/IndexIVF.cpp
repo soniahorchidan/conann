@@ -1175,6 +1175,7 @@ void IndexIVF::prep_execution(float alpha, float calib_sz, float tune_sz, const 
         all_preds = conann_cache::read_from_cache<std::vector<std::vector<std::vector<faiss::idx_t>>>>(cacheKeyAllPreds);
     } else {
         double t1 = elapsed();
+        // using std::tie in this instance is really important for performance to avoid the extra copy
         std::tie(all_nonconf_scores, all_preds) = compute_scores(nq, queries, all_diffs);
         std::cout << "Time spent computing scores: " << elapsed() - t1 << std::endl;
 
@@ -1186,6 +1187,7 @@ void IndexIVF::prep_execution(float alpha, float calib_sz, float tune_sz, const 
 
     double t1 = elapsed();
     // slice computed data and store on index
+    // NOTE: This coping can become quite expensive but should still be worth it in combination with caching
     size_t calib_nq = size_t(calib_sz * nq);
     size_t tune_nq = size_t(tune_sz * nq);
     size_t test_nq = nq - calib_nq - tune_nq;

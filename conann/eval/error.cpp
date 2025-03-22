@@ -291,7 +291,9 @@ int main(int argc, char **argv) {
     }
 
     printf("[%.3f s] ConANN Calibration\n", elapsed() - t0);
+    auto t1 = elapsed();
     auto calib_res = index->calibrate(alpha, k, calib_sz, tune_sz, xq, nq, gt, max_distance, dataset_name);
+    std::cout << "Calibration-time=" << elapsed() - t1 << "\n";
     std::cout << "Found lamhat=" << calib_res.lamhat << "\n";
     
     // Around half of GT was mem_copied into calib_cx and calib_labels so we can free up this memory here
