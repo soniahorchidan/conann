@@ -127,13 +127,13 @@ faiss_starting_nprobe = 1
 
 # Possible command combo to sample new dataset:
 # First prepare folder at ./data/gist with gist_base.fvecs inside
-sample_dataset("./data/glove/db.fvecs", 10000, "queries.fvecs")
-compute_gt("glove", (1000, 100, 10))
+# sample_dataset("./data/glove/db.fvecs", 10000, "queries.fvecs")
+# compute_gt("glove", (1000, 100, 10))
 
-sample_dataset("./data/sift1M/sift_base.fvecs", 10000, "queries.fvecs")
-compute_gt("sift1M", (1000, 100, 10))
+# sample_dataset("./data/sift1M/sift_base.fvecs", 10000, "queries.fvecs")
+# compute_gt("sift1M", (1000, 100, 10))
 
-sample_dataset("./data/gist/db.fvecs", 10000, "queries.fvecs")
+sample_dataset("./data/gist/gist_base.fvecs", 10000, "queries.fvecs")
 compute_gt("gist", (1000, 100, 10))
 
 
