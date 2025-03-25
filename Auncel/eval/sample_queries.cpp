@@ -120,7 +120,7 @@ int main(int argc, char **argv) {
     //     return 0;
     // }
 
-    omp_set_num_threads(8);
+    omp_set_num_threads(60);
     double t0 = elapsed();
 
     printf("[%.3f s] Loading database\n", elapsed() - t0);

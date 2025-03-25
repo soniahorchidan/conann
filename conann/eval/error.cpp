@@ -199,7 +199,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    omp_set_num_threads(8);
+    omp_set_num_threads(60);
     double t0 = elapsed();
 
     faiss::IndexIVFFlat *index;
