@@ -83,7 +83,7 @@ template <typename T> double computeAverage(const std::vector<T> &numbers) {
         }
     }
     if (negativeCount > 0) {
-        std::cout << "WARNING! Number of negative values: " << negativeCount << std::endl;
+        std::cout << "\nWARNING! Number of negative values: " << negativeCount << std::endl;
     }
     return sum / (numbers.size() - negativeCount);
 }
@@ -306,8 +306,9 @@ int main(int argc, char **argv) {
     auto [fnr, cls] = index->evaluate_test(calib_res);
     float avg_fnr = std::accumulate(fnr.begin(), fnr.end(), 0.0) / fnr.size();
     printf("[%.3f s] Finished: alpha=%.3f, test fnr=%.3f, avg cls searched=%.3f\n", elapsed() - t0, alpha, avg_fnr, computeAverage(cls));
+    auto c =  computeAverage(cls);
     std::cout << "alpha=" << alpha << ", test fnr=" << avg_fnr
-              << ", avg cls searched=" << computeAverage(cls) << std::endl;
+              << ", avg cls searched=" << c << std::endl;
 
     std::ostringstream fnr_filename;
     // std::string dataset_key = param1 + "-" + std::to_string(input_nlist) + "-" + selection_k;
