@@ -19,7 +19,7 @@ import datetime
 """
 
 env = os.environ.copy()
-env["OMP_NUM_THREADS"] = "32"
+env["OMP_NUM_THREADS"] = "60"
 
 def sample_dataset(dataset, sample_size, out_filename):
     print(f"Sample {sample_size} to {out_filename} from {dataset}")
@@ -127,24 +127,30 @@ faiss_starting_nprobe = 1
 
 # Possible command combo to sample new dataset:
 # First prepare folder at ./data/gist with gist_base.fvecs inside
-# sample_dataset("./data/gist/gist_base.fvecs", 10000, "queries.fvecs")
-# compute_gt("gist", (1000, 100, 10))
+sample_dataset("./data/glove/db.fvecs", 10000, "queries.fvecs")
+compute_gt("glove", (1000, 100, 10))
+
+sample_dataset("./data/sift1M/sift_base.fvecs", 10000, "queries.fvecs")
+compute_gt("sift1M", (1000, 100, 10))
+
+sample_dataset("./data/gist/db.fvecs", 10000, "queries.fvecs")
+compute_gt("gist", (1000, 100, 10))
 
 
-"""
-* NOTE: Remove when good to go:
-"""
-for dataset in datasets:
-    test_query_size(dataset)
-exit(0) 
+# """
+# * NOTE: Remove when good to go:
+# """
+# for dataset in datasets:
+#     test_query_size(dataset)
+# exit(0) 
 
-# Primary experiment section running on multiple alphas and ks.
-for dataset in datasets:
-    for k in ks:
-        for alpha in alphas:
-            run_conann(dataset, calib_sz, tuning_sz[dataset], alpha, nlist[dataset], k)
+# # Primary experiment section running on multiple alphas and ks.
+# for dataset in datasets:
+#     for k in ks:
+#         for alpha in alphas:
+#             run_conann(dataset, calib_sz, tuning_sz[dataset], alpha, nlist[dataset], k)
 
 
-for dataset in datasets:
-    for k in ks:
-        run_faiss(dataset, calib_sz, nlist[dataset], k, faiss_starting_nprobe, alphas)
+# for dataset in datasets:
+#     for k in ks:
+#         run_faiss(dataset, calib_sz, nlist[dataset], k, faiss_starting_nprobe, alphas)
