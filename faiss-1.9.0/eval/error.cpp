@@ -178,16 +178,16 @@ int main(int argc, char **argv) {
         query = "../data/synthetic10/queries.fvecs";
         gtI = "../data/synthetic10/indices-" + selection_k + ".fvecs";
         gtD = "../data/synthetic10/distances-" + selection_k + ".fvecs";
-    } else if (param1 == "gauss05") {
+    } else if (param1 == "gauss5") {
         db = "../data/gauss-05/db.fvecs";
-        query = "../data/gauss-05/queries.fvecs";
-        gtI = "../data/gauss-05/indices-" + selection_k + ".fvecs";
-        gtD = "../data/gauss-05/distances-" + selection_k + " .fvecs";
+        query = "../data/gauss5/queries.fvecs";
+        gtI = "../data/gauss5/indices-" + selection_k + ".fvecs";
+        gtD = "../data/gauss5/distances-" + selection_k + " .fvecs";
     } else if (param1 == "gauss10") {
-        db = "../data/gauss-10/db.fvecs";
-        query = "../data/gauss-10/queries.fvecs";
-        gtI = "../data/gauss-10/indices-" + selection_k + ".fvecs";
-        gtD = "../data/gauss-10/distances-" + selection_k + " .fvecs";
+        db = "../data/gauss10/db.fvecs";
+        query = "../data/gauss10/queries.fvecs";
+        gtI = "../data/gauss10/indices-" + selection_k + ".fvecs";
+        gtD = "../data/gauss10/distances-" + selection_k + " .fvecs";
     } else {
         printf("Your dataset name is illegal\n");
         return 1;
