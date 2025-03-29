@@ -179,7 +179,7 @@ int main(int argc, char **argv) {
         gtI = "../data/synthetic10/indices-" + selection_k + ".fvecs";
         gtD = "../data/synthetic10/distances-" + selection_k + ".fvecs";
     } else if (param1 == "gauss5") {
-        db = "../data/gauss-05/db.fvecs";
+        db = "../data/gauss05/db.fvecs";
         query = "../data/gauss5/queries.fvecs";
         gtI = "../data/gauss5/indices-" + selection_k + ".fvecs";
         gtD = "../data/gauss5/distances-" + selection_k + " .fvecs";
