@@ -182,12 +182,12 @@ int main(int argc, char **argv) {
         db = "../data/gauss05/db.fvecs";
         query = "../data/gauss5/queries.fvecs";
         gtI = "../data/gauss5/indices-" + selection_k + ".fvecs";
-        gtD = "../data/gauss5/distances-" + selection_k + " .fvecs";
+        gtD = "../data/gauss5/distances-" + selection_k + ".fvecs";
     } else if (param1 == "gauss10") {
         db = "../data/gauss10/db.fvecs";
         query = "../data/gauss10/queries.fvecs";
         gtI = "../data/gauss10/indices-" + selection_k + ".fvecs";
-        gtD = "../data/gauss10/distances-" + selection_k + " .fvecs";
+        gtD = "../data/gauss10/distances-" + selection_k + ".fvecs";
     } else {
         printf("Your dataset name is illegal\n");
         return 1;
