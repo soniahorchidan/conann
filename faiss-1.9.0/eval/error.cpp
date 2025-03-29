@@ -307,6 +307,8 @@ int main(int argc, char **argv) {
             index->search(calib_nq, xq, k, D.data(), I.data());
 
             auto [avg_fnr, _] = calculate_fnr(I.data(), gt, calib_nq, k);
+            std::cout << "Probed " << nprobe << " clusters; fnr=" << avg_fnr << "\n";
+
             if (avg_fnr <= alpha) {
                 optimal_nprobe = nprobe;
                 break;
