@@ -1214,6 +1214,7 @@ void IndexIVF::prep_execution(float alpha, float calib_sz, float tune_sz, const 
     }
     calib_diffs = std::vector<float>(all_diffs.begin(), all_diffs.begin() + calib_nq);
     calib_nonconf= std::vector<std::vector<float>>(all_nonconf_scores.begin(), all_nonconf_scores.begin() + calib_nq);
+
     calib_preds = std::vector<std::vector<std::vector<faiss::idx_t>>>(all_preds.begin(), all_preds.begin() + calib_nq);
 
     // Copy tuning data
@@ -1396,23 +1397,32 @@ float IndexIVF::optimization(
                            &all_preds};
     F.params = &params;
 
-    double lower_bound = 0.0f;
-    double upper_bound = 1.0f;
-    gsl_root_fsolver_set(solver, &F, lower_bound, upper_bound);
-
+    double lamhat = 2.0f;
     int status;
-    int max_iter = 100;
-    int iter = 0;
-    double lamhat = 0.0f;
 
-    do {
-        iter++;
-        gsl_root_fsolver_iterate(solver);
-        lamhat = gsl_root_fsolver_root(solver);
-        lower_bound = gsl_root_fsolver_x_lower(solver);
-        upper_bound = gsl_root_fsolver_x_upper(solver);
-        status = gsl_root_test_interval(lower_bound, upper_bound, 1e-6, 1e-6);
-    } while (status == GSL_CONTINUE && iter < max_iter);
+    gsl_set_error_handler_off();
+
+    try {
+        double lower_bound = 0.0f;
+        double upper_bound = 1.0f;
+        gsl_root_fsolver_set(solver, &F, lower_bound, upper_bound);
+    
+        int max_iter = 100;
+        int iter = 0;
+        
+        do {
+            iter++;
+            gsl_root_fsolver_iterate(solver);
+            lamhat = gsl_root_fsolver_root(solver);
+            lower_bound = gsl_root_fsolver_x_lower(solver);
+            upper_bound = gsl_root_fsolver_x_upper(solver);
+            status = gsl_root_test_interval(lower_bound, upper_bound, 1e-6, 1e-6);
+        } while (status == GSL_CONTINUE && iter < max_iter);
+    } catch (const std::exception& e) {
+        std::cerr << "Exception: " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "Unknown error occurred." << std::endl;
+    }    
 
     // std::cout << std::endl;
     // fclose(stdout);
@@ -1674,7 +1684,7 @@ float IndexIVF::pickLambdaReg(
     int best_size = n_list;
     float lambda_star = 0;
     
-    std::vector<float> lambda_values = {0.0, 0.001, 0.01, 0.1, 0.2, 0.5};
+    std::vector<float> lambda_values = {0.0, 0.001, 0.01, 0.1};
     for (float temp_lambda : lambda_values) {
         auto lamhat = const_cast<faiss::IndexIVF*>(this)->optimization(alpha, kreg, temp_lambda, tune_cx, tune_labels, tune_diffs, tune_nonconf, tune_preds);
 
