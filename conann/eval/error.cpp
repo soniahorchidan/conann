@@ -125,7 +125,7 @@ int main(int argc, char **argv) {
     float glove_max_dist = 100;
     float gist_max_dist = 200;
     float deep_max_dist = 100;
-    float sift_max_dist = 100000;
+    float sift_max_dist = 1000000;
 
     std::string db, query, gtI, gtD;
     if (dataset_name == "bert") {
