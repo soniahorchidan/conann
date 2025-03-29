@@ -123,6 +123,7 @@ int main(int argc, char **argv) {
 
     float bert_max_dist = 20;
     float glove_max_dist = 100;
+    float fasttext_max_dist = 100;
     float gist_max_dist = 200;
     float deep_max_dist = 100;
     float sift_max_dist = 1000000;
@@ -194,6 +195,12 @@ int main(int argc, char **argv) {
         gtI = "../data/gauss10/indices-" + selection_k + ".fvecs";
         gtD = "../data/gauss10/distances-" + selection_k + ".fvecs";
         max_distance = sift_max_dist;
+    } else if (param1 == "fasttext") {
+        db = "../data/fasttext/db.fvecs";
+        query = "../data/fasttext/queries.fvecs";
+        gtI = "../data/fasttext/indices-" + selection_k + ".fvecs";
+        gtD = "../data/fasttext/distances-" + selection_k + ".fvecs";
+        max_distance = fasttext_max_dist;
     } else {
         printf("Your dataset name is illegal\n");
         return 1;
@@ -301,7 +308,6 @@ int main(int argc, char **argv) {
     delete[] gt;
     delete[] gt_v;
 
-    
     printf("[%.3f s] ConANN Evaluation\n", elapsed() - t0);
     auto [fnr, cls] = index->evaluate_test(calib_res);
     float avg_fnr = std::accumulate(fnr.begin(), fnr.end(), 0.0) / fnr.size();
