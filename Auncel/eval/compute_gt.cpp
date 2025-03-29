@@ -164,12 +164,15 @@ int main(int argc, char **argv) {
     } else if (param1 == "gauss10") {
         db = "../data/gauss-10/db.fvecs";
         query = "../data/gauss-10/queries.fvecs";
+    } else if (param1 == "fasttext") {
+        db = "../data/fasttext/db.fvecs";
+        query = "../data/fasttext/queries.fvecs";
     } else {
         printf("Your dataset name is illegal\n");
         return 0;
     }
 
-    omp_set_num_threads(32);
+    omp_set_num_threads(60);
 
 
     // ------- hacky section to read number of queries:
