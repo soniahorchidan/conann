@@ -123,7 +123,7 @@ int main(int argc, char **argv) {
 
     float bert_max_dist = 20;
     float glove_max_dist = 100;
-    float fasttext_max_dist = 100;
+    float fasttext_max_dist = 1000;
     float gist_max_dist = 200;
     float deep_max_dist = 100;
     float sift_max_dist = 1000000;
