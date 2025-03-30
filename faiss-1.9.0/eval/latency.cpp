@@ -120,13 +120,22 @@ int main(int argc, char **argv) {
 
     std::string param1 = argv[1];
     std::string param2 = argv[2];
+    std::string param3 = argv[3];
+    std::string param4 = argv[4];
+    std::string param5 = argv[5];
+
+    float calib_sz = std::stof(param2);
+    int input_nlist = std::stoi(param3);
+    std::string selection_k = param4;
+    std::string dataset_key = param1 + "_" + param3 + "_" + selection_k;
+    int starting_nprobe = std::stoi(param5);
+
     std::vector<float> alphas;
-    for (int i = 3; i < argc; i++) {
+    for (int i = 6; i < argc; i++) {
         alphas.push_back(std::stof(argv[i]));
     }
 
     std::sort(alphas.begin(), alphas.end(), std::greater<>()); // Sort in descending order
-    float calib_sz = std::stof(param2);
 
     std::string db, query, gtI, gtD;
     if (param1 == "bert") {
@@ -189,20 +198,14 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    omp_set_num_threads(64);
+    omp_set_num_threads(60);
     double t0 = elapsed();
-
-    // this is typically the fastest one.
-    const char *index_key = "IVF1024,Flat";
 
     faiss::IndexIVFFlat *index;
 
     size_t d;
 
-    int nlist = 1024; // 1024 as per index_key
-    if (param1.find("bert") != std::string::npos) {
-        nlist = 128;
-    }
+    int nlist = input_nlist; // 1024 originally
 
     {
         printf("[%.3f s] Loading train set\n", elapsed() - t0);
@@ -210,8 +213,8 @@ int main(int argc, char **argv) {
         size_t nt;
         float *xt = fvecs_read(db.c_str(), &d, &nt);
 
-        printf("[%.3f s] Preparing index \"%s\" d=%ld\n", elapsed() - t0,
-               index_key, d);
+        printf("[%.3f s] Preparing index IndexIVF_%i d=%ld\n", elapsed() - t0,
+               nlist, d);
 
         faiss::IndexFlatL2 *flat_index = new faiss::IndexFlatL2(d);
         index = new faiss::IndexIVFFlat(flat_index, d, nlist, faiss::METRIC_L2);
@@ -297,7 +300,7 @@ int main(int argc, char **argv) {
 
     auto calib_nq = size_t(calib_sz* nq);
 
-    int optimal_nprobe = 1;
+    int optimal_nprobe = starting_nprobe;
     for (float alpha : alphas) {
         printf("[%.3f s] Processing alpha = %.5f. Starting from nprobe = %d\n", elapsed() - t0, alpha, optimal_nprobe);
 
@@ -309,6 +312,8 @@ int main(int argc, char **argv) {
             index->search(calib_nq, xq, k, D.data(), I.data());
 
             auto [avg_fnr, _] = calculate_fnr(I.data(), gt, calib_nq, k);
+            std::cout << "Probed " << nprobe << " clusters; fnr=" << avg_fnr << "\n";
+
             if (avg_fnr <= alpha) {
                 optimal_nprobe = nprobe;
                 break;
