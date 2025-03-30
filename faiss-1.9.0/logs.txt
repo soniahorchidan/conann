@@ -1,0 +1,70 @@
+Running dataset: gauss2
+[0.000 s] Loading train set
+[0.044 s] Preparing index "IVF1024,Flat" d=128
+[0.044 s] Training on 250000 vectors
+[5.516 s] Loading database
+[5.546 s] Indexing database, size 500000*128
+[7.343 s] Loading queries
+[7.344 s] Loading ground truth for 10000 queries
+[7.346 s] Loading groud truth vector
+[7.347 s] Loading ground truth distance for 10000 queries
+[7.347 s] Processing alpha = 0.10000. Starting from nprobe = 1
+nprobe=1 avg_fnr=0.803596
+nprobe=2 avg_fnr=0.65439
+nprobe=3 avg_fnr=0.525788
+nprobe=4 avg_fnr=0.410964
+nprobe=5 avg_fnr=0.31383
+nprobe=6 avg_fnr=0.233786
+nprobe=7 avg_fnr=0.166606
+nprobe=8 avg_fnr=0.11575
+nprobe=9 avg_fnr=0.076016
+[12.805 s] Optimal nprobe for alpha 0.10000 = 9
+[13.689 s] Average FNR for alpha 0.10000 = 0.07598
+
+Running dataset: gauss3
+[0.000 s] Loading train set
+[0.030 s] Preparing index "IVF1024,Flat" d=128
+[0.030 s] Training on 250000 vectors
+[5.748 s] Loading database
+[5.778 s] Indexing database, size 500000*128
+[7.617 s] Loading queries
+[7.619 s] Loading ground truth for 10000 queries
+[7.621 s] Loading groud truth vector
+[7.622 s] Loading ground truth distance for 10000 queries
+[7.622 s] Processing alpha = 0.10000. Starting from nprobe = 1
+nprobe=1 avg_fnr=0.80583
+nprobe=2 avg_fnr=0.661404
+nprobe=3 avg_fnr=0.53359
+nprobe=4 avg_fnr=0.420364
+nprobe=5 avg_fnr=0.320358
+nprobe=6 avg_fnr=0.235596
+nprobe=7 avg_fnr=0.166166
+nprobe=8 avg_fnr=0.110968
+nprobe=9 avg_fnr=0.071832
+[13.058 s] Optimal nprobe for alpha 0.10000 = 9
+[13.909 s] Average FNR for alpha 0.10000 = 0.07220
+
+Running dataset: gauss4
+[0.000 s] Loading train set
+[0.029 s] Preparing index "IVF1024,Flat" d=128
+[0.029 s] Training on 250000 vectors
+[5.558 s] Loading database
+[5.589 s] Indexing database, size 500000*128
+[7.432 s] Loading queries
+[7.433 s] Loading ground truth for 10000 queries
+[7.435 s] Loading groud truth vector
+[7.435 s] Loading ground truth distance for 10000 queries
+[7.435 s] Processing alpha = 0.10000. Starting from nprobe = 1
+nprobe=1 avg_fnr=0.807664
+nprobe=2 avg_fnr=0.669556
+nprobe=3 avg_fnr=0.548758
+nprobe=4 avg_fnr=0.444572
+nprobe=5 avg_fnr=0.351636
+nprobe=6 avg_fnr=0.271006
+nprobe=7 avg_fnr=0.206674
+nprobe=8 avg_fnr=0.15773
+nprobe=9 avg_fnr=0.122078
+nprobe=10 avg_fnr=0.096364
+[14.089 s] Optimal nprobe for alpha 0.10000 = 10
+[15.010 s] Average FNR for alpha 0.10000 = 0.09414
+

@@ -451,8 +451,9 @@ struct IndexIVF : Index, IndexIVFInterface {
         const std::vector<std::vector<std::vector<faiss::idx_t>>> &preds);
 
     void search_with_error_quantification(
-        float lamhat, idx_t n, const float *x, idx_t k, float *distances, idx_t *labels,
-        const std::vector<float> &diff_scores, std::vector<float> *nonconf_list,
+        float lamhat, idx_t n, const float *x, idx_t k, float *distances,
+        idx_t *labels, const std::vector<float> &diff_scores,
+        std::vector<float> *nonconf_list,
         std::vector<std::vector<faiss::idx_t>> *all_preds_list,
         const SearchParameters *params = nullptr) const;
 
@@ -516,8 +517,8 @@ struct IndexIVF : Index, IndexIVFInterface {
         const std::vector<std::vector<float>> &nonconf_scores,
         const std::vector<std::vector<std::vector<faiss::idx_t>>> &all_preds);
 
-    // void IndexIVF::search_conann(idx_t n, const float *x, float lamhat,
-    //                              float *distances, idx_t *labels);
+    void search_conann(idx_t n, const float *x, float *distances, idx_t *labels,
+                       CalibrationResults calib_params);
 
     // --- RAPS
     std::vector<std::pair<int, float>> sortClassesByProbability(

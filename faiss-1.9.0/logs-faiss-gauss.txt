@@ -1,0 +1,48 @@
+[0.000 s] Loading train set
+[0.044 s] Preparing index "IVF1024,Flat" d=128
+[0.044 s] Training on 250000 vectors
+[5.622 s] Loading database
+[5.652 s] Indexing database, size 500000*128
+[7.484 s] Loading queries
+[7.487 s] Loading ground truth for 10000 queries
+[7.490 s] Loading groud truth vector
+[7.491 s] Loading ground truth distance for 10000 queries
+[7.492 s] Processing alpha = 0.10000. Starting from nprobe = 1
+[12.996 s] Optimal nprobe for alpha 0.10000 = 9
+[13.854 s] Average FNR for alpha 0.10000 = 0.06506
+[0.000 s] Loading train set
+[0.045 s] Preparing index "IVF1024,Flat" d=128
+[0.045 s] Training on 250000 vectors
+[5.857 s] Loading database
+[5.891 s] Indexing database, size 500000*128
+[7.738 s] Loading queries
+[7.740 s] Loading ground truth for 10000 queries
+[7.744 s] Loading groud truth vector
+[7.745 s] Loading ground truth distance for 10000 queries
+[7.745 s] Processing alpha = 0.10000. Starting from nprobe = 1
+[13.311 s] Optimal nprobe for alpha 0.10000 = 9
+[14.166 s] Average FNR for alpha 0.10000 = 0.06511
+[0.000 s] Loading train set
+[0.044 s] Preparing index "IVF1024,Flat" d=128
+[0.044 s] Training on 250000 vectors
+[5.644 s] Loading database
+[5.679 s] Indexing database, size 500000*128
+[7.521 s] Loading queries
+[7.524 s] Loading ground truth for 10000 queries
+[7.527 s] Loading groud truth vector
+[7.529 s] Loading ground truth distance for 10000 queries
+[7.529 s] Processing alpha = 0.10000. Starting from nprobe = 1
+[12.996 s] Optimal nprobe for alpha 0.10000 = 9
+[13.853 s] Average FNR for alpha 0.10000 = 0.06538
+[0.000 s] Loading train set
+[0.045 s] Preparing index "IVF1024,Flat" d=128
+[0.045 s] Training on 250000 vectors
+[5.709 s] Loading database
+[5.741 s] Indexing database, size 500000*128
+[7.596 s] Loading queries
+[7.599 s] Loading ground truth for 10000 queries
+[7.602 s] Loading groud truth vector
+[7.603 s] Loading ground truth distance for 10000 queries
+[7.603 s] Processing alpha = 0.10000. Starting from nprobe = 1
+[13.103 s] Optimal nprobe for alpha 0.10000 = 9
+[13.961 s] Average FNR for alpha 0.10000 = 0.06557

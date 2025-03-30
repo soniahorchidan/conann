@@ -71,11 +71,11 @@ double elapsed() {
 }
 
 template <typename T> double computeAverage(const std::vector<T> &numbers) {
-    if (numbers.empty()) 
+    if (numbers.empty())
         return 0.0;
     double sum = 0.0;
     int negativeCount = 0;
-    for (const auto& num : numbers) {
+    for (const auto &num : numbers) {
         if (num > 0) {
             sum += num;
         } else {
@@ -83,7 +83,8 @@ template <typename T> double computeAverage(const std::vector<T> &numbers) {
         }
     }
     if (negativeCount > 0) {
-        std::cout << "\nWARNING! Number of negative values: " << negativeCount << std::endl;
+        std::cout << "\nWARNING! Number of negative values: " << negativeCount
+                  << std::endl;
     }
     return sum / (numbers.size() - negativeCount);
 }
@@ -117,7 +118,9 @@ int main(int argc, char **argv) {
     float tune_sz = std::stof(param3);
     float alpha = std::stof(param4);
     int input_nlist = std::stoi(param5);
-    std::string selection_k = param6; // needs to be part of the dataset read in process and will be determined on reading in GTs
+    std::string selection_k =
+        param6; // needs to be part of the dataset read in process and will be
+                // determined on reading in GTs
 
     float max_distance;
 
@@ -165,7 +168,7 @@ int main(int argc, char **argv) {
         gtI = "../data/deep/indices-" + selection_k + ".fvecs";
         gtD = "../data/deep/distances-" + selection_k + ".fvecs";
         max_distance = deep_max_dist;
-        } else if (param1 == "gist") {
+    } else if (param1 == "gist") {
         db = "../data/gist/gist_base.fvecs";
         query = "../data/gist/queries.fvecs";
         gtI = "../data/gist/indices-" + selection_k + ".fvecs";
@@ -232,7 +235,8 @@ int main(int argc, char **argv) {
 
         index->nprobe = nlist;
         // train on half the dataset
-        // TODO: Are we sure the data is shuffled otherwise we train K-means out of distribution.
+        // TODO: Are we sure the data is shuffled otherwise we train K-means out
+        // of distribution.
         auto ntt = size_t(0.5 * nt);
         printf("[%.3f s] Training on %ld vectors\n", elapsed() - t0, ntt);
 
@@ -299,11 +303,13 @@ int main(int argc, char **argv) {
 
     printf("[%.3f s] ConANN Calibration\n", elapsed() - t0);
     auto t1 = elapsed();
-    auto calib_res = index->calibrate(alpha, k, calib_sz, tune_sz, xq, nq, gt, max_distance, dataset_name);
+    auto calib_res = index->calibrate(alpha, k, calib_sz, tune_sz, xq, nq, gt,
+                                      max_distance, dataset_name);
     std::cout << "Calibration-time=" << elapsed() - t1 << "\n";
     std::cout << "Found lamhat=" << calib_res.lamhat << "\n";
-    
-    // Around half of GT was mem_copied into calib_cx and calib_labels so we can free up this memory here
+
+    // Around half of GT was mem_copied into calib_cx and calib_labels so we can
+    // free up this memory here
     delete[] xq;
     delete[] gt;
     delete[] gt_v;
@@ -311,19 +317,26 @@ int main(int argc, char **argv) {
     printf("[%.3f s] ConANN Evaluation\n", elapsed() - t0);
     auto [fnr, cls] = index->evaluate_test(calib_res);
     float avg_fnr = std::accumulate(fnr.begin(), fnr.end(), 0.0) / fnr.size();
-    printf("[%.3f s] Finished: alpha=%.3f, test fnr=%.3f, avg cls searched=%.3f\n", elapsed() - t0, alpha, avg_fnr, computeAverage(cls));
-    auto c =  computeAverage(cls);
+    printf(
+        "[%.3f s] Finished: alpha=%.3f, test fnr=%.3f, avg cls searched=%.3f\n",
+        elapsed() - t0, alpha, avg_fnr, computeAverage(cls));
+    auto c = computeAverage(cls);
     std::cout << "alpha=" << alpha << ", test fnr=" << avg_fnr
               << ", avg cls searched=" << c << std::endl;
 
     std::ostringstream fnr_filename;
-    // std::string dataset_key = param1 + "-" + std::to_string(input_nlist) + "-" + selection_k;
-    fnr_filename << "../ConANN-error-" << dataset_name <<  "-" << std::to_string(input_nlist) << "-" << selection_k << "-" << alpha << "-" << calib_sz <<  "-" << tune_sz <<".log";
+    // std::string dataset_key = param1 + "-" + std::to_string(input_nlist) +
+    // "-" + selection_k;
+    fnr_filename << "../ConANN-error-" << dataset_name << "-"
+                 << std::to_string(input_nlist) << "-" << selection_k << "-"
+                 << alpha << "-" << calib_sz << "-" << tune_sz << ".log";
     write_to_file(fnr, fnr_filename.str());
 
     std::ostringstream cls_filename;
 
-    cls_filename << "../ConANN-efficiency-" << dataset_name <<  "-" << std::to_string(input_nlist) << "-" << selection_k << "-" << alpha << "-" << calib_sz << "-" << tune_sz <<".log";
+    cls_filename << "../ConANN-efficiency-" << dataset_name << "-"
+                 << std::to_string(input_nlist) << "-" << selection_k << "-"
+                 << alpha << "-" << calib_sz << "-" << tune_sz << ".log";
     write_to_file(cls, cls_filename.str());
 
     delete index;

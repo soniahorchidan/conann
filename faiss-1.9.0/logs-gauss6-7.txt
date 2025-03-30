@@ -1,0 +1,4 @@
+Running dataset: gauss6
+./eval/run.sh: line 45:  5847 Killed: 9               ./build/eval/error gauss6 0.5 0.1
+
+Running dataset: gauss7

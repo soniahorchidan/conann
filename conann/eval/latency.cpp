@@ -73,8 +73,20 @@ double elapsed() {
 template <typename T> double computeAverage(const std::vector<T> &numbers) {
     if (numbers.empty())
         return 0.0;
-    double sum = std::accumulate(numbers.begin(), numbers.end(), 0.0);
-    return sum / numbers.size();
+    double sum = 0.0;
+    int negativeCount = 0;
+    for (const auto &num : numbers) {
+        if (num > 0) {
+            sum += num;
+        } else {
+            ++negativeCount;
+        }
+    }
+    if (negativeCount > 0) {
+        std::cout << "\nWARNING! Number of negative values: " << negativeCount
+                  << std::endl;
+    }
+    return sum / (numbers.size() - negativeCount);
 }
 
 template <typename T>
@@ -86,108 +98,119 @@ void write_to_file(const std::vector<T> &data, const std::string &filename) {
     file.close();
 }
 
-/// Command like this: ./error sift1M 0.5 0.1 5
+/// Command like this: ./error sift1M 0.5 0.1
 int main(int argc, char **argv) {
-    std::cout << argc << " arguments" << std::endl;
-    if (argc - 1 != 4) {
-        printf("You should at least input 4 params: the dataset name, calib "
-               "size percentage, alpha, num mondrian bins\n");
+    std::cout << argc - 1 << " arguments" << std::endl;
+    if (argc - 1 <= 5) {
+        printf("You should at least input 5 params: the dataset name, calib "
+               "size (%), tune size (%), alpha, nlist, k\n");
         return 0;
     }
-    std::string param1 = argv[1];
-    std::string param2 = argv[2];
-    std::string param3 = argv[3];
-    std::string param4 = argv[4];
-    int input_k = std::stoi(param2);
+    std::string param1 = argv[1]; // dataset
+    std::string param2 = argv[2]; // calibration size (%)
+    std::string param3 = argv[3]; // tuning size (%)
+    std::string param4 = argv[4]; // alpha
+    std::string param5 = argv[5]; // nlist value
+    std::string param6 = argv[6]; // optional: k
+
+    std::string dataset_name = param1;
     float calib_sz = std::stof(param2);
-    float alpha = std::stof(param3);
-    int num_bins = std::stoi(param4);
+    float tune_sz = std::stof(param3);
+    float alpha = std::stof(param4);
+    int input_nlist = std::stoi(param5);
+    std::string selection_k =
+        param6; // needs to be part of the dataset read in process and will be
+                // determined on reading in GTs
 
     float max_distance;
 
-    float bert_max_dist = 200;
+    float bert_max_dist = 20;
     float glove_max_dist = 100;
+    float fasttext_max_dist = 1000;
     float gist_max_dist = 200;
     float deep_max_dist = 100;
-    float sift_max_dist = 100000;
+    float sift_max_dist = 1000000;
 
     std::string db, query, gtI, gtD;
-    if (param1 == "bert_10") {
+    if (dataset_name == "bert") {
         db = "../data/bert/db.fvecs";
         query = "../data/bert/queries.fvecs";
-        gtI = "../data/bert/indices-10.fvecs";
-        gtD = "../data/bert/distances-10.fvecs";
+        gtI = "../data/bert/indices-" + selection_k + ".fvecs";
+        gtD = "../data/bert/distances-" + selection_k + ".fvecs";
         max_distance = bert_max_dist;
-    } else if (param1 == "bert_100") {
-        db = "../data/bert/db.fvecs";
-        query = "../data/bert/queries.fvecs";
-        gtI = "../data/bert/indices-100.fvecs";
-        gtD = "../data/bert/distances-100.fvecs";
+    } else if (dataset_name == "gist30k") {
+        db = "../data/gist30k/gist30k_base.fvecs";
+        query = "../data/gist30k/queries.fvecs";
+        gtI = "../data/gist30k/indices-" + selection_k + ".fvecs";
+        gtD = "../data/gist30k/distances-" + selection_k + ".fvecs";
+        max_distance = gist_max_dist;
+    } else if (dataset_name == "glove30k") {
+        db = "../data/glove30k/glove30k_db.fvecs";
+        query = "../data/glove30k/queries.fvecs";
+        gtI = "../data/glove30k/indices-" + selection_k + ".fvecs";
+        gtD = "../data/glove30k/distances-" + selection_k + ".fvecs";
+        max_distance = glove_max_dist;
+    } else if (dataset_name == "synth") {
+        db = "../data/synthetic10/db.fvecs";
+        query = "../data/synthetic10/queries.fvecs";
+        gtI = "../data/synthetic10/indices-" + selection_k + ".fvecs";
+        gtD = "../data/synthetic10/distances-" + selection_k + ".fvecs";
         max_distance = bert_max_dist;
-    } else if (param1 == "bert_1000") {
-        db = "../data/bert/db.fvecs";
-        query = "../data/bert/queries.fvecs";
-        gtI = "../data/bert/indices-1000.fvecs";
-        gtD = "../data/bert/distances-1000.fvecs";
-        max_distance = bert_max_dist;
-    } else if (param1 == "sift1M") {
-        db = "../data/sift1M/sift1M.fvecs";
-        query = "../data/sift1M/1M_query.fvecs";
-        gtI = "../data/sift1M/idx_1M.ivecs";
-        gtD = "../data/sift1M/dis_1M.fvecs";
+    } else if (dataset_name == "sift1M") {
+        db = "../data/sift1M/sift_base.fvecs";
+        query = "../data/sift1M/queries.fvecs";
+        gtI = "../data/sift1M/indices-" + selection_k + ".fvecs";
+        gtD = "../data/sift1M/distances-" + selection_k + ".fvecs";
         max_distance = sift_max_dist;
-    } else if (param1 == "sift10M") {
-        db = "/workspace/data/sift/sift10M/sift10M.fvecs";
-        query = "/workspace/data/sift/sift10M/query.fvecs";
-        gtI = "/workspace/data/sift/sift10M/idx.ivecs";
-        gtD = "/workspace/data/sift/sift10M/dis.fvecs";
-        max_distance = sift_max_dist;
-    } else if (param1 == "deep10M") {
+    } else if (dataset_name == "deep10M") {
         db = "../data/deep/deep10M.fvecs";
-        query = "../data/deep/query.fvecs";
-        gtI = "../data/deep/idx.ivecs";
-        gtD = "../data/deep/dis.fvecs";
+        query = "../data/deep/queries.fvecs";
+        gtI = "../data/deep/indices-" + selection_k + ".fvecs";
+        gtD = "../data/deep/distances-" + selection_k + ".fvecs";
         max_distance = deep_max_dist;
-    } else if (param1 == "gist_10") {
+    } else if (param1 == "gist") {
         db = "../data/gist/gist_base.fvecs";
         query = "../data/gist/queries.fvecs";
-        gtI = "../data/gist/indices-10.fvecs";
-        gtD = "../data/gist/distances-10.fvecs";
+        gtI = "../data/gist/indices-" + selection_k + ".fvecs";
+        gtD = "../data/gist/distances-" + selection_k + ".fvecs";
         max_distance = gist_max_dist;
-    } else if (param1 == "gist_100") {
-        db = "../data/gist/gist_base.fvecs";
-        query = "../data/gist/queries.fvecs";
-        gtI = "../data/gist/indices-100.fvecs";
-        gtD = "../data/gist/distances-100.fvecs";
-        max_distance = gist_max_dist;
-    } else if (param1 == "gist_1000") {
-        db = "../data/gist/gist_base.fvecs";
-        query = "../data/gist/queries.fvecs";
-        gtI = "../data/gist/indices-1000.fvecs";
-        gtD = "../data/gist/distances-1000.fvecs";
-        max_distance = gist_max_dist;
-    } else if (param1 == "glove_100") {
+    } else if (param1 == "glove") {
         db = "../data/glove/db.fvecs";
         query = "../data/glove/queries.fvecs";
-        gtI = "../data/glove/indices-100.fvecs";
-        gtD = "../data/glove/distances-100.fvecs";
+        gtI = "../data/glove/indices-" + selection_k + ".fvecs";
+        gtD = "../data/glove/distances-" + selection_k + ".fvecs";
         max_distance = glove_max_dist;
-    } else if (param1 == "glove_1000") {
-        db = "../data/glove/db.fvecs";
-        query = "../data/glove/queries.fvecs";
-        gtI = "../data/glove/indices-1000.fvecs";
-        gtD = "../data/glove/distances-1000.fvecs";
-        max_distance = glove_max_dist;
+    } else if (param1 == "synth") {
+        db = "../data/synthetic10/db.fvecs";
+        query = "../data/synthetic10/queries.fvecs";
+        gtI = "../data/synthetic10/indices-" + selection_k + ".fvecs";
+        gtD = "../data/synthetic10/distances-" + selection_k + ".fvecs";
+        max_distance = sift_max_dist;
+    } else if (dataset_name == "gauss5") {
+        db = "../data/gauss5/db.fvecs";
+        query = "../data/gauss5/queries.fvecs";
+        gtI = "../data/gauss5/indices-" + selection_k + ".fvecs";
+        gtD = "../data/gauss5/distances-" + selection_k + ".fvecs";
+        max_distance = sift_max_dist;
+    } else if (param1 == "gauss10") {
+        db = "../data/gauss10/db.fvecs";
+        query = "../data/gauss10/queries.fvecs";
+        gtI = "../data/gauss10/indices-" + selection_k + ".fvecs";
+        gtD = "../data/gauss10/distances-" + selection_k + ".fvecs";
+        max_distance = sift_max_dist;
+    } else if (param1 == "fasttext") {
+        db = "../data/fasttext/db.fvecs";
+        query = "../data/fasttext/queries.fvecs";
+        gtI = "../data/fasttext/indices-" + selection_k + ".fvecs";
+        gtD = "../data/fasttext/distances-" + selection_k + ".fvecs";
+        max_distance = fasttext_max_dist;
     } else {
         printf("Your dataset name is illegal\n");
-        return 0;
+        return 1;
     }
 
-    omp_set_num_threads(64);
+    omp_set_num_threads(60);
     double t0 = elapsed();
-
-    // this is typically the fastest one.
-    const char *index_key = "IVF1024,Flat";
 
     faiss::IndexIVFFlat *index;
 
@@ -199,22 +222,21 @@ int main(int argc, char **argv) {
         size_t nt;
         float *xt = fvecs_read(db.c_str(), &d, &nt);
 
-        printf("[%.3f s] Preparing index \"%s\" d=%ld\n", elapsed() - t0,
-               index_key, d);
+        printf("[%.3f s] Preparing index IVFFlat_%i d=%ld\n", elapsed() - t0,
+               input_nlist, d);
 
-        int nlist = 1024; // 1024 as per index_key
-        if (param1.find("bert") != std::string::npos) {
-            nlist = 128;
-        }
+        int nlist = input_nlist; // 1024 originally
 
         faiss::IndexFlatL2 *flat_index = new faiss::IndexFlatL2(d);
         index = new faiss::IndexIVFFlat(flat_index, d, nlist, faiss::METRIC_L2);
         // Make clustering seed explicit
         index->cp.seed = 420;
+        // index->pq.cp.seed = 420; // Use this when testing with quantization
 
         index->nprobe = nlist;
-
-         // train on half the dataset
+        // train on half the dataset
+        // TODO: Are we sure the data is shuffled otherwise we train K-means out
+        // of distribution.
         auto ntt = size_t(0.5 * nt);
         printf("[%.3f s] Training on %ld vectors\n", elapsed() - t0, ntt);
 
@@ -279,27 +301,35 @@ int main(int argc, char **argv) {
         assert(nq3 == nq || !"incorrect nb of ground truth entries");
     }
 
-    printf("[%.3f s] NEEDS UPDATING! ConANN Calibration\n", elapsed() - t0);
-    auto lamhat = index->calibrate(alpha, k, calib_sz, xq, nq, gt,  max_distance);
+    printf("[%.3f s] ConANN Calibration\n", elapsed() - t0);
+    auto t1 = elapsed();
+    auto calib_res = index->calibrate(alpha, k, calib_sz, tune_sz, xq, nq, gt,
+                                      max_distance, dataset_name);
+    std::cout << "Calibration-time=" << elapsed() - t1 << "\n";
+    std::cout << "Found lamhat=" << calib_res.lamhat << "\n";
+
     int test_start_idx = size_t(calib_sz * nq);
 
-    // printf("[%.3f s] ConANN Evaluation on %ld queries\n", elapsed() - t0, nq - test_start_idx);
-    // std::vector<double> latencies;
-    // for (int i = test_start_idx; i < nq; ++i) {
-    //     // iterate one query at a time
-    //     const float *xi = xq + i * index->d;
-    //     std::vector<faiss::idx_t> nns(k);
-    //     std::vector<float> dis(k);
+    printf("[%.3f s] ConANN Evaluation on %ld queries\n", elapsed() - t0,
+           nq - test_start_idx);
+    std::vector<double> latencies;
+    for (int i = test_start_idx; i < nq; ++i) {
+        // iterate one query at a time
+        const float *xi = xq + i * index->d;
+        std::vector<faiss::idx_t> nns(k);
+        std::vector<float> dis(k);
 
-    //     double t1 = elapsed();
-    //     index->search_conann_mondrian(1, xi, lamhat, dis.data(), nns.data());
-    //     latencies.push_back((elapsed() - t1) * 1000);
-    // }
+        double t1 = elapsed();
+        index->search_conann(1, xi, dis.data(), nns.data(), calib_res);
+        latencies.push_back((elapsed() - t1) * 1000);
+    }
 
-    // std::ostringstream filename;
-    // filename << "../ConANN-latency-" << param1 << "-" << k << "-" << alpha
-    //          << "-" << num_bins << "-" << std::time(nullptr) << ".log";
-    // write_to_file(latencies, filename.str());
+    std::ostringstream filename;
+    filename << "../ConANN-latency-" << dataset_name << "-"
+             << std::to_string(input_nlist) << "-" << selection_k << "-"
+             << alpha << "-" << calib_sz << "-" << tune_sz << ".log";
+
+    write_to_file(latencies, filename.str());
 
     delete[] xq;
     delete[] gt;
