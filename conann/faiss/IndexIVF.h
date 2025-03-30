@@ -416,12 +416,6 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::vector<std::vector<faiss::idx_t>> tune_labels;
     std::vector<std::vector<faiss::idx_t>> test_labels;
 
-    // Difficulty score for each query depending on location relative to cluster
-    // borders.
-    std::vector<float> calib_diffs;
-    std::vector<float> tune_diffs;
-    std::vector<float> test_diffs;
-
     // The nonconformity scores assigned to all clusters per query (nq * nlist).
     std::vector<std::vector<float>> calib_nonconf;
     std::vector<std::vector<float>> tune_nonconf;
@@ -441,8 +435,8 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     std::tuple<std::vector<std::vector<float>>,
                std::vector<std::vector<std::vector<faiss::idx_t>>>>
-    compute_scores(float lamhat, faiss::idx_t num_queries, const float *queries,
-                   const std::vector<float> &diff_scores);
+    compute_scores(float lamhat, faiss::idx_t num_queries,
+                   const float *queries);
 
     std::pair<std::vector<std::vector<faiss::idx_t>>, std::vector<int>>
     compute_predictions(
@@ -452,16 +446,14 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     void search_with_error_quantification(
         float lamhat, idx_t n, const float *x, idx_t k, float *distances,
-        idx_t *labels, const std::vector<float> &diff_scores,
-        std::vector<float> *nonconf_list,
+        idx_t *labels, std::vector<float> *nonconf_list,
         std::vector<std::vector<faiss::idx_t>> *all_preds_list,
         const SearchParameters *params = nullptr) const;
 
     void search_preassigned_with_error_quantification(
         float lamhat, idx_t n, const float *x, idx_t k, const idx_t *assign,
         const float *centroid_dis, float *distances, idx_t *labels,
-        bool store_pairs, const std::vector<float> &diff_scores,
-        std::vector<float> *nonconf_list,
+        bool store_pairs, std::vector<float> *nonconf_list,
         std::vector<std::vector<faiss::idx_t>> *all_preds_list,
         const IVFSearchParameters *params = nullptr,
         IndexIVFStats *stats = nullptr) const;
@@ -477,17 +469,10 @@ struct IndexIVF : Index, IndexIVFInterface {
                                  faiss::idx_t *gt, float max_distance,
                                  std::string dataset_key);
 
-    float cosine_similarity(const std::vector<float> &vec1,
-                            const std::vector<float> &vec2);
-
-    std::vector<float> compute_difficulty_scores(faiss::idx_t nq,
-                                                 const float *queries);
-
     float optimization(
         float alpha, int kreg, float lambdaReg,
         const std::vector<std::vector<float>> &calib_cx,
         const std::vector<std::vector<faiss::idx_t>> &calib_labels,
-        const std::vector<float> &calib_diffs,
         const std::vector<std::vector<float>> &calib_nonconf,
         const std::vector<std::vector<std::vector<faiss::idx_t>>> &calib_preds);
 
@@ -503,7 +488,6 @@ struct IndexIVF : Index, IndexIVFInterface {
         float lambda, float target_fnr,
         const std::vector<std::vector<float>> &calib_cx,
         const std::vector<std::vector<faiss::idx_t>> &calib_labels,
-        const std::vector<float> &calib_diffs,
         const std::vector<std::vector<float>> &calib_nonconf,
         const std::vector<std::vector<std::vector<faiss::idx_t>>> &calib_preds);
 
