@@ -108,7 +108,7 @@ def run_faiss(dataset, calib_sz, nlist, k, starting_nprobe, alphas: tuple):
 
 # PARAMETERS:
 datasets = ("bert", "glove", "sift1M", "deep10M", "gist", "fasttext") # gauss05, gauss10
-alphas = (0.3, 0.2, 0.1, 0.05)
+alphas = (0.5, 0.4, 0.3, 0.2, 0.1, 0.05)
 ks = (10, 100, 1000)
 calib_sz = 0.5
 tuning_sz = {"bert": 0.2, "glove": 0.1, "sift1M": 0.1, "deep10M": 0.1, "gist": 0.1, "fasttext": 0.1}
@@ -136,24 +136,24 @@ faiss_starting_nprobe = 1
 # sample_dataset("./data/gist/gist_base.fvecs", 10000, "queries.fvecs")
 # compute_gt("gist", (1000, 100, 10))
 
-sample_dataset("./data/fasttext/db.fvecs", 10000, "queries.fvecs")
-compute_gt("fasttext", (1000, 100, 10))
+# sample_dataset("./data/fasttext/db.fvecs", 10000, "queries.fvecs")
+# compute_gt("fasttext", (1000, 100, 10))
 
 
-# """
-# * NOTE: Remove when good to go:
-# """
-# for dataset in datasets:
-#     test_query_size(dataset)
+"""
+* NOTE: Remove when good to go:
+"""
+for dataset in datasets:
+    test_query_size(dataset)
 # exit(0) 
 
-# # Primary experiment section running on multiple alphas and ks.
-# for dataset in datasets:
-#     for k in ks:
-#         for alpha in alphas:
-#             run_conann(dataset, calib_sz, tuning_sz[dataset], alpha, nlist[dataset], k)
+# Primary experiment section running on multiple alphas and ks.
+for dataset in datasets:
+    for k in ks:
+        for alpha in alphas:
+            run_conann(dataset, calib_sz, tuning_sz[dataset], alpha, nlist[dataset], k)
 
 
-# for dataset in datasets:
-#     for k in ks:
-#         run_faiss(dataset, calib_sz, nlist[dataset], k, faiss_starting_nprobe, alphas)
+for dataset in datasets:
+    for k in ks:
+        run_faiss(dataset, calib_sz, nlist[dataset], k, faiss_starting_nprobe, alphas)

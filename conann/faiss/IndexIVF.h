@@ -395,7 +395,7 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     // ConANN block
     int n_list; // number of clusters
-    int K; // number of neighbors to search for
+    int K;      // number of neighbors to search for
     float MAX_DISTANCE = 100000;
     std::vector<std::vector<float>> centroids;
     std::vector<float> centroids_density;
@@ -415,8 +415,9 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::vector<std::vector<faiss::idx_t>> calib_labels;
     std::vector<std::vector<faiss::idx_t>> tune_labels;
     std::vector<std::vector<faiss::idx_t>> test_labels;
-    
-    // Difficulty score for each query depending on location relative to cluster borders.
+
+    // Difficulty score for each query depending on location relative to cluster
+    // borders.
     std::vector<float> calib_diffs;
     std::vector<float> tune_diffs;
     std::vector<float> test_diffs;
@@ -425,20 +426,23 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::vector<std::vector<float>> calib_nonconf;
     std::vector<std::vector<float>> tune_nonconf;
     std::vector<std::vector<float>> test_nonconf;
-    
-    // The predicted vector ids of all K neighbors for each query for increasing nprobe values.
-    // This stores all incremental search results as nprobe is increased from 1 to nlist.
-    // shape: nq * nlist * k
+
+    // The predicted vector ids of all K neighbors for each query for increasing
+    // nprobe values. This stores all incremental search results as nprobe is
+    // increased from 1 to nlist. shape: nq * nlist * k
     std::vector<std::vector<std::vector<faiss::idx_t>>> calib_preds;
     std::vector<std::vector<std::vector<faiss::idx_t>>> tune_preds;
     std::vector<std::vector<std::vector<faiss::idx_t>>> test_preds;
 
     // performance heavy pre-computation of scores, uses cache if possible
-    void prep_execution(float alpha, float calib_sz, float tune_sz, const float *queries, size_t nq, const faiss::idx_t *gt);
+    void prep_execution(float alpha, float calib_sz, float tune_sz,
+                        const float *queries, size_t nq,
+                        const faiss::idx_t *gt);
 
     std::tuple<std::vector<std::vector<float>>,
-              std::vector<std::vector<std::vector<faiss::idx_t>>>>
-    compute_scores(faiss::idx_t num_queries, const float *queries, const std::vector<float> &diff_scores);
+               std::vector<std::vector<std::vector<faiss::idx_t>>>>
+    compute_scores(faiss::idx_t num_queries, const float *queries,
+                   const std::vector<float> &diff_scores);
 
     std::pair<std::vector<std::vector<faiss::idx_t>>, std::vector<int>>
     compute_predictions(
@@ -447,9 +451,8 @@ struct IndexIVF : Index, IndexIVFInterface {
         const std::vector<std::vector<std::vector<faiss::idx_t>>> &preds);
 
     void search_with_error_quantification(
-        idx_t n, const float *x, idx_t k, float *distances, idx_t *labels, 
-        const std::vector<float> &diff_scores,
-        std::vector<float> *nonconf_list,
+        idx_t n, const float *x, idx_t k, float *distances, idx_t *labels,
+        const std::vector<float> &diff_scores, std::vector<float> *nonconf_list,
         std::vector<std::vector<faiss::idx_t>> *all_preds_list,
         const SearchParameters *params = nullptr) const;
 
@@ -462,24 +465,25 @@ struct IndexIVF : Index, IndexIVFInterface {
         const IVFSearchParameters *params = nullptr,
         IndexIVFStats *stats = nullptr) const;
 
-    struct CalibrationResults{
+    struct CalibrationResults {
         float lamhat;
         int kreg;
         float regLambda;
     };
 
-    CalibrationResults calibrate(float alpha, int k, float calib_sz, float tune_sz, float *xq, size_t nq, faiss::idx_t *gt, float max_distance, std::string dataset_key);
-
-    // std::vector<double> compute_reg_nonconf(const std::vector<std::vector<float>>& softmax_scores, const std::vector<std::vector<faiss::idx_t>>& labels, double lam_reg, int k_reg);
+    CalibrationResults calibrate(float alpha, int k, float calib_sz,
+                                 float tune_sz, float *xq, size_t nq,
+                                 faiss::idx_t *gt, float max_distance,
+                                 std::string dataset_key);
 
     float cosine_similarity(const std::vector<float> &vec1,
-                                  const std::vector<float> &vec2) ;
+                            const std::vector<float> &vec2);
 
-    std::vector<float> compute_difficulty_scores(
-        faiss::idx_t nq, const float *queries);
+    std::vector<float> compute_difficulty_scores(faiss::idx_t nq,
+                                                 const float *queries);
 
     float optimization(
-        float alpha, int kreg, float lambdaReg, 
+        float alpha, int kreg, float lambdaReg,
         const std::vector<std::vector<float>> &calib_cx,
         const std::vector<std::vector<faiss::idx_t>> &calib_labels,
         const std::vector<float> &calib_diffs,
@@ -502,28 +506,33 @@ struct IndexIVF : Index, IndexIVFInterface {
         const std::vector<std::vector<float>> &calib_nonconf,
         const std::vector<std::vector<std::vector<faiss::idx_t>>> &calib_preds);
 
-    std::pair<std::vector<float>, std::vector<int>> evaluate_test(CalibrationResults params);
-
-
     std::pair<std::vector<float>, std::vector<int>>
-    evaluate(CalibrationResults params, const std::vector<std::vector<float>> &queries,
-             const std::vector<std::vector<faiss::idx_t>> &labels, const std::vector<std::vector<float>> &nonconf_scores,
-                   const std::vector<std::vector<std::vector<faiss::idx_t>>> &all_preds);
+    evaluate_test(CalibrationResults params);
+
+    std::pair<std::vector<float>, std::vector<int>> evaluate(
+        CalibrationResults params,
+        const std::vector<std::vector<float>> &queries,
+        const std::vector<std::vector<faiss::idx_t>> &labels,
+        const std::vector<std::vector<float>> &nonconf_scores,
+        const std::vector<std::vector<std::vector<faiss::idx_t>>> &all_preds);
+
+    // void IndexIVF::search_conann(idx_t n, const float *x, float lamhat,
+    //                              float *distances, idx_t *labels);
 
     // --- RAPS
-    std::vector<std::pair<int, float>> sortClassesByProbability(const std::vector<float>& classProbabilities) const;
-    std::vector<int> computeOx(const std::vector<std::pair<int, float>>& sortedClasses) const;
+    std::vector<std::pair<int, float>> sortClassesByProbability(
+        const std::vector<float> &classProbabilities) const;
+    std::vector<int>
+    computeOx(const std::vector<std::pair<int, float>> &sortedClasses) const;
     float computeRegularization(int ox_y, float lambda, int kreg) const;
-    std::vector<std::vector<int>> computeSortedIndices(const std::vector<std::vector<float>>& classProbabilities) const;
-    std::vector<std::vector<float>> regularizeScores(
-        const std::vector<std::vector<float>>& s, //scores  
-        const std::vector<std::vector<int>>& I,
-        float lambda, 
-        int kreg) const;
-    int pickKreg(
-        const std::vector<std::vector<float>>& s, //scores  
-        float alpha
-        ) const; 
+    std::vector<std::vector<int>> computeSortedIndices(
+        const std::vector<std::vector<float>> &classProbabilities) const;
+    std::vector<std::vector<float>>
+    regularizeScores(const std::vector<std::vector<float>> &s, // scores
+                     const std::vector<std::vector<int>> &I, float lambda,
+                     int kreg) const;
+    int pickKreg(const std::vector<std::vector<float>> &s, // scores
+                 float alpha) const;
     float pickLambdaReg(float alpha, int kreg) const;
 };
 
