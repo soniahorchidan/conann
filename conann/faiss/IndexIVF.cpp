@@ -1306,16 +1306,13 @@ IndexIVF::calibrate(float alpha, int k, float calib_sz, float tune_sz,
     MAX_DISTANCE = max_distance;
     dataset_name = dataset;
 
-    // double t1 = elapsed();
     prep_execution(alpha, calib_sz, tune_sz, xq, nq, gt);
-    // std::cout << "Time spent preparing calibration: " << elapsed() - t1 <<
-    // std::endl;
 
     // NOTE: randomization disabled. Can enable easier by having a class-level
     // boolean. int kreg = pickKreg(tune_nonconf, alpha); // Regularization
     // hyperparameter
     int kreg = 1;
-    float lambdaReg = pickLambdaReg(alpha, kreg);
+    float lambdaReg = pick_lambda_reg(alpha, kreg);
     std::cout << "Calib hyperparameters: kreg=" << kreg
               << " reg-lambda=" << lambdaReg << "\n";
     // double t1 = elapsed();
@@ -1332,9 +1329,9 @@ float IndexIVF::optimization(
     const std::vector<std::vector<float>> &nonconf_scores,
     const std::vector<std::vector<std::vector<faiss::idx_t>>> &all_preds) {
 
-    auto sorted_indices_cn = computeSortedIndices(nonconf_scores);
+    auto sorted_indices_cn = compute_sorted_indices(nonconf_scores);
     auto reg_nonconf_scores =
-        regularizeScores(nonconf_scores, sorted_indices_cn, lambdaReg, kreg);
+        regularize_scores(nonconf_scores, sorted_indices_cn, lambdaReg, kreg);
 
     int n = queries.size();
     float target_fnr =
@@ -1482,9 +1479,9 @@ void IndexIVF::search_conann(idx_t n, const float *x, float *distances,
 
     auto [nonconf, all_preds_per_nprobe] = compute_scores(lamhat, n, x);
 
-    auto sortedIndices = computeSortedIndices(nonconf);
+    auto sortedIndices = compute_sorted_indices(nonconf);
     auto reg_nonconf =
-        regularizeScores(nonconf, sortedIndices, regLambda, kreg);
+        regularize_scores(nonconf, sortedIndices, regLambda, kreg);
 
     std::vector<std::vector<float>> queries(n, std::vector<float>(d));
     for (size_t i = 0; i < n; ++i) {
@@ -1593,9 +1590,9 @@ std::pair<std::vector<float>, std::vector<int>> IndexIVF::evaluate(
               << " reg-lambda=" << regLambda << "\n";
 
     auto t1 = elapsed();
-    auto sortedIndices = computeSortedIndices(nonconf_scores);
+    auto sortedIndices = compute_sorted_indices(nonconf_scores);
     auto reg_nonconf_scores =
-        regularizeScores(nonconf_scores, sortedIndices, regLambda, kreg);
+        regularize_scores(nonconf_scores, sortedIndices, regLambda, kreg);
     std::cout << "Time spent regularizing scores: " << elapsed() - t1
               << std::endl;
 
@@ -1611,87 +1608,60 @@ std::pair<std::vector<float>, std::vector<int>> IndexIVF::evaluate(
 
 // -------
 
-std::vector<std::pair<int, float>> IndexIVF::sortClassesByProbability(
-    const std::vector<float> &classProbabilities) const {
-    std::vector<std::pair<int, float>> sortedClasses;
-    for (int i = 0; i < classProbabilities.size(); ++i) {
-        sortedClasses.emplace_back(i, classProbabilities[i]);
+std::vector<std::pair<int, float>> IndexIVF::sort_classes_by_probability(
+    const std::vector<float> &class_probabilities) const {
+    std::vector<std::pair<int, float>> sorted_classes;
+    for (int i = 0; i < class_probabilities.size(); ++i) {
+        sorted_classes.emplace_back(i, class_probabilities[i]);
     }
     // Sort by probability in descending order
-    std::sort(sortedClasses.begin(), sortedClasses.end(),
+    std::sort(sorted_classes.begin(), sorted_classes.end(),
               [](const auto &a, const auto &b) { return b.second < a.second; });
-    return sortedClasses;
+    return sorted_classes;
 }
 
-// ox(y) is the rank of class y based on its predicted probability.
-std::vector<int> IndexIVF::computeOx(
-    const std::vector<std::pair<int, float>> &sortedClasses) const {
-    std::vector<int> ox(sortedClasses.size(), 0);
-    for (size_t i = 0; i < sortedClasses.size(); ++i) {
-        ox[i] = i + 1; // Rank starts at 1
+std::vector<int> IndexIVF::compute_ox(
+    const std::vector<std::pair<int, float>> &sorted_classes) const {
+    std::vector<int> ox(sorted_classes.size(), 0);
+    for (size_t i = 0; i < sorted_classes.size(); ++i) {
+        ox[i] = i + 1;
     }
     return ox;
 }
 
-// The regularization term is λ * (ox(y) - kreg)+, where (z)+ is the positive
-// part of z
-float IndexIVF::computeRegularization(int ox_y, float lambda, int kreg) const {
+float IndexIVF::compute_regularization(int ox_y, float lambda, int kreg) const {
     return lambda * std::max(0, ox_y - kreg);
 }
 
-std::vector<std::vector<int>> IndexIVF::computeSortedIndices(
-    const std::vector<std::vector<float>> &classProbabilities) const {
-    std::vector<std::vector<int>> sortedIndices;
-    // For each example, we sort the class probabilities and store the sorted
-    // indices
-    for (const auto &probs : classProbabilities) {
-        std::vector<std::pair<int, float>> indexedClasses;
-        // Create pairs of (index, probability) for each class
+std::vector<std::vector<int>> IndexIVF::compute_sorted_indices(
+    const std::vector<std::vector<float>> &class_probabilities) const {
+    std::vector<std::vector<int>> sorted_indices;
+    for (const auto &probs : class_probabilities) {
+        std::vector<std::pair<int, float>> indexed_classes;
         for (int i = 0; i < probs.size(); ++i) {
-            indexedClasses.emplace_back(i, probs[i]);
+            indexed_classes.emplace_back(i, probs[i]);
         }
-        // Sort the classes based on their probabilities in descending order
         std::sort(
-            indexedClasses.begin(), indexedClasses.end(),
-            [](const auto &a, const auto &b) {
-                return b.second <
-                       a.second; // Sort in descending order by probability
-            });
-        // Extract the sorted indices
-        std::vector<int> sortedClassIndices;
-        for (const auto &pair : indexedClasses) {
-            sortedClassIndices.push_back(
-                pair.first); // Add the class index to the sorted list
+            indexed_classes.begin(), indexed_classes.end(),
+            [](const auto &a, const auto &b) { return b.second < a.second; });
+        std::vector<int> sorted_class_indices;
+        for (const auto &pair : indexed_classes) {
+            sorted_class_indices.push_back(pair.first);
         }
-        sortedIndices.push_back(sortedClassIndices); // Add to the result list
+        sorted_indices.push_back(sorted_class_indices);
     }
-    return sortedIndices;
+    return sorted_indices;
 }
 
-// intuition: the estimate of the smallest fixed size set that achieves coverage
-int IndexIVF::pickKreg(const std::vector<std::vector<float>> &scores_per_q,
-                       float alpha) const {
-
-    size_t n{scores_per_q.size()};
+int IndexIVF::pick_kreg(const std::vector<std::vector<float>> &scores_per_q,
+                        float alpha) const {
+    size_t n = scores_per_q.size();
     std::vector<int> rank_per_query;
-
     for (const auto &row : scores_per_q) {
-        std::set<float> unique_scores;
-        for (float score : row) {
-            unique_scores.insert(score);
-        }
+        std::set<float> unique_scores(row.begin(), row.end());
         int highest_rank = unique_scores.size();
-        // solution one: using the largest score
-        // rank_per_query.push_back(highest_rank);
-        // solution two: using the average score (more aggressive
-        // regularization) rank_per_query.push_back(((highest_rank *
-        // (highest_rank + 1))/2)/highest_rank); solution three: return 1
         rank_per_query.push_back(1);
-        // solution three: return 0
-        // rank_per_query.push_back(0);
     }
-
-    // Get conservative (1-alpha)-quantile of ranks
     std::vector<int> sorted_ranks = rank_per_query;
     std::sort(sorted_ranks.begin(), sorted_ranks.end());
     int kstar_idx = std::ceil((1.0f - alpha) * (n + 1));
@@ -1699,18 +1669,15 @@ int IndexIVF::pickKreg(const std::vector<std::vector<float>> &scores_per_q,
     return kstar;
 }
 
-float IndexIVF::pickLambdaReg(float alpha, int kreg) const {
+float IndexIVF::pick_lambda_reg(float alpha, int kreg) const {
     int best_size = n_list;
     float lambda_star = 0;
-
     std::vector<float> lambda_values = {0.0, 0.001, 0.01, 0.1};
     for (float temp_lambda : lambda_values) {
         auto lamhat = const_cast<faiss::IndexIVF *>(this)->optimization(
             alpha, kreg, temp_lambda, tune_cx, tune_labels, tune_nonconf,
             tune_preds);
-
         auto params = CalibrationResults{lamhat, kreg, temp_lambda};
-
         auto [_, cls] = const_cast<faiss::IndexIVF *>(this)->evaluate(
             params, tune_cx, tune_labels, tune_nonconf, tune_preds);
         float avg_cls_searched =
@@ -1719,65 +1686,40 @@ float IndexIVF::pickLambdaReg(float alpha, int kreg) const {
         if (avg_cls_searched < best_size) {
             lambda_star = temp_lambda;
             best_size = avg_cls_searched;
-            std::cout << "Found better lambdaReg=" << lambda_star
+            std::cout << "Found better lambda_reg=" << lambda_star
                       << ". Updating.\n";
         }
     }
-    std::cout << "Best lambdaReg found=" << lambda_star << "\n";
+    std::cout << "Best lambda_reg found=" << lambda_star << "\n";
     return lambda_star;
 }
 
 std::vector<std::vector<float>>
-IndexIVF::regularizeScores(const std::vector<std::vector<float>> &s,
-                           const std::vector<std::vector<int>> &I,
-                           float lambdaReg, int kreg) const {
-
+IndexIVF::regularize_scores(const std::vector<std::vector<float>> &s,
+                            const std::vector<std::vector<int>> &I,
+                            float lambda_reg, int kreg) const {
     size_t n = s.size();
-    size_t K = s[0].size(); // Number of classes
+    size_t K = s[0].size();
     std::vector<std::vector<float>> E(n, std::vector<float>(K, 0.0f));
-
-    float max_reg_val = (1 + lambdaReg * (n_list - kreg)) + 10;
-
+    float max_reg_val = (1 + lambda_reg * (n_list - kreg)) + 10;
     for (size_t i = 0; i < n; ++i) {
-        // Sort classes by softmax probability, keeping track of the original
-        // indices
-        std::vector<std::pair<int, float>>
-            sortedClasses; // Changed the pair order
+        std::vector<std::pair<int, float>> sorted_classes;
         for (int j = 0; j < K; ++j) {
-            sortedClasses.push_back({j, s[i][j]}); // {class_index, probability}
+            sorted_classes.push_back({j, s[i][j]});
         }
         std::sort(
-            sortedClasses.rbegin(), sortedClasses.rend(),
+            sorted_classes.rbegin(), sorted_classes.rend(),
             [](const std::pair<int, float> &a, const std::pair<int, float> &b) {
-                return a.second <
-                       b.second; // Sort by probability in descending order
+                return a.second < b.second;
             });
-
-        auto ox = computeOx(sortedClasses);
-
-        // Now, compute the nonconformity scores and assign them to the original
-        // class indices
+        auto ox = compute_ox(sorted_classes);
         for (size_t j = 0; j < K; ++j) {
-            int originalClassIndex =
-                sortedClasses[j].first; // Retrieve original class index
-            float Eij = 1.0f - s[i][originalClassIndex]; // Basic nonconformity
-                                                         // score for the class
-
-            // Add regularization
-            Eij += computeRegularization(ox[j], lambdaReg, kreg);
-
-            // // Randomization if enabled
-            // if (RAPS_RANDOMIZATION_ENABLED) {
-            //     float U = static_cast<float>(rand()) /
-            //     static_cast<float>(RAND_MAX); Eij -= U *
-            //     s[i][originalClassIndex];
-            // }
-
-            // Assign the score to the correct class
-            E[i][originalClassIndex] = Eij / max_reg_val;
+            int original_class_index = sorted_classes[j].first;
+            float Eij = 1.0f - s[i][original_class_index];
+            Eij += compute_regularization(ox[j], lambda_reg, kreg);
+            E[i][original_class_index] = Eij / max_reg_val;
         }
     }
-
     return E;
 }
 

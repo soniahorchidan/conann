@@ -505,20 +505,26 @@ struct IndexIVF : Index, IndexIVFInterface {
                        CalibrationResults calib_params);
 
     // --- RAPS
-    std::vector<std::pair<int, float>> sortClassesByProbability(
-        const std::vector<float> &classProbabilities) const;
+    std::vector<std::pair<int, float>> sort_classes_by_probability(
+        const std::vector<float> &class_probabilities) const;
+
     std::vector<int>
-    computeOx(const std::vector<std::pair<int, float>> &sortedClasses) const;
-    float computeRegularization(int ox_y, float lambda, int kreg) const;
-    std::vector<std::vector<int>> computeSortedIndices(
-        const std::vector<std::vector<float>> &classProbabilities) const;
+    compute_ox(const std::vector<std::pair<int, float>> &sorted_classes) const;
+
+    float compute_regularization(int ox_y, float lambda, int kreg) const;
+
+    std::vector<std::vector<int>> compute_sorted_indices(
+        const std::vector<std::vector<float>> &class_probabilities) const;
+
     std::vector<std::vector<float>>
-    regularizeScores(const std::vector<std::vector<float>> &s, // scores
-                     const std::vector<std::vector<int>> &I, float lambda,
-                     int kreg) const;
-    int pickKreg(const std::vector<std::vector<float>> &s, // scores
-                 float alpha) const;
-    float pickLambdaReg(float alpha, int kreg) const;
+    regularize_scores(const std::vector<std::vector<float>> &s, // scores
+                      const std::vector<std::vector<int>> &I, float lambda,
+                      int kreg) const;
+
+    int pick_kreg(const std::vector<std::vector<float>> &s, // scores
+                  float alpha) const;
+
+    float pick_lambda_reg(float alpha, int kreg) const;
 };
 
 struct RangeQueryResult;
