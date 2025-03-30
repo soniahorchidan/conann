@@ -70,7 +70,7 @@ double elapsed() {
     return tv.tv_sec + tv.tv_usec * 1e-6;
 }
 
-template <typename T> double computeAverage(const std::vector<T> &numbers) {
+template <typename T> double compute_average(const std::vector<T> &numbers) {
     if (numbers.empty())
         return 0.0;
     double sum = 0.0;
@@ -87,6 +87,19 @@ template <typename T> double computeAverage(const std::vector<T> &numbers) {
                   << std::endl;
     }
     return sum / (numbers.size() - negativeCount);
+}
+
+template <typename T>
+double compute_quantile(const std::vector<T> &numbers, double alpha) {
+    if (numbers.empty()) {
+        return 0.0;
+    }
+    std::vector<T> sorted_numbers = numbers;
+    std::sort(sorted_numbers.begin(), sorted_numbers.end());
+    int index = static_cast<int>(std::ceil((1 - alpha) * sorted_numbers.size())) - 1;
+    // Ensure the index is within bounds
+    if (index < 0) index = 0;
+    return static_cast<double>(sorted_numbers[index]);
 }
 
 template <typename T>
@@ -344,6 +357,12 @@ int main(int argc, char **argv) {
                                       max_distance, dataset_name);
     std::cout << "Calibration-time=" << elapsed() - t1 << "\n";
     std::cout << "Found lamhat=" << calib_res.lamhat << "\n";
+
+    printf("[%.3f s] ConANN Evaluation\n", elapsed() - t0);
+    auto [fnr, cls] = index->evaluate_test(calib_res);
+    auto calibrated_cls_searched = compute_quantile(cls, alpha);
+    calib_res.cal_numcls = calibrated_cls_searched;
+    std::cout << "Set cal_numcls to " << calibrated_cls_searched << "\n";
 
     int test_start_idx = size_t(calib_sz * nq);
 

@@ -1130,7 +1130,7 @@ void IndexIVF::prep_execution(float alpha, float calib_sz, float tune_sz,
         // using std::tie in this instance is really important for performance
         // to avoid the extra copy
         std::tie(all_nonconf_scores, all_preds) =
-            compute_scores(CalibrationResults{10, 0, 0}, nq, queries);
+            compute_scores(CalibrationResults{10, 0, 0, 0}, nq, queries);
         std::cout << "Time spent computing scores: " << elapsed() - t1
                   << std::endl;
 
@@ -1272,7 +1272,7 @@ IndexIVF::calibrate(float alpha, int k, float calib_sz, float tune_sz,
     auto lamhat = optimization(alpha, kreg, lambda_reg, calib_cx, calib_labels,
                                calib_nonconf, calib_preds);
     // std::cout << "Time spent optimizing: " << elapsed() - t1 << std::endl;
-    return CalibrationResults{lamhat, kreg, lambda_reg};
+    return CalibrationResults{lamhat, kreg, lambda_reg, 0};
 }
 
 float IndexIVF::optimization(
@@ -1624,7 +1624,7 @@ float IndexIVF::pick_lambda_reg(float alpha, int kreg) const {
         auto lamhat = const_cast<faiss::IndexIVF *>(this)->optimization(
             alpha, kreg, temp_lambda, tune_cx, tune_labels, tune_nonconf,
             tune_preds);
-        auto params = CalibrationResults{lamhat, kreg, temp_lambda};
+        auto params = CalibrationResults{lamhat, kreg, temp_lambda, 0};
         auto [_, cls] = const_cast<faiss::IndexIVF *>(this)->evaluate(
             params, tune_cx, tune_labels, tune_nonconf, tune_preds);
         float avg_cls_searched =
@@ -1996,14 +1996,12 @@ void IndexIVF::search_preassigned_with_error_quantification(
                     // NOTE: code used for search_conann only
                     // check for early stopping; need to attempt to regularize the score
                     float max_reg_val = (1 + cal_params.regLambda * (nlist - cal_params.kreg)) + 10;
-                    // TODO(sonia): use (1-alpha) calibration quantile
-                    int AVG_CLS_SEARCHED = 16;
-                    float reg_score_k = (1 - score_k / MAX_DISTANCE) + compute_regularization(AVG_CLS_SEARCHED - ik + 1, cal_params.regLambda, cal_params.kreg);
-                    if (reg_score_k / max_reg_val > cal_params.lamhat) {
+                    float reg_score_k = (1 - score_k / MAX_DISTANCE) + compute_regularization(cal_params.cal_numcls - ik + 1, cal_params.regLambda, cal_params.kreg);
+                    if (score_k > MAX_DISTANCE) {
+                        (*(nonconf_list + i))[keys[i * nprobe + ik]] = 1.0;
+                    } else if (reg_score_k / max_reg_val > cal_params.lamhat) {
                         (*(nonconf_list + i))[keys[i * nprobe + ik]] = 1.0;
                         break;
-                    } else if (score_k > MAX_DISTANCE) {
-                        (*(nonconf_list + i))[keys[i * nprobe + ik]] = 1.0;
                     } else {
                         (*(nonconf_list + i))[keys[i * nprobe + ik]] =
                             score_k / MAX_DISTANCE;
