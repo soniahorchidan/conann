@@ -200,53 +200,6 @@ void IndexIVF::add_with_ids(idx_t n, const float *x, const idx_t *xids) {
                   centroid.begin());
         centroids.push_back(std::move(centroid));
     }
-
-    // std::vector<size_t> cluster_counts(n_list, 0);
-
-    // // Compute densities
-    // // Count vectors per centroid
-    // for (size_t i = 0; i < n; ++i) {
-    //     cluster_counts[coarse_idx[i]]++;
-    // }
-
-    // // Store densities (e.g., using count as a proxy)
-    // std::cout << "Cluster densities=";
-    // for (size_t i = 0; i < n_list; ++i) {
-    //     float cl_d = static_cast<float>(cluster_counts[i]) / n;
-    //     std::cout << cl_d << " ";
-    //     centroids_density.push_back(cl_d);
-    // }
-    // std::cout << "\n";
-
-    std::vector<size_t> cluster_counts(n_list, 0);
-    std::vector<float> cluster_densities(n_list, 0.0f);
-
-    // Count points in each cluster and compute density
-    for (size_t i = 0; i < n; ++i) {
-        size_t cluster_idx = coarse_idx[i];
-        cluster_counts[cluster_idx]++;
-    }
-
-    // Calculate density as a fraction of points per centroid
-    size_t max_cluster_size =
-        *std::max_element(cluster_counts.begin(), cluster_counts.end());
-
-    for (size_t i = 0; i < n_list; ++i) {
-        // Normalize cluster density to the max cluster size
-        if (max_cluster_size > 0) {
-            cluster_densities[i] = static_cast<float>(cluster_counts[i]) /
-                                   static_cast<float>(max_cluster_size);
-        } else {
-            cluster_densities[i] = 0.0f; // If no points assigned, density is 0
-        }
-
-        // Store the normalized density (ensured to be between 0 and 1)
-        // std::cout << "Normalized cluster density for centroid " << i << ": "
-        // << cluster_densities[i] << std::endl; Cachable but depends on K-Means
-        // and is not expensive to compute
-        centroids_density.push_back(cluster_densities[i]);
-    }
-
     // ----------------------------
 }
 
@@ -1491,20 +1444,14 @@ void IndexIVF::search_conann(idx_t n, const float *x, float *distances,
     }
     auto [test_preds, cl_searched] =
         compute_predictions(lamhat, queries, reg_nonconf, all_preds_per_nprobe);
-
-    // Move results
-    // TODO: optimize
-    int nq = queries.size();
-    for (int i = 0; i < nq; ++i) {
-        if (test_preds[i].empty()) {
-            std::fill(labels + i * K, labels + (i + 1) * K, 0);
-        } else {
-            for (int j = 0; j < K; ++j) {
-                labels[i * K + j] = test_preds[i][j];
-            }
+    // Flatten test_preds
+    size_t index = 0;
+    for (const auto& vec : test_preds) {
+        for (const auto& label : vec) {
+            labels[index++] = label;  
         }
     }
-    // TODO: maintain distances too
+    // TODO: Maintain distances as well, similar to labels if needed
 }
 
 std::vector<float> IndexIVF::recall_per_query(
@@ -2046,17 +1993,18 @@ void IndexIVF::search_preassigned_with_error_quantification(
                     // add results for query i
                     (*(all_preds_list + i))[keys[i * nprobe + ik]] = idxi_copy;
 
-                    // // check for early stopping; need to attempt to regularize the score
-                    // float max_reg_val = (1 + cal_params.regLambda * (nlist - cal_params.kreg)) + 10;
-                    // float reg_score_k = (1 - score_k / MAX_DISTANCE) + cal_params.regLambda  * ((nlist - ik) - cal_params.kreg);
-                    // if (reg_score_k / max_reg_val > cal_params.lamhat) {
-                    //     (*(nonconf_list + i))[keys[i * nprobe + ik]] = 1.0;
-                    //     break;
-                    // } else if (score_k > MAX_DISTANCE) {
-                    if (score_k > MAX_DISTANCE) {
+                    // NOTE: code used for search_conann only
+                    // check for early stopping; need to attempt to regularize the score
+                    float max_reg_val = (1 + cal_params.regLambda * (nlist - cal_params.kreg)) + 10;
+                    // TODO(sonia): use (1-alpha) calibration quantile
+                    int AVG_CLS_SEARCHED = 16;
+                    float reg_score_k = (1 - score_k / MAX_DISTANCE) + compute_regularization(AVG_CLS_SEARCHED - ik + 1, cal_params.regLambda, cal_params.kreg);
+                    if (reg_score_k / max_reg_val > cal_params.lamhat) {
+                        (*(nonconf_list + i))[keys[i * nprobe + ik]] = 1.0;
+                        break;
+                    } else if (score_k > MAX_DISTANCE) {
                         (*(nonconf_list + i))[keys[i * nprobe + ik]] = 1.0;
                     } else {
-                        // auto x = centroids_density[keys[i * nprobe + ik]];
                         (*(nonconf_list + i))[keys[i * nprobe + ik]] =
                             score_k / MAX_DISTANCE;
                     }

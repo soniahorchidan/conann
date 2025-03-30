@@ -351,7 +351,9 @@ int main(int argc, char **argv) {
            nq - test_start_idx);
     std::vector<double> latencies;
 
-    std::vector<std::vector<faiss::idx_t>> prediction_set(nq, std::vector<faiss::idx_t>(k));
+    std::vector<std::vector<faiss::idx_t>> prediction_set(nq - test_start_idx, std::vector<faiss::idx_t>(k));
+    std::vector<std::vector<faiss::idx_t>> gt_labels(nq - test_start_idx, std::vector<faiss::idx_t>(k));
+
     for (int i = test_start_idx; i < nq; ++i) {
         // iterate one query at a time
         const float *xi = xq + i * index->d;
@@ -361,14 +363,13 @@ int main(int argc, char **argv) {
         double t1 = elapsed();
         index->search_conann(1, xi, dis.data(), nns.data(), calib_res);
         latencies.push_back((elapsed() - t1) * 1000);
-        prediction_set[i] = nns;
+        prediction_set[i - test_start_idx] = nns;
     }
 
-    std::vector<std::vector<faiss::idx_t>> gt_labels(nq, std::vector<faiss::idx_t>(k));
     // Fill gt_labels with ground truth data (already loaded from files)
-    for (size_t i = 0; i < nq; ++i) {
+    for (size_t i = test_start_idx; i < nq; ++i) {
         for (size_t j = 0; j < k; ++j) {
-            gt_labels[i][j] = gt[i * k + j];
+            gt_labels[i - test_start_idx][j] = gt[i * k + j];
         }
     }
 
