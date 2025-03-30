@@ -400,8 +400,8 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::vector<std::vector<float>> centroids;
     std::vector<float> centroids_density;
     std::string dataset_name;
-    bool readFromCache = true;
-    bool writeToCache = true; // can usually leave true (minimal extra latency)
+    bool readFromCache = false;
+    bool writeToCache = false; // can usually leave true (minimal extra latency)
 
     // for convenience
     double elapsed();
@@ -433,9 +433,15 @@ struct IndexIVF : Index, IndexIVFInterface {
                         const float *queries, size_t nq,
                         const faiss::idx_t *gt);
 
+    struct CalibrationResults {
+        float lamhat;
+        int kreg;
+        float regLambda;
+    };                 
+
     std::tuple<std::vector<std::vector<float>>,
                std::vector<std::vector<std::vector<faiss::idx_t>>>>
-    compute_scores(float lamhat, faiss::idx_t num_queries,
+    compute_scores(CalibrationResults cal_params, faiss::idx_t num_queries,
                    const float *queries);
 
     std::pair<std::vector<std::vector<faiss::idx_t>>, std::vector<int>>
@@ -445,24 +451,18 @@ struct IndexIVF : Index, IndexIVFInterface {
         const std::vector<std::vector<std::vector<faiss::idx_t>>> &preds);
 
     void search_with_error_quantification(
-        float lamhat, idx_t n, const float *x, idx_t k, float *distances,
+        CalibrationResults cal_params, idx_t n, const float *x, idx_t k, float *distances,
         idx_t *labels, std::vector<float> *nonconf_list,
         std::vector<std::vector<faiss::idx_t>> *all_preds_list,
         const SearchParameters *params = nullptr) const;
 
     void search_preassigned_with_error_quantification(
-        float lamhat, idx_t n, const float *x, idx_t k, const idx_t *assign,
+        CalibrationResults cal_params, idx_t n, const float *x, idx_t k, const idx_t *assign,
         const float *centroid_dis, float *distances, idx_t *labels,
         bool store_pairs, std::vector<float> *nonconf_list,
         std::vector<std::vector<faiss::idx_t>> *all_preds_list,
         const IVFSearchParameters *params = nullptr,
         IndexIVFStats *stats = nullptr) const;
-
-    struct CalibrationResults {
-        float lamhat;
-        int kreg;
-        float regLambda;
-    };
 
     CalibrationResults calibrate(float alpha, int k, float calib_sz,
                                  float tune_sz, float *xq, size_t nq,
@@ -470,7 +470,7 @@ struct IndexIVF : Index, IndexIVFInterface {
                                  std::string dataset_key);
 
     float optimization(
-        float alpha, int kreg, float lambdaReg,
+        float alpha, int kreg, float lambda_reg,
         const std::vector<std::vector<float>> &calib_cx,
         const std::vector<std::vector<faiss::idx_t>> &calib_labels,
         const std::vector<std::vector<float>> &calib_nonconf,

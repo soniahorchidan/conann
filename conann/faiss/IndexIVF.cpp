@@ -1177,7 +1177,7 @@ void IndexIVF::prep_execution(float alpha, float calib_sz, float tune_sz,
         // using std::tie in this instance is really important for performance
         // to avoid the extra copy
         std::tie(all_nonconf_scores, all_preds) =
-            compute_scores(10, nq, queries);
+            compute_scores(CalibrationResults{10, 0, 0}, nq, queries);
         std::cout << "Time spent computing scores: " << elapsed() - t1
                   << std::endl;
 
@@ -1258,7 +1258,7 @@ void IndexIVF::prep_execution(float alpha, float calib_sz, float tune_sz,
 
 std::tuple<std::vector<std::vector<float>>,
            std::vector<std::vector<std::vector<faiss::idx_t>>>>
-IndexIVF::compute_scores(float lamhat, faiss::idx_t num_queries,
+IndexIVF::compute_scores(CalibrationResults cal_params, faiss::idx_t num_queries,
                          const float *queries) {
     // int num_queries = queries.size();
 
@@ -1286,7 +1286,7 @@ IndexIVF::compute_scores(float lamhat, faiss::idx_t num_queries,
     // }
 
     search_with_error_quantification(
-        lamhat, num_queries, queries, K, dis.data(), nns.data(),
+        cal_params, num_queries, queries, K, dis.data(), nns.data(),
         nonconf_list.data(), all_preds_list.data());
 
     return std::make_tuple(nonconf_list, all_preds_list);
@@ -1312,18 +1312,18 @@ IndexIVF::calibrate(float alpha, int k, float calib_sz, float tune_sz,
     // boolean. int kreg = pickKreg(tune_nonconf, alpha); // Regularization
     // hyperparameter
     int kreg = 1;
-    float lambdaReg = pick_lambda_reg(alpha, kreg);
+    float lambda_reg = pick_lambda_reg(alpha, kreg);
     std::cout << "Calib hyperparameters: kreg=" << kreg
-              << " reg-lambda=" << lambdaReg << "\n";
+              << " reg-lambda=" << lambda_reg << "\n";
     // double t1 = elapsed();
-    auto lamhat = optimization(alpha, kreg, lambdaReg, calib_cx, calib_labels,
+    auto lamhat = optimization(alpha, kreg, lambda_reg, calib_cx, calib_labels,
                                calib_nonconf, calib_preds);
     // std::cout << "Time spent optimizing: " << elapsed() - t1 << std::endl;
-    return CalibrationResults{lamhat, kreg, lambdaReg};
+    return CalibrationResults{lamhat, kreg, lambda_reg};
 }
 
 float IndexIVF::optimization(
-    float alpha, int kreg, float lambdaReg,
+    float alpha, int kreg, float lambda_reg,
     const std::vector<std::vector<float>> &queries,
     const std::vector<std::vector<faiss::idx_t>> &labels,
     const std::vector<std::vector<float>> &nonconf_scores,
@@ -1331,7 +1331,7 @@ float IndexIVF::optimization(
 
     auto sorted_indices_cn = compute_sorted_indices(nonconf_scores);
     auto reg_nonconf_scores =
-        regularize_scores(nonconf_scores, sorted_indices_cn, lambdaReg, kreg);
+        regularize_scores(nonconf_scores, sorted_indices_cn, lambda_reg, kreg);
 
     int n = queries.size();
     float target_fnr =
@@ -1477,7 +1477,7 @@ void IndexIVF::search_conann(idx_t n, const float *x, float *distances,
     auto kreg = calib_params.kreg;
     auto regLambda = calib_params.regLambda;
 
-    auto [nonconf, all_preds_per_nprobe] = compute_scores(lamhat, n, x);
+    auto [nonconf, all_preds_per_nprobe] = compute_scores(calib_params, n, x);
 
     auto sortedIndices = compute_sorted_indices(nonconf);
     auto reg_nonconf =
@@ -1728,7 +1728,7 @@ IndexIVF::regularize_scores(const std::vector<std::vector<float>> &s,
 // parallelized search, executes search_preassigned_with_error_quantification
 // internally
 void IndexIVF::search_with_error_quantification(
-    float lamhat, idx_t n, const float *x, idx_t k, float *distances,
+    CalibrationResults cal_params, idx_t n, const float *x, idx_t k, float *distances,
     idx_t *labels, std::vector<float> *nonconf_list,
     std::vector<std::vector<faiss::idx_t>> *all_preds_list,
     const SearchParameters *params_in) const {
@@ -1747,7 +1747,7 @@ void IndexIVF::search_with_error_quantification(
     // search function for a subset of queries
     auto sub_search_func =
         [this, k, nprobe,
-         params](float lamhat, idx_t n, const float *x, float *distances,
+         params](CalibrationResults cal_params, idx_t n, const float *x, float *distances,
                  idx_t *labels, IndexIVFStats *ivf_stats,
                  std::vector<float> *nonconf_list,
                  std::vector<std::vector<faiss::idx_t>> *all_preds_list) {
@@ -1767,7 +1767,7 @@ void IndexIVF::search_with_error_quantification(
             invlists->prefetch_lists(idx.get(), n * nprobe);
 
             search_preassigned_with_error_quantification(
-                lamhat, n, x, k, idx.get(), coarse_dis.get(), distances, labels,
+                cal_params, n, x, k, idx.get(), coarse_dis.get(), distances, labels,
                 false, nonconf_list, all_preds_list, params, ivf_stats);
 
             double t2 = getmillisecs();
@@ -1790,7 +1790,7 @@ void IndexIVF::search_with_error_quantification(
                 try {
                     // Note: pointer arithmetic is used to share datastructures
                     // between threads
-                    sub_search_func(lamhat, i1 - i0, x + i0 * d,
+                    sub_search_func(cal_params, i1 - i0, x + i0 * d,
                                     distances + i0 * k, labels + i0 * k,
                                     &stats[slice], nonconf_list + i0,
                                     all_preds_list + i0);
@@ -1817,7 +1817,7 @@ void IndexIVF::search_with_error_quantification(
 
 // faiss search execution and conann non-conformity score calculations
 void IndexIVF::search_preassigned_with_error_quantification(
-    float lamhat, idx_t n, const float *x, idx_t k, const idx_t *keys,
+    CalibrationResults cal_params, idx_t n, const float *x, idx_t k, const idx_t *keys,
     const float *coarse_dis, float *distances, idx_t *labels, bool store_pairs,
     std::vector<float> *nonconf_list,
     std::vector<std::vector<faiss::idx_t>> *all_preds_list,
@@ -2046,10 +2046,14 @@ void IndexIVF::search_preassigned_with_error_quantification(
                     // add results for query i
                     (*(all_preds_list + i))[keys[i * nprobe + ik]] = idxi_copy;
 
-                    if (score_k / MAX_DISTANCE > lamhat) {
-                        (*(nonconf_list + i))[keys[i * nprobe + ik]] = 1.0;
-                        break;
-                    } else if (score_k > MAX_DISTANCE) {
+                    // // check for early stopping; need to attempt to regularize the score
+                    // float max_reg_val = (1 + cal_params.regLambda * (nlist - cal_params.kreg)) + 10;
+                    // float reg_score_k = (1 - score_k / MAX_DISTANCE) + cal_params.regLambda  * ((nlist - ik) - cal_params.kreg);
+                    // if (reg_score_k / max_reg_val > cal_params.lamhat) {
+                    //     (*(nonconf_list + i))[keys[i * nprobe + ik]] = 1.0;
+                    //     break;
+                    // } else if (score_k > MAX_DISTANCE) {
+                    if (score_k > MAX_DISTANCE) {
                         (*(nonconf_list + i))[keys[i * nprobe + ik]] = 1.0;
                     } else {
                         // auto x = centroids_density[keys[i * nprobe + ik]];

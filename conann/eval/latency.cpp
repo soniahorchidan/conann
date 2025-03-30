@@ -98,6 +98,43 @@ void write_to_file(const std::vector<T> &data, const std::string &filename) {
     file.close();
 }
 
+#include <set>
+#include <vector>
+#include <iostream>
+#include <numeric>
+
+std::vector<float> compute_fnr_per_query(
+    const std::vector<std::vector<faiss::idx_t>> &prediction_set,
+    const std::vector<std::vector<faiss::idx_t>> &gt_labels) {
+
+    int nq = prediction_set.size();  // number of queries
+    int k = gt_labels[0].size();  // number of ground truth neighbors
+    int total_false_negatives = 0;
+    std::vector<float> fnrs_per_query(nq);
+
+    for (size_t i = 0; i < nq; ++i) {
+        const std::set<int> pred_set(prediction_set[i].begin(),
+                                     prediction_set[i].end());
+        const std::set<int> gt_set(gt_labels[i].begin(), gt_labels[i].end());
+
+        // Calculate the intersection size (True Positives)
+        int intersection_size = 0;
+        for (int pred : pred_set) {
+            if (gt_set.count(pred) > 0) {
+                ++intersection_size;
+            }
+        }
+
+        // FNR = 1 - (intersection_size / k)
+        fnrs_per_query[i] = 1.0f - (static_cast<float>(intersection_size) /
+                                    static_cast<float>(k));
+
+        // Update total false negatives
+        total_false_negatives += (k - intersection_size); // FN = k - intersection_size
+    }
+    return fnrs_per_query;
+}
+
 /// Command like this: ./error sift1M 0.5 0.1
 int main(int argc, char **argv) {
     std::cout << argc - 1 << " arguments" << std::endl;
@@ -313,6 +350,8 @@ int main(int argc, char **argv) {
     printf("[%.3f s] ConANN Evaluation on %ld queries\n", elapsed() - t0,
            nq - test_start_idx);
     std::vector<double> latencies;
+
+    std::vector<std::vector<faiss::idx_t>> prediction_set(nq, std::vector<faiss::idx_t>(k));
     for (int i = test_start_idx; i < nq; ++i) {
         // iterate one query at a time
         const float *xi = xq + i * index->d;
@@ -322,7 +361,20 @@ int main(int argc, char **argv) {
         double t1 = elapsed();
         index->search_conann(1, xi, dis.data(), nns.data(), calib_res);
         latencies.push_back((elapsed() - t1) * 1000);
+        prediction_set[i] = nns;
     }
+
+    std::vector<std::vector<faiss::idx_t>> gt_labels(nq, std::vector<faiss::idx_t>(k));
+    // Fill gt_labels with ground truth data (already loaded from files)
+    for (size_t i = 0; i < nq; ++i) {
+        for (size_t j = 0; j < k; ++j) {
+            gt_labels[i][j] = gt[i * k + j];
+        }
+    }
+
+    auto fnrs = compute_fnr_per_query(prediction_set, gt_labels);
+    float average_fnr = std::accumulate(fnrs.begin(), fnrs.end(), 0.0f) / fnrs.size();
+    std::cout << "Average FNR: " << average_fnr << std::endl;
 
     std::ostringstream filename;
     filename << "../ConANN-latency-" << dataset_name << "-"
