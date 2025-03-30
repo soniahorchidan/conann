@@ -398,7 +398,6 @@ struct IndexIVF : Index, IndexIVFInterface {
     int K;      // number of neighbors to search for
     float MAX_DISTANCE = 100000;
     std::vector<std::vector<float>> centroids;
-    std::vector<float> centroids_density;
     std::string dataset_name;
     bool readFromCache = false;
     bool writeToCache = false; // can usually leave true (minimal extra latency)
