@@ -441,7 +441,7 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     std::tuple<std::vector<std::vector<float>>,
                std::vector<std::vector<std::vector<faiss::idx_t>>>>
-    compute_scores(faiss::idx_t num_queries, const float *queries,
+    compute_scores(float lamhat, faiss::idx_t num_queries, const float *queries,
                    const std::vector<float> &diff_scores);
 
     std::pair<std::vector<std::vector<faiss::idx_t>>, std::vector<int>>
@@ -451,13 +451,13 @@ struct IndexIVF : Index, IndexIVFInterface {
         const std::vector<std::vector<std::vector<faiss::idx_t>>> &preds);
 
     void search_with_error_quantification(
-        idx_t n, const float *x, idx_t k, float *distances, idx_t *labels,
+        float lamhat, idx_t n, const float *x, idx_t k, float *distances, idx_t *labels,
         const std::vector<float> &diff_scores, std::vector<float> *nonconf_list,
         std::vector<std::vector<faiss::idx_t>> *all_preds_list,
         const SearchParameters *params = nullptr) const;
 
     void search_preassigned_with_error_quantification(
-        idx_t n, const float *x, idx_t k, const idx_t *assign,
+        float lamhat, idx_t n, const float *x, idx_t k, const idx_t *assign,
         const float *centroid_dis, float *distances, idx_t *labels,
         bool store_pairs, const std::vector<float> &diff_scores,
         std::vector<float> *nonconf_list,

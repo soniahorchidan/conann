@@ -1191,10 +1191,11 @@ void IndexIVF::prep_execution(float alpha, float calib_sz, float tune_sz,
             cacheKeyAllPreds);
     } else {
         double t1 = elapsed();
+        // NOTE: pass lamhat > 1 here to make sure all scores get computed
         // using std::tie in this instance is really important for performance
         // to avoid the extra copy
         std::tie(all_nonconf_scores, all_preds) =
-            compute_scores(nq, queries, all_diffs);
+            compute_scores(10, nq, queries, all_diffs);
         std::cout << "Time spent computing scores: " << elapsed() - t1
                   << std::endl;
 
@@ -1279,10 +1280,9 @@ void IndexIVF::prep_execution(float alpha, float calib_sz, float tune_sz,
     std::cout << "Time spent doing memcpy: " << elapsed() - t1 << std::endl;
 }
 
-// had unused lamdba passed in previously
 std::tuple<std::vector<std::vector<float>>,
            std::vector<std::vector<std::vector<faiss::idx_t>>>>
-IndexIVF::compute_scores(faiss::idx_t num_queries, const float *queries,
+IndexIVF::compute_scores(float lamhat, faiss::idx_t num_queries, const float *queries,
                          const std::vector<float> &diff_scores) {
     // int num_queries = queries.size();
 
@@ -1310,7 +1310,7 @@ IndexIVF::compute_scores(faiss::idx_t num_queries, const float *queries,
     // }
 
     search_with_error_quantification(
-        num_queries, queries, K, dis.data(), nns.data(), diff_scores,
+        lamhat, num_queries, queries, K, dis.data(), nns.data(), diff_scores,
         nonconf_list.data(), all_preds_list.data());
 
     return std::make_tuple(nonconf_list, all_preds_list);
@@ -1367,7 +1367,6 @@ IndexIVF::CalibrationResults
 IndexIVF::calibrate(float alpha, int k, float calib_sz, float tune_sz,
                     float *xq, size_t nq, faiss::idx_t *gt, float max_distance,
                     std::string dataset) {
-    std::cout << "CONANN WARNING! Add back early stopping!\n";
     K = k;
     MAX_DISTANCE = max_distance;
     dataset_name = dataset;
@@ -1851,7 +1850,7 @@ IndexIVF::regularizeScores(const std::vector<std::vector<float>> &s,
 // parallelized search, executes search_preassigned_with_error_quantification
 // internally
 void IndexIVF::search_with_error_quantification(
-    idx_t n, const float *x, idx_t k, float *distances, idx_t *labels,
+    float lamhat, idx_t n, const float *x, idx_t k, float *distances, idx_t *labels,
     const std::vector<float> &diff_scores, std::vector<float> *nonconf_list,
     std::vector<std::vector<faiss::idx_t>> *all_preds_list,
     const SearchParameters *params_in) const {
@@ -1870,7 +1869,7 @@ void IndexIVF::search_with_error_quantification(
     // search function for a subset of queries
     auto sub_search_func =
         [this, k, nprobe, params](
-            idx_t n, const float *x, float *distances, idx_t *labels,
+            float lamhat, idx_t n, const float *x, float *distances, idx_t *labels,
             IndexIVFStats *ivf_stats, const std::vector<float> &diff_scores,
             std::vector<float> *nonconf_list,
             std::vector<std::vector<faiss::idx_t>> *all_preds_list) {
@@ -1890,7 +1889,7 @@ void IndexIVF::search_with_error_quantification(
             invlists->prefetch_lists(idx.get(), n * nprobe);
 
             search_preassigned_with_error_quantification(
-                n, x, k, idx.get(), coarse_dis.get(), distances, labels, false,
+                lamhat, n, x, k, idx.get(), coarse_dis.get(), distances, labels, false,
                 diff_scores, nonconf_list, all_preds_list, params, ivf_stats);
 
             double t2 = getmillisecs();
@@ -1914,7 +1913,7 @@ void IndexIVF::search_with_error_quantification(
                     // Note: pointer arithmetic is used to share datastructures
                     // between threads
                     sub_search_func(
-                        i1 - i0, x + i0 * d, distances + i0 * k,
+                        lamhat, i1 - i0, x + i0 * d, distances + i0 * k,
                         labels + i0 * k, &stats[slice],
                         std::vector<float>(diff_scores.begin() + i0,
                                            diff_scores.begin() + i1),
@@ -1942,7 +1941,7 @@ void IndexIVF::search_with_error_quantification(
 
 // faiss search execution and conann non-conformity score calculations
 void IndexIVF::search_preassigned_with_error_quantification(
-    idx_t n, const float *x, idx_t k, const idx_t *keys,
+    float lamhat, idx_t n, const float *x, idx_t k, const idx_t *keys,
     const float *coarse_dis, float *distances, idx_t *labels, bool store_pairs,
     const std::vector<float> &diff_scores, std::vector<float> *nonconf_list,
     std::vector<std::vector<faiss::idx_t>> *all_preds_list,
@@ -2171,7 +2170,10 @@ void IndexIVF::search_preassigned_with_error_quantification(
                     // add results for query i
                     (*(all_preds_list + i))[keys[i * nprobe + ik]] = idxi_copy;
 
-                    if (score_k > MAX_DISTANCE) {
+                    if (score_k / MAX_DISTANCE > lamhat) {
+                        (*(nonconf_list + i))[keys[i * nprobe + ik]] = 1.0;
+                        break;
+                    } else if (score_k > MAX_DISTANCE) {
                         (*(nonconf_list + i))[keys[i * nprobe + ik]] = 1.0;
                     } else {
                         // auto x = centroids_density[keys[i * nprobe + ik]];
