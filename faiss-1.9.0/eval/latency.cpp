@@ -342,8 +342,7 @@ int main(int argc, char **argv) {
         }
 
         std::ostringstream filename;
-        filename << "../Faiss-latency-" << param1 << "-" << k << "-" << alpha
-                 << "-" << std::time(nullptr) << ".log";
+        filename < "../Faiss-latency-" << dataset_key << "-" << alpha << ".log";
         write_to_file(latencies, filename.str());
     }
 

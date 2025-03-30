@@ -37,7 +37,7 @@ def sample_dataset(dataset, sample_size, out_filename):
 
 
 def test_query_size(dataset):
-    print("Query size for ", dataset)
+    print("Query size for", dataset)
     try:
         result = subprocess.run(["./build/eval/compute_gt", dataset, "-1"],
                             capture_output=True, 
@@ -68,10 +68,10 @@ def compute_gt(dataset, ks: tuple):
             f.write(f"stdout: {e.stdout}\n")
             f.write(f"stderr: {e.stderr}\n\n")
 
-def run_conann(dataset, calib_sz, tune_sz, alpha, nlist, k):
-    print(f"running conann: dataset={dataset}, calib_size={calib_sz}, tune_size={tune_sz}, alpha={alpha}, nlist={nlist}, k={k}")
+def run_conann(experiment, dataset, calib_sz, tune_sz, alpha, nlist, k):
+    print(f"running conann: experiment={experiment}, dataset={dataset}, calib_size={calib_sz}, tune_size={tune_sz}, alpha={alpha}, nlist={nlist}, k={k}")
     try:
-        result = subprocess.run(["./build/eval/error", dataset, str(calib_sz), str(tune_sz), str(alpha), str(nlist), str(k)], 
+        result = subprocess.run([f"./build/eval/{experiment}", dataset, str(calib_sz), str(tune_sz), str(alpha), str(nlist), str(k)], 
                             capture_output=True, 
                             text=True,
                             cwd=os.path.abspath("../conann"),
@@ -86,16 +86,16 @@ def run_conann(dataset, calib_sz, tune_sz, alpha, nlist, k):
             f.write(f"stdout: {e.stdout}\n")
             f.write(f"stderr: {e.stderr}\n\n")
 
-def run_faiss(dataset, calib_sz, nlist, k, starting_nprobe, alphas: tuple):
-    print(f"running faiss: dataset={dataset}, calib_size={calib_sz}, nlist={nlist}, k={k}, alphas={alphas}")
+def run_faiss(experiment, dataset, calib_sz, nlist, k, starting_nprobe, alphas: tuple):
+    print(f"running faiss: experiment={experiment}, dataset={dataset}, calib_size={calib_sz}, nlist={nlist}, k={k}, alphas={alphas}")
     try:
-        result = subprocess.run(["./build/eval/error", dataset, str(calib_sz), str(nlist), str(k), str(starting_nprobe), *[str(a) for a in alphas]], 
+        result = subprocess.run([f"./build/eval/{experiment}", dataset, str(calib_sz), str(nlist), str(k), str(starting_nprobe), *[str(a) for a in alphas]], 
                             capture_output=True, 
                             text=True,
                             cwd=os.path.abspath("../faiss-1.9.0"),
                             check=True)
         print(result.stdout)
-        return int(result.stdout.splitlines()[-1])
+        # return int(result.stdout.splitlines()[-1])
     except subprocess.CalledProcessError as e:
         print(f"Failed faiss run with params: {dataset}, {calib_sz}, {nlist}, {k}, {starting_nprobe}, {alphas}\n")
         with open(f"Failed_faiss_{dataset}_{calib_sz}_{nlist}_{k}_{starting_nprobe}.log", "a") as f:
@@ -107,14 +107,14 @@ def run_faiss(dataset, calib_sz, nlist, k, starting_nprobe, alphas: tuple):
 
 
 # PARAMETERS:
-datasets = ("bert", "glove", "sift1M", "deep10M", "gist", "fasttext") # gauss05, gauss10
+datasets = ("bert", "sift1M", "deep10M", "gist", "fasttext") # gauss05, gauss10
 alphas = (0.5, 0.4, 0.3, 0.2, 0.1, 0.05)
 ks = (10, 100, 1000)
 calib_sz = 0.5
 tuning_sz = {"bert": 0.2, "glove": 0.1, "sift1M": 0.1, "deep10M": 0.1, "gist": 0.1, "fasttext": 0.1}
 nlist = {"bert": 128, "glove": 1024, "sift1M": 1024, "deep10M": 1024, "gist": 1024, "fasttext": 1024}
 nlist_sqrt_n = {"bert": 173, "glove": 1414, "sift1M": 1000, "deep10M": 3162, "gist": 1000}
-faiss_starting_nprobe = 1
+faiss_starting_nprobe = 58
 
 """
 * NOTE: Number of queries in the current data folders labeled as (small sample for me):
@@ -151,9 +151,9 @@ for dataset in datasets:
 for dataset in datasets:
     for k in ks:
         for alpha in alphas:
-            run_conann(dataset, calib_sz, tuning_sz[dataset], alpha, nlist[dataset], k)
+            run_conann("latency", dataset, calib_sz, tuning_sz[dataset], alpha, nlist[dataset], k)
 
 
 for dataset in datasets:
     for k in ks:
-        run_faiss(dataset, calib_sz, nlist[dataset], k, faiss_starting_nprobe, alphas)
+        run_faiss("latency", dataset, calib_sz, nlist[dataset], k, faiss_starting_nprobe, alphas)
