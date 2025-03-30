@@ -399,8 +399,8 @@ struct IndexIVF : Index, IndexIVFInterface {
     float MAX_DISTANCE = 100000;
     std::vector<std::vector<float>> centroids;
     std::string dataset_name;
-    bool readFromCache = true;
-    bool writeToCache = true; // can usually leave true (minimal extra latency)
+    bool readFromCache = false;
+    bool writeToCache = false; // can usually leave true (minimal extra latency)
 
     // for convenience
     double elapsed();
@@ -436,7 +436,6 @@ struct IndexIVF : Index, IndexIVFInterface {
         float lamhat;
         int kreg;
         float regLambda;
-        float cal_numcls;
     };                 
 
     std::tuple<std::vector<std::vector<float>>,
