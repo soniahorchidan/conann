@@ -1355,7 +1355,7 @@ double IndexIVF::lamhat_threshold(
     const std::vector<std::vector<float>> &nonconf_scores,
     const std::vector<std::vector<std::vector<faiss::idx_t>>> &all_preds) {
     auto [preds, _] =
-        compute_predictions(lambda, queries, nonconf_scores, all_preds);
+        compute_predictions(lambda, nonconf_scores, all_preds);
     float fnr = false_negative_rate(preds, labels);
     // std::cout << "Optimization: lambda=" << lambda << " fnr=" << fnr << "\n";
     // std::cout << lambda << " " << fnr << "\n";
@@ -1365,14 +1365,14 @@ double IndexIVF::lamhat_threshold(
 
 std::pair<std::vector<std::vector<faiss::idx_t>>, std::vector<int>>
 IndexIVF::compute_predictions(
-    float lambda, const std::vector<std::vector<float>> &queries,
+    float lambda,
     const std::vector<std::vector<float>> &nonconf_scores,
     const std::vector<std::vector<std::vector<faiss::idx_t>>> &all_preds) {
 
     std::vector<std::vector<faiss::idx_t>> test_preds;
     std::vector<int> cl_searched;
 
-    for (size_t query_idx = 0; query_idx < queries.size(); ++query_idx) {
+    for (size_t query_idx = 0; query_idx < nonconf_scores.size(); ++query_idx) {
         const auto &sc = nonconf_scores[query_idx];
         const auto &p = all_preds[query_idx];
 
@@ -1427,14 +1427,9 @@ void IndexIVF::search_conann(idx_t n, const float *x, float *distances,
     auto reg_nonconf =
         regularize_scores(nonconf, sortedIndices, regLambda, kreg);
 
-    std::vector<std::vector<float>> queries(n, std::vector<float>(d));
-    for (size_t i = 0; i < n; ++i) {
-        for (size_t j = 0; j < d; ++j) {
-            queries[i][j] = x[i * d + j];
-        }
-    }
     auto [test_preds, cl_searched] =
-        compute_predictions(lamhat, queries, reg_nonconf, all_preds_per_nprobe);
+        compute_predictions(lamhat, reg_nonconf, all_preds_per_nprobe);
+
     // Flatten test_preds
     size_t index = 0;
     for (const auto& vec : test_preds) {
@@ -1534,9 +1529,15 @@ std::pair<std::vector<float>, std::vector<int>> IndexIVF::evaluate(
     std::cout << "Time spent regularizing scores: " << elapsed() - t1
               << std::endl;
 
+    std::cout << "Reg scores[0] in evaluate:";
+    for (auto x: reg_nonconf_scores[0]) {
+        std::cout << x << " ";
+    }
+    std::cout << "\n";
+          
     t1 = elapsed();
     auto [test_preds, cl_searched] = compute_predictions(
-        params.lamhat, queries, reg_nonconf_scores, all_preds);
+        params.lamhat, reg_nonconf_scores, all_preds);
     std::cout << "Time spent computing predictions: " << elapsed() - t1
               << std::endl;
 
@@ -1610,7 +1611,7 @@ int IndexIVF::pick_kreg(const std::vector<std::vector<float>> &scores_per_q,
 float IndexIVF::pick_lambda_reg(float alpha, int kreg) const {
     int best_size = n_list;
     float lambda_star = 0;
-    std::vector<float> lambda_values = {0.0, 0.001, 0.01, 0.1};
+    std::vector<float> lambda_values = {0.01};
     for (float temp_lambda : lambda_values) {
         auto lamhat = const_cast<faiss::IndexIVF *>(this)->optimization(
             alpha, kreg, temp_lambda, tune_cx, tune_labels, tune_nonconf,
@@ -1991,14 +1992,10 @@ void IndexIVF::search_preassigned_with_error_quantification(
                     // check for early stopping; need to attempt to regularize the score
                     // TODO: we end up regularizing twice (once here, once in search_conann)
                     if (cal_params.lamhat <= 1) {
-                        std::vector<float> copy_nonconf = {(*(nonconf_list + i))};
-                        auto sorted_indices = compute_sorted_indices({copy_nonconf});
-                        auto reg_nonconf_scores =
-                            regularize_scores({copy_nonconf}, sorted_indices, cal_params.regLambda, cal_params.kreg);          
-                        
-                        auto reg_score_k = reg_nonconf_scores[0][keys[i * nprobe + ik]];
-                        if (reg_score_k > cal_params.lamhat) {
-                            // std::cout << "Early stopping at " << ik << "\n";
+                        float max_reg_val = (1 + cal_params.regLambda * (nlist - cal_params.kreg)) + 10;
+                        float reg_score_k = (1 - score_k / MAX_DISTANCE) + compute_regularization(ik + 1, cal_params.regLambda, cal_params.kreg);
+                        if (reg_score_k / max_reg_val > cal_params.lamhat) {
+                            std::cout << "Early stopping at " << ik << "\n";
                             break;
                         } 
                     }

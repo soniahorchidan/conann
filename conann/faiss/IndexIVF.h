@@ -445,7 +445,7 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     std::pair<std::vector<std::vector<faiss::idx_t>>, std::vector<int>>
     compute_predictions(
-        float lambda, const std::vector<std::vector<float>> &queries,
+        float lambda,
         const std::vector<std::vector<float>> &nonconf,
         const std::vector<std::vector<std::vector<faiss::idx_t>>> &preds);
 
