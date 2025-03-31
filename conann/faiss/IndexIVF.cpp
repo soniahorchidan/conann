@@ -1998,7 +1998,7 @@ void IndexIVF::search_preassigned_with_error_quantification(
                         
                         auto reg_score_k = reg_nonconf_scores[0][keys[i * nprobe + ik]];
                         if (reg_score_k > cal_params.lamhat) {
-                            std::cout << "Early stopping at " << ik << "\n";
+                            // std::cout << "Early stopping at " << ik << "\n";
                             break;
                         } 
                     }
