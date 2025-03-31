@@ -114,7 +114,7 @@ calib_sz = 0.5
 tuning_sz = {"bert": 0.2, "glove": 0.1, "sift1M": 0.1, "deep10M": 0.1, "gist": 0.1, "fasttext": 0.1}
 nlist = {"bert": 128, "glove": 1024, "sift1M": 1024, "deep10M": 1024, "gist": 1024, "fasttext": 1024}
 nlist_sqrt_n = {"bert": 173, "glove": 1414, "sift1M": 1000, "deep10M": 3162, "gist": 1000}
-faiss_starting_nprobe = 58
+faiss_starting_nprobe = 1
 
 """
 * NOTE: Number of queries in the current data folders labeled as (small sample for me):
