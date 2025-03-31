@@ -625,8 +625,6 @@ void IndexIVF::search_preassigned(idx_t n, const float *x, idx_t k,
 #pragma omp barrier
 #pragma omp critical
                 {
-                    // NOTE(Sonia): adds all local results after all the
-                    // clusters have been searched
                     add_local_results(local_dis.data(), local_idx.data(), simi,
                                       idxi);
                 }
@@ -1528,12 +1526,6 @@ std::pair<std::vector<float>, std::vector<int>> IndexIVF::evaluate(
         regularize_scores(nonconf_scores, sortedIndices, regLambda, kreg);
     std::cout << "Time spent regularizing scores: " << elapsed() - t1
               << std::endl;
-
-    std::cout << "Reg scores[0] in evaluate:";
-    for (auto x: reg_nonconf_scores[0]) {
-        std::cout << x << " ";
-    }
-    std::cout << "\n";
           
     t1 = elapsed();
     auto [test_preds, cl_searched] = compute_predictions(
@@ -1839,8 +1831,6 @@ void IndexIVF::search_preassigned_with_error_quantification(
             }
         };
 
-        // NOTE(sonia): updates the heap with new distances and indices from
-        // each cluster
         auto add_local_results = [&](const float *local_dis,
                                      const idx_t *local_idx, float *simi,
                                      idx_t *idxi) {
@@ -1851,8 +1841,6 @@ void IndexIVF::search_preassigned_with_error_quantification(
             }
         };
 
-        // NOTE(sonia): Once all clusters have been scanned, the heap is
-        // reordered to return the results in sorted order
         auto reorder_result = [&](float *simi, idx_t *idxi) {
             if (!do_heap_init)
                 return;
@@ -1995,7 +1983,7 @@ void IndexIVF::search_preassigned_with_error_quantification(
                         float max_reg_val = (1 + cal_params.regLambda * (nlist - cal_params.kreg)) + 10;
                         float reg_score_k = (1 - score_k / MAX_DISTANCE) + compute_regularization(ik + 1, cal_params.regLambda, cal_params.kreg);
                         if (reg_score_k / max_reg_val > cal_params.lamhat) {
-                            std::cout << "Early stopping at " << ik << "\n";
+                            // std::cout << "Early stopping at " << ik << "\n";
                             break;
                         } 
                     }
