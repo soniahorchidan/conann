@@ -6,6 +6,8 @@
 #include <fstream>
 #include <iomanip>
 #include <numeric>
+#include <set>
+#include <vector>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -78,11 +80,6 @@ void write_to_file(const std::vector<T> &data, const std::string &filename) {
     }
     file.close();
 }
-
-#include <set>
-#include <vector>
-#include <iostream>
-#include <numeric>
 
 std::vector<float> compute_fnr_per_query(
     const std::vector<std::vector<faiss::idx_t>> &prediction_set,

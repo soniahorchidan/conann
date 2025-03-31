@@ -1991,9 +1991,11 @@ void IndexIVF::search_preassigned_with_error_quantification(
                     // check for early stopping; need to attempt to regularize the score
                     // TODO: we end up regularizing twice (once here, once in search_conann)
                     if (cal_params.lamhat <= 1) {
-                        auto sorted_indices = compute_sorted_indices({(*(nonconf_list + i))});
+                        std::vector<float> copy_nonconf = {(*(nonconf_list + i))};
+                        auto sorted_indices = compute_sorted_indices({copy_nonconf});
                         auto reg_nonconf_scores =
-                            regularize_scores({(*(nonconf_list + i))}, sorted_indices, cal_params.regLambda, cal_params.kreg);
+                            regularize_scores({copy_nonconf}, sorted_indices, cal_params.regLambda, cal_params.kreg);          
+                        
                         auto reg_score_k = reg_nonconf_scores[0][keys[i * nprobe + ik]];
                         if (reg_score_k > cal_params.lamhat) {
                             std::cout << "Early stopping at " << ik << "\n";
