@@ -1603,7 +1603,7 @@ int IndexIVF::pick_kreg(const std::vector<std::vector<float>> &scores_per_q,
 float IndexIVF::pick_lambda_reg(float alpha, int kreg) const {
     int best_size = n_list;
     float lambda_star = 0;
-    std::vector<float> lambda_values = {0.01};
+    std::vector<float> lambda_values = {0.0, 0.001, 0.01, 0.1};
     for (float temp_lambda : lambda_values) {
         auto lamhat = const_cast<faiss::IndexIVF *>(this)->optimization(
             alpha, kreg, temp_lambda, tune_cx, tune_labels, tune_nonconf,
