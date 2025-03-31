@@ -342,7 +342,7 @@ int main(int argc, char **argv) {
         }
 
         std::ostringstream filename;
-        filename < "../Faiss-latency-" << dataset_key << "-" << alpha << ".log";
+        filename << "../Faiss-latency-" << dataset_key << "-" << alpha << ".log";
         write_to_file(latencies, filename.str());
     }
 
