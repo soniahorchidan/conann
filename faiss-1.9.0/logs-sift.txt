@@ -1,0 +1,32 @@
+[0.000 s] Loading train set
+[0.087 s] Preparing index "IVF1024,Flat" d=128
+[0.087 s] Training on 500000 vectors
+[5.993 s] Loading database
+[6.058 s] Indexing database, size 1000000*128
+[9.735 s] Loading queries
+[9.738 s] Loading ground truth for 10000 queries
+[9.741 s] Loading groud truth vector
+[9.742 s] Loading ground truth distance for 10000 queries
+[9.742 s] Processing alpha = 0.10000. Starting from nprobe = 1
+nprobe=1 avg_fnr=0.728256
+nprobe=2 avg_fnr=0.587068
+nprobe=3 avg_fnr=0.48945
+nprobe=4 avg_fnr=0.421356
+nprobe=5 avg_fnr=0.366618
+nprobe=6 avg_fnr=0.323958
+nprobe=7 avg_fnr=0.288584
+nprobe=8 avg_fnr=0.259202
+nprobe=9 avg_fnr=0.234564
+nprobe=10 avg_fnr=0.213432
+nprobe=11 avg_fnr=0.195234
+nprobe=12 avg_fnr=0.17883
+nprobe=13 avg_fnr=0.164304
+nprobe=14 avg_fnr=0.151792
+nprobe=15 avg_fnr=0.140468
+nprobe=16 avg_fnr=0.130182
+nprobe=17 avg_fnr=0.12078
+nprobe=18 avg_fnr=0.112396
+nprobe=19 avg_fnr=0.105024
+nprobe=20 avg_fnr=0.098
+[43.937 s] Optimal nprobe for alpha 0.10000 = 20
+[47.088 s] Average FNR for alpha 0.10000 = 0.08392

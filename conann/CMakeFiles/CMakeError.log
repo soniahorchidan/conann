@@ -1,0 +1,161 @@
+Performing C++ SOURCE FILE Test CMAKE_HAVE_LIBC_PTHREAD failed with the following output:
+Change Dir: /home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/usr/bin/make -f Makefile cmTC_b6489/fast && /usr/bin/make  -f CMakeFiles/cmTC_b6489.dir/build.make CMakeFiles/cmTC_b6489.dir/build
+make[1]: Entering directory '/home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_b6489.dir/src.cxx.o
+/usr/bin/c++ -DCMAKE_HAVE_LIBC_PTHREAD  -std=gnu++1z -o CMakeFiles/cmTC_b6489.dir/src.cxx.o -c /home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CMakeTmp/src.cxx
+Linking CXX executable cmTC_b6489
+/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_b6489.dir/link.txt --verbose=1
+/usr/bin/c++ CMakeFiles/cmTC_b6489.dir/src.cxx.o -o cmTC_b6489 
+CMakeFiles/cmTC_b6489.dir/src.cxx.o: In function `main':
+src.cxx:(.text+0x3e): undefined reference to `pthread_create'
+src.cxx:(.text+0x4a): undefined reference to `pthread_detach'
+src.cxx:(.text+0x56): undefined reference to `pthread_cancel'
+src.cxx:(.text+0x67): undefined reference to `pthread_join'
+src.cxx:(.text+0x7b): undefined reference to `pthread_atfork'
+collect2: error: ld returned 1 exit status
+CMakeFiles/cmTC_b6489.dir/build.make:98: recipe for target 'cmTC_b6489' failed
+make[1]: *** [cmTC_b6489] Error 1
+make[1]: Leaving directory '/home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CMakeTmp'
+Makefile:127: recipe for target 'cmTC_b6489/fast' failed
+make: *** [cmTC_b6489/fast] Error 2
+
+
+Source file was:
+#include <pthread.h>
+
+static void* test_func(void* data)
+{
+  return data;
+}
+
+int main(void)
+{
+  pthread_t thread;
+  pthread_create(&thread, NULL, test_func, NULL);
+  pthread_detach(thread);
+  pthread_cancel(thread);
+  pthread_join(thread, NULL);
+  pthread_atfork(NULL, NULL, NULL);
+  pthread_exit(NULL);
+
+  return 0;
+}
+
+Determining if the function pthread_create exists in the pthreads failed with the following output:
+Change Dir: /home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/usr/bin/make -f Makefile cmTC_edeb7/fast && /usr/bin/make  -f CMakeFiles/cmTC_edeb7.dir/build.make CMakeFiles/cmTC_edeb7.dir/build
+make[1]: Entering directory '/home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_edeb7.dir/CheckFunctionExists.cxx.o
+/usr/bin/c++   -DCHECK_FUNCTION_EXISTS=pthread_create -std=gnu++1z -o CMakeFiles/cmTC_edeb7.dir/CheckFunctionExists.cxx.o -c /home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CheckLibraryExists/CheckFunctionExists.cxx
+Linking CXX executable cmTC_edeb7
+/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_edeb7.dir/link.txt --verbose=1
+/usr/bin/c++  -DCHECK_FUNCTION_EXISTS=pthread_create CMakeFiles/cmTC_edeb7.dir/CheckFunctionExists.cxx.o -o cmTC_edeb7  -lpthreads 
+/usr/bin/ld: cannot find -lpthreads
+collect2: error: ld returned 1 exit status
+CMakeFiles/cmTC_edeb7.dir/build.make:98: recipe for target 'cmTC_edeb7' failed
+make[1]: *** [cmTC_edeb7] Error 1
+make[1]: Leaving directory '/home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CMakeTmp'
+Makefile:127: recipe for target 'cmTC_edeb7/fast' failed
+make: *** [cmTC_edeb7/fast] Error 2
+
+
+
+Determining if the function sgemm_ exists failed with the following output:
+Change Dir: /home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/usr/bin/make -f Makefile cmTC_8ccfa/fast && /usr/bin/make  -f CMakeFiles/cmTC_8ccfa.dir/build.make CMakeFiles/cmTC_8ccfa.dir/build
+make[1]: Entering directory '/home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_8ccfa.dir/CheckFunctionExists.cxx.o
+/usr/bin/c++   -DCHECK_FUNCTION_EXISTS=sgemm_ -std=gnu++1z -o CMakeFiles/cmTC_8ccfa.dir/CheckFunctionExists.cxx.o -c /home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CheckFunctionExists/CheckFunctionExists.cxx
+Linking CXX executable cmTC_8ccfa
+/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_8ccfa.dir/link.txt --verbose=1
+/usr/bin/c++  -DCHECK_FUNCTION_EXISTS=sgemm_ CMakeFiles/cmTC_8ccfa.dir/CheckFunctionExists.cxx.o -o cmTC_8ccfa 
+CMakeFiles/cmTC_8ccfa.dir/CheckFunctionExists.cxx.o: In function `main':
+CheckFunctionExists.cxx:(.text+0x10): undefined reference to `sgemm_'
+collect2: error: ld returned 1 exit status
+CMakeFiles/cmTC_8ccfa.dir/build.make:98: recipe for target 'cmTC_8ccfa' failed
+make[1]: *** [cmTC_8ccfa] Error 1
+make[1]: Leaving directory '/home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CMakeTmp'
+Makefile:127: recipe for target 'cmTC_8ccfa/fast' failed
+make: *** [cmTC_8ccfa/fast] Error 2
+
+
+
+Determining if the function cheev_ exists failed with the following output:
+Change Dir: /home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/usr/bin/make -f Makefile cmTC_2f34b/fast && /usr/bin/make  -f CMakeFiles/cmTC_2f34b.dir/build.make CMakeFiles/cmTC_2f34b.dir/build
+make[1]: Entering directory '/home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_2f34b.dir/CheckFunctionExists.cxx.o
+/usr/bin/c++   -DCHECK_FUNCTION_EXISTS=cheev_ -std=gnu++1z -o CMakeFiles/cmTC_2f34b.dir/CheckFunctionExists.cxx.o -c /home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CheckFunctionExists/CheckFunctionExists.cxx
+Linking CXX executable cmTC_2f34b
+/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_2f34b.dir/link.txt --verbose=1
+/usr/bin/c++  -DCHECK_FUNCTION_EXISTS=cheev_ CMakeFiles/cmTC_2f34b.dir/CheckFunctionExists.cxx.o -o cmTC_2f34b  /usr/lib/x86_64-linux-gnu/libblas.so -lpthread -lm -ldl 
+CMakeFiles/cmTC_2f34b.dir/CheckFunctionExists.cxx.o: In function `main':
+CheckFunctionExists.cxx:(.text+0x10): undefined reference to `cheev_'
+collect2: error: ld returned 1 exit status
+CMakeFiles/cmTC_2f34b.dir/build.make:99: recipe for target 'cmTC_2f34b' failed
+make[1]: *** [cmTC_2f34b] Error 1
+make[1]: Leaving directory '/home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CMakeTmp'
+Makefile:127: recipe for target 'cmTC_2f34b/fast' failed
+make: *** [cmTC_2f34b/fast] Error 2
+
+
+
+Performing C++ SOURCE FILE Test HAVE_CXX_FLAG_WSHORTEN_64_TO_32 failed with the following output:
+Change Dir: /home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/usr/bin/make -f Makefile cmTC_4ed07/fast && /usr/bin/make  -f CMakeFiles/cmTC_4ed07.dir/build.make CMakeFiles/cmTC_4ed07.dir/build
+make[1]: Entering directory '/home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_4ed07.dir/src.cxx.o
+/usr/bin/c++ -DHAVE_CXX_FLAG_WSHORTEN_64_TO_32  -Wall  -Wextra  -Wshadow  -Wfloat-equal  -Wold-style-cast  -Wconversion  -Werror  -Wsuggest-override  -pedantic  -pedantic-errors  -Wshorten-64-to-32   -Wshorten-64-to-32 -std=c++1z -o CMakeFiles/cmTC_4ed07.dir/src.cxx.o -c /home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CMakeTmp/src.cxx
+c++: error: unrecognized command line option '-Wshorten-64-to-32'
+c++: error: unrecognized command line option '-Wshorten-64-to-32'
+CMakeFiles/cmTC_4ed07.dir/build.make:77: recipe for target 'CMakeFiles/cmTC_4ed07.dir/src.cxx.o' failed
+make[1]: *** [CMakeFiles/cmTC_4ed07.dir/src.cxx.o] Error 1
+make[1]: Leaving directory '/home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CMakeTmp'
+Makefile:127: recipe for target 'cmTC_4ed07/fast' failed
+make: *** [cmTC_4ed07/fast] Error 2
+
+
+Source file was:
+int main() { return 0; }
+Performing C++ SOURCE FILE Test HAVE_CXX_FLAG_WD654 failed with the following output:
+Change Dir: /home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/usr/bin/make -f Makefile cmTC_6aae6/fast && /usr/bin/make  -f CMakeFiles/cmTC_6aae6.dir/build.make CMakeFiles/cmTC_6aae6.dir/build
+make[1]: Entering directory '/home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_6aae6.dir/src.cxx.o
+/usr/bin/c++ -DHAVE_CXX_FLAG_WD654  -Wall  -Wextra  -Wshadow  -Wfloat-equal  -Wold-style-cast  -Wconversion  -Werror  -Wsuggest-override  -pedantic  -pedantic-errors  -fstrict-aliasing  -Wno-deprecated-declarations  -Wno-deprecated  -Wstrict-aliasing  -wd654   -wd654 -std=c++1z -o CMakeFiles/cmTC_6aae6.dir/src.cxx.o -c /home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CMakeTmp/src.cxx
+c++: error: unrecognized command line option '-wd654'
+c++: error: unrecognized command line option '-wd654'
+CMakeFiles/cmTC_6aae6.dir/build.make:77: recipe for target 'CMakeFiles/cmTC_6aae6.dir/src.cxx.o' failed
+make[1]: *** [CMakeFiles/cmTC_6aae6.dir/src.cxx.o] Error 1
+make[1]: Leaving directory '/home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CMakeTmp'
+Makefile:127: recipe for target 'cmTC_6aae6/fast' failed
+make: *** [cmTC_6aae6/fast] Error 2
+
+
+Source file was:
+int main() { return 0; }
+Performing C++ SOURCE FILE Test HAVE_CXX_FLAG_WTHREAD_SAFETY failed with the following output:
+Change Dir: /home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/usr/bin/make -f Makefile cmTC_de0c7/fast && /usr/bin/make  -f CMakeFiles/cmTC_de0c7.dir/build.make CMakeFiles/cmTC_de0c7.dir/build
+make[1]: Entering directory '/home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_de0c7.dir/src.cxx.o
+/usr/bin/c++ -DHAVE_CXX_FLAG_WTHREAD_SAFETY  -Wall  -Wextra  -Wshadow  -Wfloat-equal  -Wold-style-cast  -Wconversion  -Werror  -Wsuggest-override  -pedantic  -pedantic-errors  -fstrict-aliasing  -Wno-deprecated-declarations  -Wno-deprecated  -Wstrict-aliasing  -Wthread-safety   -Wthread-safety -std=c++1z -o CMakeFiles/cmTC_de0c7.dir/src.cxx.o -c /home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CMakeTmp/src.cxx
+c++: error: unrecognized command line option '-Wthread-safety'; did you mean '-fthread-jumps'?
+c++: error: unrecognized command line option '-Wthread-safety'; did you mean '-fthread-jumps'?
+CMakeFiles/cmTC_de0c7.dir/build.make:77: recipe for target 'CMakeFiles/cmTC_de0c7.dir/src.cxx.o' failed
+make[1]: *** [CMakeFiles/cmTC_de0c7.dir/src.cxx.o] Error 1
+make[1]: Leaving directory '/home/ubuntu/conann-dev/faiss-1.9.0/CMakeFiles/CMakeTmp'
+Makefile:127: recipe for target 'cmTC_de0c7/fast' failed
+make: *** [cmTC_de0c7/fast] Error 2
+
+
+Source file was:
+int main() { return 0; }

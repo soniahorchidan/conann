@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/home/ubuntu/conann-dev/faiss-1.9.0/_deps/googlebenchmark-subbuild/CMakeFiles/googlebenchmark-populate"
+		},
+		{
+			"file" : "/home/ubuntu/conann-dev/faiss-1.9.0/_deps/googlebenchmark-subbuild/CMakeFiles/googlebenchmark-populate.rule"
+		},
+		{
+			"file" : "/home/ubuntu/conann-dev/faiss-1.9.0/_deps/googlebenchmark-subbuild/CMakeFiles/googlebenchmark-populate-complete.rule"
+		},
+		{
+			"file" : "/home/ubuntu/conann-dev/faiss-1.9.0/_deps/googlebenchmark-subbuild/googlebenchmark-populate-prefix/src/googlebenchmark-populate-stamp/googlebenchmark-populate-build.rule"
+		},
+		{
+			"file" : "/home/ubuntu/conann-dev/faiss-1.9.0/_deps/googlebenchmark-subbuild/googlebenchmark-populate-prefix/src/googlebenchmark-populate-stamp/googlebenchmark-populate-configure.rule"
+		},
+		{
+			"file" : "/home/ubuntu/conann-dev/faiss-1.9.0/_deps/googlebenchmark-subbuild/googlebenchmark-populate-prefix/src/googlebenchmark-populate-stamp/googlebenchmark-populate-download.rule"
+		},
+		{
+			"file" : "/home/ubuntu/conann-dev/faiss-1.9.0/_deps/googlebenchmark-subbuild/googlebenchmark-populate-prefix/src/googlebenchmark-populate-stamp/googlebenchmark-populate-install.rule"
+		},
+		{
+			"file" : "/home/ubuntu/conann-dev/faiss-1.9.0/_deps/googlebenchmark-subbuild/googlebenchmark-populate-prefix/src/googlebenchmark-populate-stamp/googlebenchmark-populate-mkdir.rule"
+		},
+		{
+			"file" : "/home/ubuntu/conann-dev/faiss-1.9.0/_deps/googlebenchmark-subbuild/googlebenchmark-populate-prefix/src/googlebenchmark-populate-stamp/googlebenchmark-populate-patch.rule"
+		},
+		{
+			"file" : "/home/ubuntu/conann-dev/faiss-1.9.0/_deps/googlebenchmark-subbuild/googlebenchmark-populate-prefix/src/googlebenchmark-populate-stamp/googlebenchmark-populate-test.rule"
+		},
+		{
+			"file" : "/home/ubuntu/conann-dev/faiss-1.9.0/_deps/googlebenchmark-subbuild/googlebenchmark-populate-prefix/src/googlebenchmark-populate-stamp/googlebenchmark-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"googlebenchmark-populate"
+		],
+		"name" : "googlebenchmark-populate"
+	}
+}
