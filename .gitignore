@@ -1,0 +1,68 @@
+#
+# Ignore build artifacts from any directory level
+
+# Object files
+*.o
+*.obj
+
+# Precompiled headers
+*.gch
+*.pch
+
+# Executables
+*.exe
+*.out
+*.app
+*.bin
+
+# Static libraries
+*.a
+*.lib
+
+# Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# CMake build directories
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.cmake
+
+# Ignore build directories at any depth
+**/build/
+**/debug/
+**/release/
+
+# IDE or editor-specific files (if applicable)
+.vscode/
+.idea/
+
+# datasets
+data/*
+
+# do not ignore the bert and synthetic datasets; small enough
+# !data/sift10k/
+!data/bert/
+!data/synthetic*
+
+# results
+*.log
+*.csv
+
+# indexes
+conann/eval/trained_index/
+
+# disk cache
+**/conann-cache/
+
+# do not ignore logs in result file
+!results/**/*.log
+
+.DS_Store
+
+conann/_deps
+
+.ipynb_checkpoints
