@@ -60,15 +60,17 @@ Auncel:
 
 ```
 cd Auncel
-cmake -DCMAKE_BUILD_TYPE=Release -DFAISS_ENABLE_GPU=OFF -DFAISS_ENABLE_PYTHON=OFF -B build .
-make -C build -j effect-error
+cmake -DCMAKE_BUILD_TYPE=Release -DFAISS_ENABLE_GPU=OFF -DFAISS_ENABLE_PYTHON=OFF -DBUILD_TESTING=OFF -B build .
+make -C build -j sample_queries
+make -C build -j compute_gt
+make -C build -j effect_error
 ```
 
 Faiss:
 
 ```
 cd faiss-1.9.0
-cmake -DCMAKE_BUILD_TYPE=Release -DFAISS_ENABLE_GPU=OFF -DFAISS_ENABLE_PYTHON=OFF -B build .
+cmake -DCMAKE_BUILD_TYPE=Release -DFAISS_ENABLE_GPU=OFF -DFAISS_ENABLE_PYTHON=OFF -DBUILD_TESTING=OFF -B build .
 make -C build -j error
 ```
 
@@ -76,9 +78,30 @@ ConANN:
 
 ```
 cd conann
-cmake -DCMAKE_BUILD_TYPE=Release -DFAISS_ENABLE_GPU=OFF -DFAISS_ENABLE_PYTHON=OFF -B build .
+cmake -DCMAKE_BUILD_TYPE=Release -DFAISS_ENABLE_GPU=OFF -DFAISS_ENABLE_PYTHON=OFF -DBUILD_TESTING=OFF -B build .
 make -C build -j error
 make -C build -j latency
+```
+
+### Experiments with variable k
+Because enabling experiments where k is no longer a fixed value required significant changes to core components in the code, they reside on a different git branch called: `variable-k`.
+
+ConANN (variable k):
+
+```
+git checkout variable-k
+cd conann
+cmake -DCMAKE_BUILD_TYPE=Release -DFAISS_ENABLE_GPU=OFF -DFAISS_ENABLE_PYTHON=OFF -DBUILD_TESTING=OFF -B build .
+make -C build -j variable_k
+```
+
+Faiss (variable k):
+
+```
+git checkout variable-k
+cd faiss-1.9.0
+cmake -DCMAKE_BUILD_TYPE=Release -DFAISS_ENABLE_GPU=OFF -DFAISS_ENABLE_PYTHON=OFF -DBUILD_TESTING=OFF -B build .
+make -C build -j variable_k
 ```
 
 ## Experiments
