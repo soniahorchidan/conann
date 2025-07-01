@@ -70,6 +70,24 @@ def run_conann(experiment, dataset, calib_sz, tune_sz, alpha, nlist, k):
             f.write(f"stdout: {e.stdout}\n")
             f.write(f"stderr: {e.stderr}\n\n")
 
+def run_conann_variable_k(dataset, calib_sz, tune_sz, alpha, nlist, lower_bound_k, upper_bound_k):
+    print(f"running conann: experiment=variable_k, dataset={dataset}, calib_size={calib_sz}, tune_size={tune_sz}, alpha={alpha}, nlist={nlist}, lower_bound_k={lower_bound_k}, upper_bound_k={upper_bound_k}")
+    try:
+        result = subprocess.run([f"./build/eval/variable_k", dataset, str(calib_sz), str(tune_sz), str(alpha), str(nlist), str(lower_bound_k), str(upper_bound_k)], 
+                            capture_output=True, 
+                            text=True,
+                            cwd=os.path.abspath("../conann"),
+                            check=True)
+        print(result.stdout)
+    except subprocess.CalledProcessError as e:
+        print(f"Failed conann variable_k run with params: {dataset}, {calib_sz}, {tune_sz}, {alpha}, {nlist}, {lower_bound_k}, {upper_bound_k}\n")
+        with open(f"Failed_conann_{dataset}_{calib_sz}_{tune_sz}_{alpha}_{nlist}_variable_k_{lower_bound_k}_{upper_bound_k}.log", "a") as f:
+            f.write(f"Error running conann variable_k with params: {dataset}, {calib_sz}, {tune_sz}, {alpha}, {nlist}, {lower_bound_k}, {upper_bound_k}\n")
+            f.write(f"Timestamp: {datetime.datetime.now()}\n")
+            f.write(f"Return code: {e.returncode}\n")
+            f.write(f"stdout: {e.stdout}\n")
+            f.write(f"stderr: {e.stderr}\n\n")
+
 def run_faiss(experiment, dataset, calib_sz, nlist, k, starting_nprobe, alphas: tuple):
     print(f"running faiss: experiment={experiment}, dataset={dataset}, calib_size={calib_sz}, nlist={nlist}, k={k}, alphas={alphas}")
     try:
@@ -88,6 +106,26 @@ def run_faiss(experiment, dataset, calib_sz, nlist, k, starting_nprobe, alphas: 
             f.write(f"Return code: {e.returncode}\n")
             f.write(f"stdout: {e.stdout}\n")
             f.write(f"stderr: {e.stderr}\n\n")
+        
+def run_faiss_variable_k(dataset, calib_sz, nlist, lower_bound_k, upper_bound_k, starting_nprobe, alpha):
+    print(f"running faiss variable k: experiment=variable_k, dataset={dataset}, calib_size={calib_sz}, nlist={nlist}, k={lower_bound_k}, k={upper_bound_k}, alpha={alpha}")
+    try:
+        result = subprocess.run([f"./build/eval/variable_k", dataset, str(calib_sz), str(nlist), str(lower_bound_k), str(upper_bound_k), str(starting_nprobe), str(alpha)], 
+                            capture_output=True, 
+                            text=True,
+                            cwd=os.path.abspath("../faiss-1.9.0"),
+                            check=True)
+        print(result.stdout)
+        # return int(result.stdout.splitlines()[-1])
+    except subprocess.CalledProcessError as e:
+        print(f"Failed faiss variable k run with params: {dataset}, {calib_sz}, {nlist}, {lower_bound_k}, {upper_bound_k}, {starting_nprobe}, {alpha}\n")
+        with open(f"Failed_faiss_variable_k_{dataset}_{calib_sz}_{nlist}_{lower_bound_k}_{upper_bound_k}_{starting_nprobe}.log", "a") as f:
+            f.write(f"Error running faiss variable k with params: {dataset}, {calib_sz}, {nlist}, {lower_bound_k}, {upper_bound_k}, {starting_nprobe}, {alphas}\n")
+            f.write(f"Timestamp: {datetime.datetime.now()}\n")
+            f.write(f"Return code: {e.returncode}\n")
+            f.write(f"stdout: {e.stdout}\n")
+            f.write(f"stderr: {e.stderr}\n\n")
+
 
 def run_auncel(experiment, dataset, calib_sz, k, alphas: tuple):
     print(f"running Auncel: experiment={experiment}, dataset={dataset}, calib_size={calib_sz}, k={k}, alphas={alphas}")
@@ -113,13 +151,13 @@ def run_auncel(experiment, dataset, calib_sz, k, alphas: tuple):
 calib_sz = 0.5
 tuning_sz = {"bert": 0.2, "glove": 0.1, "sift1M": 0.1, "deep10M": 0.1, "gist": 0.1, "fasttext": 0.1}
 nlist = {"bert": 128, "glove": 1024, "sift1M": 1024, "deep10M": 1024, "gist": 1024, "fasttext": 1024}
-faiss_starting_nprobe = 1
+faiss_starting_nprobe = 35
 
 # sanity check
-datasets = ("bert","sift1M", "deep10M", "gist", "fasttext",)
+datasets = ("bert","sift1M", "deep10M", "gist",)
 for dataset in datasets:
     test_query_size(dataset)
-    exit(0)
+
 """
 * NOTE: Number of queries in the current data folder:
 * bert: 10000
@@ -142,6 +180,19 @@ for dataset in datasets:
 
 # sample_dataset("./data/fasttext/db.fvecs", 10000, "queries.fvecs")
 # compute_gt("fasttext", (1000, 100, 10))
+
+"""
+Experiment run for validity, efficiency, adaptivity and calibration times
+in the special case of variable k where k is randomly sampled for each query
+between the lower_bound and upper_bound.
+"""
+# Only works on the variable-k git branch
+# datasets = ("bert","sift1M", "deep10M")
+# upper_bounds = (10, 100, 1000)
+# for dataset in datasets:
+#     for upper_bound in upper_bounds:
+#         run_faiss_variable_k(dataset, calib_sz, nlist[dataset], 1, upper_bound, faiss_starting_nprobe, 0.1)
+# exit(0) # <-- TAKE CARE
 
 """
 Experiment run for Auncel validity checks.

@@ -1098,7 +1098,7 @@ void IndexIVF::train(idx_t n, const float *x) {
 
 void IndexIVF::prep_execution(float alpha, float calib_sz, float tune_sz,
                               const float *queries, size_t nq,
-                              const faiss::idx_t *gt) {
+                              std::vector<std::vector<faiss::idx_t>> gt, std::vector<int> ks) {
 
     std::cout << "Starting to prep execution: " << std::endl;
 
@@ -1109,11 +1109,14 @@ void IndexIVF::prep_execution(float alpha, float calib_sz, float tune_sz,
     // increased from 1 to nlist. shape: nq * nlist * k
     std::vector<std::vector<std::vector<faiss::idx_t>>> all_preds;
 
+    int min_k = *std::min_element(ks.begin(), ks.end());
+    int max_k = *std::max_element(ks.begin(), ks.end());
     std::string cacheKeyNonConf{dataset_name + "_" + std::to_string(n_list) +
-                                "_" + std::to_string(K) + "_" +
-                                "nonconf_scores"};
+                                "_variable_k_" + std::to_string(min_k) + "_" + std::to_string(max_k) +
+                                "_nonconf_scores"};
     std::string cacheKeyAllPreds{dataset_name + "_" + std::to_string(n_list) +
-                                 "_" + std::to_string(K) + "_" + "all_preds"};
+                                "_variable_k_" + std::to_string(min_k) + "_" + std::to_string(max_k) +
+                                "_all_preds"};
     if (enable_cache && conann_cache::check_cached_file(cacheKeyNonConf) &&
         conann_cache::check_cached_file(cacheKeyAllPreds)) {
         all_nonconf_scores =
@@ -1128,7 +1131,7 @@ void IndexIVF::prep_execution(float alpha, float calib_sz, float tune_sz,
         // using std::tie in this instance is really important for performance
         // to avoid the extra copy
         std::tie(all_nonconf_scores, all_preds) =
-            compute_scores(CalibrationResults{10, 0, 0}, nq, queries);
+            compute_scores(CalibrationResults{10, 0, 0}, nq, queries, ks);
         time_report.computeScores = elapsed() - t1;
         time_report.computeScoresCalib = time_report.computeScores * calib_sz;
         time_report.computeScoresTune = time_report.computeScores * tune_sz;
@@ -1165,10 +1168,13 @@ void IndexIVF::prep_execution(float alpha, float calib_sz, float tune_sz,
         calib_cx[i].resize(d);
         std::memcpy(calib_cx[i].data(), queries + i * d, d * sizeof(float));
 
-        calib_labels[i].resize(K);
-        std::memcpy(calib_labels[i].data(), gt + i * K,
-                    K * sizeof(faiss::idx_t));
+        // calib_labels[i].resize(K);
+        // std::memcpy(calib_labels[i].data(), gt + i * K,
+                    // K * sizeof(faiss::idx_t));
     }
+    calib_labels = std::vector<std::vector<faiss::idx_t>>(
+        gt.begin(), gt.begin() + calib_nq);
+
     calib_nonconf = std::vector<std::vector<float>>(
         all_nonconf_scores.begin(), all_nonconf_scores.begin() + calib_nq);
 
@@ -1181,10 +1187,14 @@ void IndexIVF::prep_execution(float alpha, float calib_sz, float tune_sz,
         std::memcpy(tune_cx[i].data(), queries + (i + calib_nq) * d,
                     d * sizeof(float));
 
-        tune_labels[i].resize(K);
-        std::memcpy(tune_labels[i].data(), gt + (i + calib_nq) * K,
-                    K * sizeof(faiss::idx_t));
+        // tune_labels[i].resize(K);
+        // std::memcpy(tune_labels[i].data(), gt + (i + calib_nq) * K,
+                    // K * sizeof(faiss::idx_t));
     }
+
+    tune_labels = std::vector<std::vector<faiss::idx_t>>(
+        gt.begin() + calib_nq, gt.begin() + calib_nq + tune_nq);
+        
     tune_nonconf = std::vector<std::vector<float>>(
         all_nonconf_scores.begin() + calib_nq,
         all_nonconf_scores.begin() + calib_nq + tune_nq);
@@ -1197,10 +1207,14 @@ void IndexIVF::prep_execution(float alpha, float calib_sz, float tune_sz,
         std::memcpy(test_cx[i].data(), queries + (i + calib_nq + tune_nq) * d,
                     d * sizeof(float));
 
-        test_labels[i].resize(K);
-        std::memcpy(test_labels[i].data(), gt + (i + calib_nq + tune_nq) * K,
-                    K * sizeof(faiss::idx_t));
+        // test_labels[i].resize(K);
+        // std::memcpy(test_labels[i].data(), gt + (i + calib_nq + tune_nq) * K,
+        //             K * sizeof(faiss::idx_t));
     }
+
+    test_labels = std::vector<std::vector<faiss::idx_t>>(
+        gt.begin() + calib_nq + tune_nq, gt.end());
+
     test_nonconf = std::vector<std::vector<float>>(all_nonconf_scores.begin() +
                                                        calib_nq + tune_nq,
                                                    all_nonconf_scores.end());
@@ -1214,11 +1228,11 @@ void IndexIVF::prep_execution(float alpha, float calib_sz, float tune_sz,
 std::tuple<std::vector<std::vector<float>>,
            std::vector<std::vector<std::vector<faiss::idx_t>>>>
 IndexIVF::compute_scores(CalibrationResults cal_params, faiss::idx_t num_queries,
-                         const float *queries) {
+                         const float *queries, std::vector<int> ks) {
     // result vector for nearest neighbor ids
-    std::vector<faiss::idx_t> nns(K * num_queries);
+    std::vector<std::vector<faiss::idx_t>> nns(num_queries); // (K * num_queries);
     // result vector for nearest neigbor distances
-    std::vector<float> dis(K * num_queries);
+    std::vector<std::vector<float>> dis(num_queries); // (K * num_queries);
 
     // result vector for nonconformity scores assigned to all clusters per query
     // (nq * nlist), initialized.
@@ -1229,11 +1243,22 @@ IndexIVF::compute_scores(CalibrationResults cal_params, faiss::idx_t num_queries
     // as nprobe is increased from 1 to nlist. shape: nq * nlist * k
     std::vector<std::vector<std::vector<faiss::idx_t>>> all_preds_list(
         num_queries, std::vector<std::vector<faiss::idx_t>>(
-                         n_list, std::vector<faiss::idx_t>(K)));
+                         n_list, std::vector<faiss::idx_t>{}));
 
-    search_with_error_quantification(
-        cal_params, num_queries, queries, K, dis.data(), nns.data(),
-        nonconf_list.data(), all_preds_list.data());
+    for (size_t i = 0; i < num_queries; ++i) {
+        // print_progress_bar(i, num_queries);
+
+        // iterate one query at a time
+        const float *xi = queries + i * d;
+        dis[i].resize(ks[i]);
+        nns[i].resize(ks[i]);
+        for (size_t j = 0; j < nlist; ++j){
+            all_preds_list[i][j].resize(ks[i]);
+        }
+        search_with_error_quantification(
+            cal_params, 1, xi, ks[i], dis[i].data(), nns[i].data(),
+            nonconf_list.data()+i, all_preds_list.data()+i);
+    }
 
     return std::make_tuple(nonconf_list, all_preds_list);
 }
@@ -1244,16 +1269,33 @@ double IndexIVF::elapsed() {
     return tv.tv_sec + tv.tv_usec * 1e-6;
 }
 
+void IndexIVF::print_progress_bar(size_t i, size_t total) {
+    // Print progress bar
+    int barWidth = 50;
+    float progress = float(i) / total;
+    int pos = barWidth * progress;
+    std::cout << "[";
+    for (int j = 0; j < barWidth; ++j) {
+        if (j < pos)
+            std::cout << "=";
+        else if (j == pos)
+            std::cout << ">";
+        else
+            std::cout << " ";
+    }
+    std::cout << "] " << int(progress * 100.0) << " %\r";
+    std::cout.flush();
+}
+
 IndexIVF::CalibrationResults
-IndexIVF::calibrate(float alpha, int k, float calib_sz, float tune_sz,
-                    float *xq, size_t nq, faiss::idx_t *gt, float max_distance,
+IndexIVF::calibrate(float alpha, std::vector<int> ks ,float calib_sz, float tune_sz,
+                    float *xq, size_t nq, std::vector<std::vector<faiss::idx_t>> gt, float max_distance,
                     std::string dataset) {
-    K = k;
     MAX_DISTANCE = max_distance;
     dataset_name = dataset;
 
     double t0 = elapsed();
-    prep_execution(alpha, calib_sz, tune_sz, xq, nq, gt);
+    prep_execution(alpha, calib_sz, tune_sz, xq, nq, gt, ks);
 
     // NOTE: randomization disabled. Can enable easier by having a class-level
     // boolean. int kreg = pickKreg(tune_nonconf, alpha); // Regularization
@@ -1423,8 +1465,8 @@ IndexIVF::compute_predictions(
 void IndexIVF::search_conann(idx_t n, const float *x, float *distances,
                              idx_t *labels, CalibrationResults calib_params) {
     
-    search_with_error_quantification(
-        calib_params, n, x, K, distances, labels, nullptr, nullptr);
+    // search_with_error_quantification(
+    //     calib_params, n, x, K, distances, labels, nullptr, nullptr);
 }
 
 std::vector<float> IndexIVF::recall_per_query(
@@ -1432,8 +1474,8 @@ std::vector<float> IndexIVF::recall_per_query(
     const std::vector<std::vector<faiss::idx_t>> &gt_labels) {
 
     int nq = prediction_set.size();
-    int k = gt_labels[0].size();
-    int total_false_negatives = 0;
+    // int k = gt_labels[0].size();
+    // int total_false_negatives = 0;
     std::vector<float> fnrs_per_query(nq);
 
     for (size_t i = 0; i < nq; ++i) {
@@ -1447,50 +1489,56 @@ std::vector<float> IndexIVF::recall_per_query(
                 ++intersection_size;
             }
         }
+        // std::cout << "Intersection size for query " << i << ": " << intersection_size << std::endl;
         // FNR = 1 - (intersection_size / k)
         fnrs_per_query[i] = 1.0f - (static_cast<float>(intersection_size) /
-                                    static_cast<float>(k));
-        total_false_negatives += k - intersection_size;
+                                    static_cast<float>(gt_labels[i].size()));
+        // total_false_negatives += gt_labels[i].size() - intersection_size;
     }
 
-    float overall_fnr = static_cast<float>(total_false_negatives) / (nq * k);
+    // float overall_fnr = static_cast<float>(total_false_negatives) / (nq * k);
     float check_fnr =
         std::accumulate(fnrs_per_query.begin(), fnrs_per_query.end(), 0.0) /
         fnrs_per_query.size();
-    std::cout << "Overall FNR: " << overall_fnr << "; Check FNR: " << check_fnr
-              << std::endl;
+    // std::cout << "Check FNR: " << check_fnr
+    //           << std::endl;
     return fnrs_per_query;
 }
 
 double IndexIVF::false_negative_rate(
     const std::vector<std::vector<faiss::idx_t>> &prediction_set,
     const std::vector<std::vector<faiss::idx_t>> &gt_labels) {
-    std::vector<int> overlap;
-    for (size_t i = 0; i < prediction_set.size(); ++i) {
-        const std::set<int> pred_set(prediction_set[i].begin(),
-                                     prediction_set[i].end());
-        const std::set<int> gt_set(gt_labels[i].begin(), gt_labels[i].end());
-        // Calculate intersection size
-        int intersection_size = 0;
-        for (int pred : pred_set) {
-            if (gt_set.count(pred) > 0) {
-                ++intersection_size;
-            }
-        }
-        overlap.push_back(intersection_size);
-    }
+    // std::vector<int> overlap;
+    // for (size_t i = 0; i < prediction_set.size(); ++i) {
+    //     const std::set<int> pred_set(prediction_set[i].begin(),
+    //                                  prediction_set[i].end());
+    //     const std::set<int> gt_set(gt_labels[i].begin(), gt_labels[i].end());
+    //     // Calculate intersection size
+    //     int intersection_size = 0;
+    //     for (int pred : pred_set) {
+    //         if (gt_set.count(pred) > 0) {
+    //             ++intersection_size;
+    //         }
+    //     }
+    //     overlap.push_back(intersection_size);
+    // }
 
-    int sum_overlap = std::accumulate(overlap.begin(), overlap.end(), 0);
-    int sum_gt_sums = 0;
-    for (const auto &gt : gt_labels) {
-        sum_gt_sums += gt.size();
-    }
+    // int sum_overlap = std::accumulate(overlap.begin(), overlap.end(), 0);
+    // int sum_gt_sums = 0;
+    // for (const auto &gt : gt_labels) {
+    //     sum_gt_sums += gt.size();
+    // }
     // Return the false negative rate (1 - sum(overlap) / sum(gt_sums))
-    if (sum_gt_sums > 0) {
-        return 1.0f - static_cast<float>(sum_overlap) / sum_gt_sums;
-    } else {
-        return 0.0f;
-    }
+    auto fnrs_per_query = recall_per_query(prediction_set, gt_labels);
+    float check_fnr =
+        std::accumulate(fnrs_per_query.begin(), fnrs_per_query.end(), 0.0) /
+        fnrs_per_query.size();
+    return check_fnr;
+    // if (sum_gt_sums > 0) {
+    //     return 1.0f - static_cast<float>(sum_overlap) / sum_gt_sums;
+    // } else {
+    //     return 0.0f;
+    // }
 }
 
 std::pair<std::vector<float>, std::vector<int>>

@@ -395,7 +395,7 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     // ConANN block
     int n_list; // number of clusters
-    int K;      // number of neighbors to search for
+    // int K;      // number of neighbors to search for
     float MAX_DISTANCE = 100000;
     std::vector<std::vector<float>> centroids;
     std::string dataset_name;
@@ -403,6 +403,7 @@ struct IndexIVF : Index, IndexIVFInterface {
 
     // for convenience
     double elapsed();
+    void print_progress_bar(size_t i, size_t total);
 
     // The following datastructures are assigned and computed in prep_execution.
     // query vectors nq * d
@@ -429,7 +430,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     // performance heavy pre-computation of scores, uses cache if possible
     void prep_execution(float alpha, float calib_sz, float tune_sz,
                         const float *queries, size_t nq,
-                        const faiss::idx_t *gt);
+                        const std::vector<std::vector<faiss::idx_t>> gt, std::vector<int> ks);
 
     struct CalibrationResults {
         float lamhat;
@@ -452,7 +453,7 @@ struct IndexIVF : Index, IndexIVFInterface {
     std::tuple<std::vector<std::vector<float>>,
                std::vector<std::vector<std::vector<faiss::idx_t>>>>
     compute_scores(CalibrationResults cal_params, faiss::idx_t num_queries,
-                   const float *queries);
+                   const float *queries, std::vector<int> ks);
 
     std::pair<std::vector<std::vector<faiss::idx_t>>, std::vector<int>>
     compute_predictions(
@@ -474,9 +475,9 @@ struct IndexIVF : Index, IndexIVFInterface {
         const IVFSearchParameters *params = nullptr,
         IndexIVFStats *stats = nullptr) const;
 
-    CalibrationResults calibrate(float alpha, int k, float calib_sz,
+    CalibrationResults calibrate(float alpha, std::vector<int> ks, float calib_sz,
                                  float tune_sz, float *xq, size_t nq,
-                                 faiss::idx_t *gt, float max_distance,
+                                 std::vector<std::vector<faiss::idx_t>> gt, float max_distance,
                                  std::string dataset_key);
 
     float optimization(
