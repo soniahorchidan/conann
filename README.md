@@ -83,8 +83,48 @@ make -C build -j error
 make -C build -j latency
 ```
 
+## Experiments
+
+All experiment setups are documented in and can be executed using the `experiment-controller.py` script.
+
+```
+cd experiments
+python3 experiment-controller.py
+```
+
 ### Experiments with variable k
-Because enabling experiments where k is no longer a fixed value required significant changes to core components in the code, they reside on a different git branch called: `variable-k`.
+
+If ConANN is calibrated using a fixed k but then applied to queries with varying k (i.e., queries with k values unseen during calibration), the formal validity guarantees may no longer hold, as the calibration dataset distribution would differ from the test one. However, neither the ConANN design nor the CRC framework itself imposes calibration on a single static k. We explore calibrating and testing over a range of k values that cover expected query scenarios. We concluded that ConANN’s advantages hold in this scenario as well: ConANN is able to effectively control the FNR while matching or even decreasing the search space needed. The experiments are detailed below. 
+
+#### Results
+
+We conducted new experiments on three datasets, BERT, SIFT1M, and DEEP10M, and devised two calibration scenarios: one where a static k value is employed for both calibration and test (similar to the setup presented in the paper), and one with variable k, where ConANN is calibrated on a query dataset where each query gets assigned a value for k chosen uniformly at random in a given range. For example, for k=[1, 10], each query in the calibration dataset gets assigned a random integer value of k between 1 and 10, which will be used in the calibration process. 
+
+First, we test the validity guarantee and plot the results in Figure A. We measure minor deviations from the target FNR, maximum of 0.012 FNR for all three datasets, highlighting ConANN’s robustness under variable k.
+
+<!-- ![validity_variablek](/experiments/plots/validity_variablek.png) -->
+
+<div style="text-align: center;">
+<figure>
+  <img src="./experiments/plots/validity_variablek.png" alt="validity_variablek">
+  <figcaption>Figure A: Validity results under variable k conditions. ConANN offers effective FNR control over the tested datasets, even if k varies.</figcaption>
+</figure>
+</div>
+
+Next, to confirm that validity is not achieved by overly conservative predictions (i.e., extending the search space excessively), we also compared ConANN’s efficiency with Faiss as a sanity check under requested FNR 10%. Figure B shows that ConANN maintains or improves efficiency relative to Faiss, even under variable-k calibration. For example, on DEEP10M, Faiss searches 24% more clusters than ConANN when the range of k is between 1 and 10, a gap that narrows to 15% when the k range is extended to 1-1000. This reflects a natural tradeoff: broader k ranges require more representative calibration data, as expected in conformal methods.
+
+<div style="text-align: center;">
+<figure>
+  <img src="./experiments/plots/efficiency_variablek_faiss.png" alt="efficiency_variablek">
+  <figcaption>Figure B: Efficiency results under variable k conditions (requested FNR = 10%). ConANN achieves reliable FNR control without sacrificing efficiency.</figcaption>
+</figure>
+</div>
+
+Therefore, our new results show that ConANN achieves valid FNR control without sacrificing efficiency under realistic variable k conditions. We note that test-time k values outside the calibration range may still break the validity guarantee.
+
+#### How to run
+
+These exeriments reside on a different git branch called: `variable-k`.
 
 ConANN (variable k):
 
@@ -102,13 +142,4 @@ git checkout variable-k
 cd faiss-1.9.0
 cmake -DCMAKE_BUILD_TYPE=Release -DFAISS_ENABLE_GPU=OFF -DFAISS_ENABLE_PYTHON=OFF -DBUILD_TESTING=OFF -B build .
 make -C build -j variable_k
-```
-
-## Experiments
-
-All experiment setups are documented in and can be executed using the `experiment-controller.py` script.
-
-```
-cd experiments
-python3 experiment-controller.py
 ```
