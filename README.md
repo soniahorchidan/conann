@@ -110,7 +110,7 @@ First, we test the validity guarantee and plot the results in Figure A. We measu
   <figcaption>Figure A: Validity results under variable k conditions. ConANN offers effective FNR control over the tested datasets, even if k varies.</figcaption>
 </figure>
 </div>
-
+<br>
 
 Next, to confirm that validity is not achieved by overly conservative predictions (i.e., extending the search space excessively), we also compared ConANN’s efficiency with Faiss as a sanity check under requested FNR 10%. Figure B shows that ConANN maintains or improves efficiency relative to Faiss, even under variable-k calibration. For example, on DEEP10M, Faiss searches 24% more clusters than ConANN when the range of k is between 1 and 10, a gap that narrows to 15% when the k range is extended to 1-1000. This reflects a natural tradeoff: broader k ranges require more representative calibration data, as expected in conformal methods.
 
@@ -120,7 +120,7 @@ Next, to confirm that validity is not achieved by overly conservative prediction
   <figcaption>Figure B: Efficiency results under variable k conditions (requested FNR = 10%). ConANN achieves reliable FNR control without sacrificing efficiency.</figcaption>
 </figure>
 </div>
-
+<br>
 
 Therefore, our new results show that ConANN achieves valid FNR control without sacrificing efficiency under realistic variable k conditions. We note that test-time k values outside the calibration range may still break the validity guarantee.
 
